@@ -1,20 +1,49 @@
 # coding=utf-8
 import sys
 
+from modelos.Articulos import Articulo
+from modelos.Cabfact import Cabfact
+from modelos.Cajeros import Cajero
 from modelos.Clientes import Cliente
+from modelos.Detfact import Detfact
 from modelos.Formaspago import Formapago
+from modelos.Grupos import Grupo
 from modelos.Impuestos import Impuesto
 from modelos.Localidades import Localidad
+from modelos.Proveedores import Proveedor
+from modelos.Tipocomprobantes import TipoComprobante
 from modelos.Tipodoc import Tipodoc
+from modelos.Tipoiva import Tipoiva
 from modelos.Tiporesp import Tiporesp
+from modelos.Unidades import Unidad
 
 if 'drop' in sys.argv:
+    Cabfact().drop_table()
+    Detfact().drop_table()
     Cliente().drop_table()
+    Proveedor().drop_table()
+    Unidad().drop_table()
+    Grupo().drop_table()
     Impuesto().drop_table()
     Formapago().drop_table()
     Tiporesp().drop_table()
     Tipodoc().drop_table()
     Localidad().drop_table()
+    Tipoiva().drop_table()
+    Cajero().drop_table()
+    TipoComprobante().drop_table()
+    Articulo().drop_table()
+
+Grupo().create_table()
+grupo = [
+    {'idgrupo':1, 'nombre':'VARIOS'}
+]
+
+Unidad().create_table()
+unidad = [
+    {'unidad':'KG','descripcion':'KILOGRAMOS'},
+    {'unidad':'UN','descripcion':'UNIDAD'},
+]
 
 Formapago().create_table()
 formapago = [
@@ -50,6 +79,24 @@ localidades = [
 ]
 Localidad().insert(localidades).execute()
 
+TipoComprobante().create_table()
+tipocomp = [
+    {'codigo':0,'nombre':'EFECTIVO','abreviatura':'EFE', 'exporta':b'\00'},
+    {'codigo':1,'nombre':'FACTURA A','abreviatura':'A', 'exporta':b'\01','letra':'A','lado':'D'},
+    {'codigo':2,'nombre':'NOTA DEBITO A','abreviatura':'NDA', 'exporta':b'\01','letra':'A','lado':'D'},
+    {'codigo':3,'nombre':'NOTA CREDITO A','abreviatura':'NCA', 'exporta':b'\01','letra':'A','lado':'H'},
+    {'codigo': 6, 'nombre': 'FACTURA B', 'abreviatura': 'B', 'exporta': b'\01', 'letra': 'B', 'lado': 'D'},
+    {'codigo': 7, 'nombre': 'NOTA DEBITO B', 'abreviatura': 'NCB', 'exporta': b'\01', 'letra': 'B', 'lado': 'D'},
+    {'codigo': 8, 'nombre': 'NOTA CREDITO B', 'abreviatura': 'NCB', 'exporta': b'\01', 'letra': 'B', 'lado': 'H'},
+    {'codigo': 11, 'nombre': 'FACTURA C', 'abreviatura': 'C', 'exporta': b'\01', 'letra': 'C', 'lado': 'D'},
+    {'codigo': 12, 'nombre': 'NOTA DEBITO C', 'abreviatura': 'NCC', 'exporta': b'\01', 'letra': 'C', 'lado': 'D'},
+    {'codigo': 13, 'nombre': 'NOTA CREDITO C', 'abreviatura': 'NCC', 'exporta': b'\01', 'letra': 'C', 'lado': 'H'},
+    {'codigo': 81, 'nombre': 'TIQUE FACTURA A', 'abreviatura': '', 'exporta': b'\01', 'letra': 'A', 'lado': 'D'},
+    {'codigo': 82, 'nombre': 'TIQUE FACTURA B', 'abreviatura': '', 'exporta': b'\01', 'letra': 'B', 'lado': 'D'},
+    {'codigo': 83, 'nombre': 'TIQUE', 'abreviatura': '', 'exporta': b'\01', 'letra': 'B', 'lado': 'D'},
+]
+TipoComprobante().insert(tipocomp).execute()
+
 Impuesto().create_table()
 impuestos = [
     {'idimpuesto':1, 'detalle':'SIN PERCEPCION'},
@@ -57,9 +104,29 @@ impuestos = [
 ]
 Impuesto().insert(impuestos).execute()
 
+Proveedor().create_table()
+
 Cliente().create_table()
 cliente = [
     {'idcliente':1, 'nombre':'CONSUMIDOR FINAL', 'domicilio':'S/NOMBRE', 'localidad':1, 'dni':11111111,
      'tiporesp':3, 'tipodocu':0, 'formapago':1, 'percepcion':1}
 ]
 Cliente().insert(cliente).execute()
+Tipoiva().create_table()
+tipoiva = [
+    {'codigo':'01','descrip':'IVA GENERAL','iva':21},
+    {'codigo':'02','descrip':'DECRETO 493/01','iva':10.5},
+    {'codigo':'50','descrip':'CONCEP. NO GRAVADOS','iva':0}
+]
+Tipoiva().insert(tipoiva).execute()
+
+Cajero().create_table()
+cajero = [
+    {'idcajero':1, 'nombre':'CAJERO'}
+]
+Cajero().insert(cajero).execute()
+
+Articulo.create_table()
+
+Cabfact().create_table()
+Detfact().create_table()
