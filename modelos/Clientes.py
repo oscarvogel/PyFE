@@ -14,14 +14,14 @@ class Cliente(ModeloBase):
     idcliente = AutoField()
     nombre = CharField(max_length=30)
     domicilio = CharField(max_length=30)
-    telefono = CharField(max_length=30)
+    telefono = CharField(max_length=30, default='')
     localidad = ForeignKeyField(Localidad, backref="localidad", db_column='idLocalidad')
-    cuit = CharField(max_length=13)
-    dni = IntegerField()
-    tipodocu = ForeignKeyField(Tipodoc, backref='tipodoc', db_column='tipodocu')
-    tiporesp = ForeignKeyField(Tiporesp, backref='tiporesp', db_column='tiporesp')
-    formapago = ForeignKeyField(Formapago, backref='formapago', db_column='formapago')
-    percepcion = ForeignKeyField(Impuesto, backref='percepcion', db_column='percepcion')
+    cuit = CharField(max_length=13, default='')
+    dni = IntegerField(default=0)
+    tipodocu = ForeignKeyField(Tipodoc, backref='tipodoc', db_column='tipodocu', default=0)
+    tiporesp = ForeignKeyField(Tiporesp, backref='tiporesp', db_column='tiporesp', default=1)
+    formapago = ForeignKeyField(Formapago, backref='formapago', db_column='formapago', default=1)
+    percepcion = ForeignKeyField(Impuesto, backref='percepcion', db_column='percepcion', default=1)
 
     class Meta:
         table_name = 'clientes'

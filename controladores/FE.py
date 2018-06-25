@@ -1,7 +1,7 @@
 # coding=utf-8
 import logging
 
-from libs.Utiles import LeerIni, ubicacion_sistema
+from libs.Utiles import LeerIni, ubicacion_sistema, inicializar_y_capturar_excepciones
 from pyafipws.wsaa import WSAA
 from pyafipws.wsfev1 import WSFEv1
 
@@ -22,14 +22,18 @@ class FEv1(WSFEv1):
 
     def __init__(self):
         WSFEv1.__init__(self)
+        if LeerIni(clave='HOMO') != 'S':
+            self.WSDL = LeerIni(clave='URL_PROD', key='WSFEv1')
 
     #crea ticket de acceso verificando que ya no tenga abierto uno
     def CreaTA(self):
         ta = self.Autenticar()
         return ta
 
+    @inicializar_y_capturar_excepciones
     def UltimoComprobante(self, tipo=1, ptovta=1):
         wsdl = self.WSDL
+        print("WSDL {}".format(wsdl))
         cache = None
         proxy = ""
         wrapper = ""  # "pycurl"
@@ -45,7 +49,8 @@ class FEv1(WSFEv1):
         ultimo = self.CompUltimoAutorizado(tipo_cbte=tipo, punto_vta=ptovta)
         return ultimo
 
-    def Autenticar(self):
+    @inicializar_y_capturar_excepciones
+    def Autenticar(self, *args, **kwargs):
         wsaa = WSAA()
         archivo = ubicacion_sistema() + 'ta.xml'
         try:
@@ -68,10 +73,14 @@ class FEv1(WSFEv1):
             tra = wsaa.CreateTRA()
 
             #Generar el mensaje firmado(CMS)
-            cms = wsaa.SignTRA(tra, LeerIni(clave="CERT", key="WSAA"),
-                               LeerIni(clave="PRIVATEKEY", key="WSAA"))
-            #Produccion usar: ta = WSAA.CallWSAA(cms, "https://wsaa.afip.gov.ar/ws/services/LoginCms") & & Producción
-            ok = wsaa.Conectar("", LeerIni(clave='URL', key='WSAA')) #Homologación
+            if LeerIni(clave='HOMO') == 'S':#homologacion
+                cms = wsaa.SignTRA(tra, LeerIni(clave="CERT_HOMO", key="WSAA"),
+                               LeerIni(clave="PRIVATEKEY_HOMO", key="WSAA"))
+                ok = wsaa.Conectar("", LeerIni(clave='URL_HOMO', key='WSAA'))  # Homologación
+            else:
+                cms = wsaa.SignTRA(tra, LeerIni(clave="CERT_PROD", key="WSAA"),
+                               LeerIni(clave="PRIVATEKEY_PROD", key="WSAA"))
+                ok = wsaa.Conectar("", LeerIni(clave='URL_PROD', key='WSAA')) #Produccion
 
             #Llamar al web service para autenticar
             ta = wsaa.LoginCMS(cms)

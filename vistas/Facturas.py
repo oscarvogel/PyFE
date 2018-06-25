@@ -39,7 +39,7 @@ class FacturaView(Formulario):
         self.layoutCliente.addWidget(self.lblNombreCliente, 0, 2)
 
         self.lblDomicilio = Etiqueta(texto="Domicilio")
-        self.lineEditDomicilio = EntradaTexto(placeholderText="Dommicilio cliente")
+        self.lineEditDomicilio = EntradaTexto(placeholderText="Domicilio cliente")
         self.layoutCliente.addWidget(self.lblDomicilio, 1, 0)
         self.layoutCliente.addWidget(self.lineEditDomicilio, 1, 1, 1, 2)
 

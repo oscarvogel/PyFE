@@ -1,14 +1,21 @@
 # coding=utf-8
-from peewee import IntegerField, CharField
+from peewee import IntegerField, CharField, AutoField
 
 from libs.ComboBox import ComboSQL
 from libs.Validaciones import Validaciones
-from modelos.ModeloBase import ModeloBase
+from modelos.ModeloBase import ModeloBase, BitBooleanField
 
 
 class Tiporesp(ModeloBase):
-    idtiporesp = IntegerField(primary_key=True)
-    nombre = CharField(max_length=30)
+    idtiporesp = AutoField()
+    nombre = CharField(max_length=30, default='')
+    discrimina = BitBooleanField(default=0)
+    tipoiva = CharField(max_length=1, default='')
+    obligacuit = BitBooleanField(default=0)
+    factura = IntegerField()
+    notacredito = IntegerField()
+    notadebito = IntegerField()
+    tipoivaepson = CharField(max_length=1, default='')
 
 class Valida(Validaciones):
     modelo = Tiporesp

@@ -18,9 +18,10 @@ from modelos.Tiporesp import Tiporesp
 from modelos.Unidades import Unidad
 
 if 'drop' in sys.argv:
-    Cabfact().drop_table()
     Detfact().drop_table()
+    Cabfact().drop_table()
     Cliente().drop_table()
+    Articulo().drop_table()
     Proveedor().drop_table()
     Unidad().drop_table()
     Grupo().drop_table()
@@ -32,18 +33,18 @@ if 'drop' in sys.argv:
     Tipoiva().drop_table()
     Cajero().drop_table()
     TipoComprobante().drop_table()
-    Articulo().drop_table()
 
 Grupo().create_table()
 grupo = [
     {'idgrupo':1, 'nombre':'VARIOS'}
 ]
+Grupo().insert(grupo).execute()
 
 Unidad().create_table()
 unidad = [
-    {'unidad':'KG','descripcion':'KILOGRAMOS'},
     {'unidad':'UN','descripcion':'UNIDAD'},
 ]
+Unidad().insert(unidad).execute()
 
 Formapago().create_table()
 formapago = [
@@ -105,6 +106,10 @@ impuestos = [
 Impuesto().insert(impuestos).execute()
 
 Proveedor().create_table()
+proveedor = [
+    {'idproveedor':1, 'nombre':'SIN PROVEEDOR','domicilio':'','telefono':'','cuit':''}
+]
+Proveedor().insert(proveedor).execute()
 
 Cliente().create_table()
 cliente = [

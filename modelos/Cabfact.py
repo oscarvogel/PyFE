@@ -8,7 +8,7 @@ from modelos.Clientes import Cliente
 from modelos.Formaspago import Formapago
 from modelos.ModeloBase import ModeloBase
 from modelos.Tipocomprobantes import TipoComprobante
-from modelos.Tipoiva import Tipoiva
+from modelos.Tiporesp import Tiporesp
 
 
 class Cabfact(ModeloBase):
@@ -18,15 +18,15 @@ class Cabfact(ModeloBase):
     cliente = ForeignKeyField(Cliente, backref='cliente', db_column='idCliente')
     fecha = DateField(default=date.today())
     numero = CharField(max_length=12)
-    neto = DecimalField(max_digits=12, decimal_places=2)
-    iva = DecimalField(max_digits=12, decimal_places=2)
-    netoa = DecimalField(max_digits=12, decimal_places=2)
-    netob = DecimalField(max_digits=12, decimal_places=2)
-    descuento = DecimalField(max_digits=12, decimal_places=2)
-    recargo = DecimalField(max_digits=12, decimal_places=2)
-    total = DecimalField(max_digits=12, decimal_places=2)
-    saldo = DecimalField(max_digits=12, decimal_places=2)
-    tipoiva = ForeignKeyField(Tipoiva, backref='tipoiva', db_column='tipoiva', default=1)
+    neto = DecimalField(max_digits=12, decimal_places=2, default=0)
+    iva = DecimalField(max_digits=12, decimal_places=2, default=0)
+    netoa = DecimalField(max_digits=12, decimal_places=2, default=0)
+    netob = DecimalField(max_digits=12, decimal_places=2, default=0)
+    descuento = DecimalField(max_digits=12, decimal_places=2, default=0)
+    recargo = DecimalField(max_digits=12, decimal_places=2, default=0)
+    total = DecimalField(max_digits=12, decimal_places=2, default=0)
+    saldo = DecimalField(max_digits=12, decimal_places=2, default=0)
+    tipoiva = ForeignKeyField(Tiporesp, backref='tiporesp', db_column='tipoiva', default=1)
     formapago = ForeignKeyField(Formapago, backref='formapago', db_column='idFormaPago', default=1)
     cuotapago = IntegerField(db_column='idCuotaPago', default=0)
     percepciondgr = DecimalField(max_digits=12, decimal_places=2, default=0)

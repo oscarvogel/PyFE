@@ -10,15 +10,15 @@ from modelos.Unidades import Unidad
 
 class Articulo(ModeloBase):
     idarticulo = AutoField()
-    nombre = CharField(max_length=100)
-    nombreticket = CharField(max_length=30)
-    unidad = ForeignKeyField(Unidad, backref='unidad', column_name='unidad')
-    grupo = ForeignKeyField(Grupo, backref='grupo', column_name='idgrupo')
-    costo = DecimalField(max_digits=12, decimal_places=2)
-    provppal = ForeignKeyField(Proveedor, backref='proveedor', column_name='provppal')
-    tipoiva = ForeignKeyField(Tipoiva, backref='tipoiva', column_name='tipoiva')
+    nombre = CharField(max_length=100, default='')
+    nombreticket = CharField(max_length=30, default='')
+    unidad = ForeignKeyField(Unidad, column_name='unidad')
+    grupo = ForeignKeyField(Grupo, backref='grupo', column_name='idgrupo', default=1)
+    costo = DecimalField(max_digits=12, decimal_places=2, default=0)
+    provppal = ForeignKeyField(Proveedor, backref='proveedor', column_name='provppal', default=1)
+    tipoiva = ForeignKeyField(Tipoiva, backref='tipoiva', column_name='tipoiva', default='01')
     modificaprecios = BitBooleanField(default=False)
-    preciopub = DecimalField(max_digits=12, decimal_places=4)
+    preciopub = DecimalField(max_digits=12, decimal_places=4, default=0)
 
     class Meta:
         table_name = 'articulos'

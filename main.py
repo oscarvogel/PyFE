@@ -14,6 +14,10 @@ def inicio():
                         format='%(asctime)s %(message)s',
                         datefmt='%m/%d/%Y %I:%M:%S %p')
 
+    if LeerIni(clave='HOMO') == 'S':
+        print("Sistema en modo homologacion")
+    else:
+        print("Sistema en modo produccion")
     # Instancia para iniciar una aplicación
     args = []
     #args = ['', '-style', 'Cleanlooks']

@@ -2,15 +2,15 @@
 from peewee import IntegerField, CharField
 
 from libs.ComboBox import Combo
-from modelos.ModeloBase import ModeloBase
+from modelos.ModeloBase import ModeloBase, BitBooleanField
 
 
 class TipoComprobante(ModeloBase):
     codigo = IntegerField(primary_key=True)
     nombre = CharField(max_length=30)
     abreviatura = CharField(max_length=3, db_column='abr')
-    lado = CharField(max_length=1)
-
+    lado = CharField(max_length=1, default='')
+    exporta = BitBooleanField(default=0)
 
     class Meta:
         table_name = "tip_comp"

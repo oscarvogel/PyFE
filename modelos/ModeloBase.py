@@ -1,5 +1,5 @@
 # coding=utf-8
-from peewee import MySQLDatabase, Model, Field
+from peewee import MySQLDatabase, Model, Field, BooleanField
 
 from libs.Utiles import LeerIni, desencriptar
 
@@ -23,8 +23,8 @@ class ModeloBase(Model):
         database = mysql_db
 
 
-class BitBooleanField(Field):
-    field_type = 'BitBooleanField'
+class BitBooleanField(BooleanField):
+    field_type = 'Bit'
 
     def db_value(self, value):
         return value  == b'\01'

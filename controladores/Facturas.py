@@ -66,7 +66,7 @@ class FacturaController(ControladorBase):
             self.view.cboComprobante.setText('Factura C')
 
         self.view.cboTipoIVA.setText(cliente.tiporesp.nombre)
-        self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='PTO_VTA', key='WSFEv1'))
+        self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='PTO_VTA', key='WSFEv1').zfill(4))
         tipos = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='CAT_IVA', key='WSFEv1')))
         tipo_cpte = [k for (k, v) in tipos.valores.iteritems() if v == self.view.cboComprobante.text()][0]
         nro = FEv1().UltimoComprobante(tipo=tipo_cpte,
@@ -146,6 +146,7 @@ class FacturaController(ControladorBase):
             totalgral += total
             self.view.gridFactura.ModificaItem(valor=total, fila=x, col='SubTotal')
 
+
         if int(LeerIni(clave='CAT_IVA',
                        key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
             dgrgral = totalgral * impuesto / 100
@@ -170,6 +171,8 @@ class FacturaController(ControladorBase):
         self.view.lineEditTotal.setText(str(round(totalgral + ivagral + dgrgral, 2)))
 
     def GrabaFactura(self):
+        if not self.Validacion():
+            return
         self.SumaTodo()
         ok = self.CreaFE()
         if ok:
@@ -186,7 +189,10 @@ class FacturaController(ControladorBase):
         wsfev1.Cuit = LeerIni(clave='CUIT', key='WSFEv1') #CUIT del emisor (debe estar registrado en la AFIP)
         #Conectar al Servicio Web de Facturacion
         #Produccion usar: *-- ok = WSFE.Conectar("", "https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL") & & Producción
-        ok = wsfev1.Conectar("") #Homologacion
+        if LeerIni(clave='HOMO'):
+            ok = wsfev1.Conectar("") #Homologacion
+        else:
+            ok = wsfev1.Conectar("", LeerIni(clave="URL", key="WSFEv1"))
 
         if self.view.checkBoxServicios.isChecked() \
             and self.view.checkBoxProductos.isChecked(): #si es productoso y servicios
@@ -269,7 +275,8 @@ class FacturaController(ControladorBase):
             if not validar_cuit(self.view.lineEditDocumento.text()):
                 Ventanas.showAlert("Sistema", "ERROR: CUIT/CUIL no valido. Verifique!!!")
 
-    def GrabaFE(self):
+    @inicializar_y_capturar_excepciones
+    def GrabaFE(self, *args, **kwargs):
         self.view.layoutFactura.AssignNumero()
         cabfact = Cabfact()
         cabfact.tipocomp = self.tipo_cpte
@@ -307,9 +314,9 @@ class FacturaController(ControladorBase):
             detfact.idcabfact = cabfact.idcabfact
             detfact.idarticulo = codigo
             detfact.cantidad = cantidad
-            detfact.unidad = 'UN'
+            detfact.unidad = articulo.unidad
             detfact.costo = articulo.costo
-            if LeerIni(clave='CAT_IVA', key='WSFEv1'):
+            if LeerIni(clave='CAT_IVA', key='WSFEv1') == 1:
                 detfact.precio = importe + importe * iva / 100
             else:
                 detfact.precio = importe
@@ -324,6 +331,7 @@ class FacturaController(ControladorBase):
             detfact.detalle = detalle[:40]
             detfact.descuento = 0.00
             detfact.save()
+        self.ImprimeFactura(idcabecera=cabfact.idcabfact)
 
     @inicializar_y_capturar_excepciones
     def ImprimeFactura(self, idcabecera = None, *args, **kwargs):
@@ -368,7 +376,6 @@ class FacturaController(ControladorBase):
         obs_comerciales = ""
         moneda_id = ""
         moneda_ctz = 1
-        forma_pago = ""
         cae = cabfact.cae
         fecha_vto_cae = FechaMysql(cabfact.venccae)
 
@@ -380,6 +387,11 @@ class FacturaController(ControladorBase):
                     moneda_id, moneda_ctz, cae, fecha_vto_cae, "",
                     nombre_cliente, domicilio_cliente, 0)
         pyfpdf.EstablecerParametro("forma_pago", cabfact.formapago.detalle)
+        pyfpdf.EstablecerParametro("custom-nro-cli", "[{}]".format(str(cabfact.cliente.idcliente).zfill(5)))
+        pyfpdf.EstablecerParametro("localidad_cli", cabfact.cliente.localidad.nombre)
+        pyfpdf.EstablecerParametro("provincia_cli", cabfact.cliente.localidad.provincia)
+        pyfpdf.EstablecerParametro("iva_cli", cabfact.cliente.tiporesp.nombre)
+
         #Agregar comprobantes asociados(si es una NC / ND):
         #tipo = 19
         #pto_vta = 2
@@ -414,7 +426,7 @@ class FacturaController(ControladorBase):
             u_mtx = 0 #unidades
             cod_mtx = "" #c�digo de barras
             codigo = d.idarticulo.idarticulo #codigo interno a imprimir(ej. "articulo")
-            ds = d.detalle
+            ds = d.descad
             qty = d.cantidad #cantidad
             umed = 7 #c�digo de unidad de medida(ej. 7 para"unidades")
             precio = d.precio #precio neto(A) o iva incluido(B)
@@ -431,6 +443,16 @@ class FacturaController(ControladorBase):
             ok = pyfpdf.AgregarDetalleItem(u_mtx, cod_mtx, codigo, ds, qty, umed,
                         precio, bonif, iva_id, imp_iva, importe, despacho,
                         dato_a, dato_b, dato_c, dato_d, dato_e)
+
+        #Agrego datos adicionales fijos:
+        ok = pyfpdf.AgregarDato("logo", ubicacion_sistema() + "plantillas/logo.png")
+        ok = pyfpdf.AgregarDato("EMPRESA", "Razon social: {}".format(LeerIni(clave='EMPRESA', key='FACTURA')))
+        ok = pyfpdf.AgregarDato("MEMBRETE1", "Domicilio Comercial: {}".format(LeerIni(clave='MEMBRETE1', key='FACTURA')))
+        ok = pyfpdf.AgregarDato("MEMBRETE2", LeerIni(clave='MEMBRETE2', key='FACTURA'))
+        ok = pyfpdf.AgregarDato("CUIT", LeerIni(clave='CUIT', key='FACTURA'))
+        ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='IIBB', key='FACTURA'))
+        ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='IVA', key='FACTURA')))
+        ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='INICIO', key='FACTURA')))
 
         #Cargo el formato desde el archivo CSV(opcional)
         #(carga todos los campos a utilizar desde la planilla)
@@ -451,3 +473,11 @@ class FacturaController(ControladorBase):
         #(es necesario tener instalado Acrobat Reader o similar)
         imprimir = False #cambiar a True para que lo envie directo a laimpresora
         ok = pyfpdf.MostrarPDF(salida, imprimir)
+
+    def Validacion(self):
+        retorno = True
+        if not self.view.validaCliente.text():
+            Ventanas.showAlert(LeerIni('nombre_sistema'), "ERROR: No se ha especificado un cliente valido")
+            retorno = False
+
+        return retorno

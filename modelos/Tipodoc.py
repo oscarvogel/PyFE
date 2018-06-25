@@ -1,5 +1,5 @@
 # coding=utf-8
-from peewee import IntegerField, CharField
+from peewee import IntegerField, CharField, AutoField
 
 from libs.Validaciones import Validaciones
 from modelos.ModeloBase import ModeloBase
