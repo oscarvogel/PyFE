@@ -85,7 +85,7 @@ class ABM(VistaBase):
         self.btnEditar.setObjectName("btnEditar")
         self.horizontalLayout.addWidget(self.btnEditar)
 
-        self.btnBorrar = Boton(self.tabLista, imagen="imagenes/borrar.png", tamanio=QSize(32,32),
+        self.btnBorrar = Boton(self.tabLista, imagen="imagenes/delete.png", tamanio=QSize(32,32),
                                tooltip='Borrar registro')
         self.btnBorrar.setObjectName("btnBorrar")
         self.horizontalLayout.addWidget(self.btnBorrar)

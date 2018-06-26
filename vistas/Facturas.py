@@ -188,7 +188,7 @@ class FacturaView(Formulario):
         layoutBotones = QHBoxLayout()
         self.botonAgregaArt = Boton(texto="Agrega", imagen=imagen("nuevo.png"),
                                     tamanio=QSize(16,16), autodefault=False)
-        self.botonBorrarArt = Boton(texto="Borrar", imagen=imagen("borrar.png"),
+        self.botonBorrarArt = Boton(texto="Borrar", imagen=imagen("delete.png"),
                                     tamanio=QSize(16,16), autodefault=False)
         layoutBotones.addWidget(self.botonAgregaArt)
         layoutBotones.addWidget(self.botonBorrarArt)
@@ -206,7 +206,7 @@ class FacturaView(Formulario):
         layoutBotones = QHBoxLayout()
         self.botonAgregaIVA = Boton(texto="Agrega", imagen=imagen("nuevo.png"),
                                     tamanio=QSize(16,16), autodefault=False)
-        self.botonBorrarIVA = Boton(texto="Borrar", imagen=imagen("borrar.png"),
+        self.botonBorrarIVA = Boton(texto="Borrar", imagen=imagen("delete.png"),
                                     tamanio=QSize(16,16), autodefault=False)
         layoutBotones.addWidget(self.botonAgregaIVA)
         layoutBotones.addWidget(self.botonBorrarIVA)
@@ -224,7 +224,7 @@ class FacturaView(Formulario):
         layoutBotones = QHBoxLayout()
         self.botonAgregaTributos = Boton(texto="Agrega", imagen=imagen("nuevo.png"),
                                          tamanio=QSize(16,16), autodefault=False)
-        self.botonBorrarTributos = Boton(texto="Borrar", imagen=imagen("borrar.png"),
+        self.botonBorrarTributos = Boton(texto="Borrar", imagen=imagen("delete.png"),
                                          tamanio=QSize(16,16), autodefault=False)
         layoutBotones.addWidget(self.botonAgregaTributos)
         layoutBotones.addWidget(self.botonBorrarTributos)

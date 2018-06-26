@@ -16,4 +16,5 @@ class ControladorBase(object):
     def conectarWidgets(self):
         pass
 
-
+    def exec_(self):
+        self.view.exec_()

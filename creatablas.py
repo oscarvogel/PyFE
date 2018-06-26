@@ -6,6 +6,7 @@ from modelos.Cabfact import Cabfact
 from modelos.Cajeros import Cajero
 from modelos.Clientes import Cliente
 from modelos.Detfact import Detfact
+from modelos.Emailcliente import EmailCliente
 from modelos.Formaspago import Formapago
 from modelos.Grupos import Grupo
 from modelos.Impuestos import Impuesto
@@ -20,6 +21,7 @@ from modelos.Unidades import Unidad
 if 'drop' in sys.argv:
     Detfact().drop_table()
     Cabfact().drop_table()
+    EmailCliente().drop_table()
     Cliente().drop_table()
     Articulo().drop_table()
     Proveedor().drop_table()
@@ -125,6 +127,7 @@ tipoiva = [
 ]
 Tipoiva().insert(tipoiva).execute()
 
+EmailCliente().create_table()
 Cajero().create_table()
 cajero = [
     {'idcajero':1, 'nombre':'CAJERO'}

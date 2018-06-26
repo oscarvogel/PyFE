@@ -1,5 +1,7 @@
 # coding=utf-8
+from PyQt4.QtCore import QSize
 
+from libs.Botones import Boton
 from libs.Etiquetas import Etiqueta
 from libs.Utiles import inicializar_y_capturar_excepciones
 from modelos import Localidades, Tipodoc, Tiporesp, Impuestos
@@ -61,4 +63,10 @@ class ClientesView(ABM):
         #if self.tipo == 'M': #actualizacion
         cliente.save()
         ABM.btnAceptarClicked(self)
+
+    def BotonesAdicionales(self):
+        self.btnEmail = Boton(self.tabLista, imagen="imagenes/email.png", tamanio=QSize(32,32),
+                                tooltip='Agrega email del cliente')
+        self.btnEmail.setObjectName("btnEmail")
+        self.horizontalLayout.addWidget(self.btnEmail)
 
