@@ -57,7 +57,7 @@ class FacturaController(ControladorBase):
         else:
             self.view.lineEditDocumento.setText(str(cliente.dni))
             self.view.lineEditDocumento.setInputMask("99999999")
-        if int(LeerIni(clave='CAT_IVA', key='WSFEv1')) == 1: #si es Resp insc el contribuyente veo si teiene que emitira A o B
+        if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1: #si es Resp insc el contribuyente veo si teiene que emitira A o B
             if cliente.tiporesp.idtiporesp == 2: #resp inscripto
                 self.view.cboComprobante.setText('Factura A')
             else:
@@ -66,8 +66,8 @@ class FacturaController(ControladorBase):
             self.view.cboComprobante.setText('Factura C')
 
         self.view.cboTipoIVA.setText(cliente.tiporesp.nombre)
-        self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='PTO_VTA', key='WSFEv1').zfill(4))
-        tipos = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='CAT_IVA', key='WSFEv1')))
+        self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='pto_vta', key='WSFEv1').zfill(4))
+        tipos = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='cat_iva', key='WSFEv1')))
         tipo_cpte = [k for (k, v) in tipos.valores.iteritems() if v == self.view.cboComprobante.text()][0]
         nro = FEv1().UltimoComprobante(tipo=tipo_cpte,
                                        ptovta=self.view.layoutFactura.lineEditPtoVta.text())
@@ -124,7 +124,7 @@ class FacturaController(ControladorBase):
         except Impuesto.DoesNotExist:
             impuesto = decimal.Decimal.from_float(0.)
         for x in range(self.view.gridFactura.rowCount()):
-            if int(LeerIni(clave='CAT_IVA', key='WSFEv1')) == 6:
+            if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 6:
                 self.view.gridFactura.ModificaItem(valor=21, fila=x, col='IVA')
             detalle = self.view.gridFactura.ObtenerItem(fila=x, col='Detalle')
             if not detalle:
@@ -141,14 +141,14 @@ class FacturaController(ControladorBase):
             iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
             total = float(cantidad) * float(unitario)
             self.netos[iva] += total
-            if int(LeerIni(clave='CAT_IVA',
+            if int(LeerIni(clave='cat_iva',
                            key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
                 ivagral += total * iva / 100
             totalgral += total
             self.view.gridFactura.ModificaItem(valor=total, fila=x, col='SubTotal')
 
 
-        if int(LeerIni(clave='CAT_IVA',
+        if int(LeerIni(clave='cat_iva',
                        key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
             dgrgral = totalgral * impuesto / 100
 
@@ -187,13 +187,13 @@ class FacturaController(ControladorBase):
         ta = wsfev1.Autenticar()
         #Setear tocken y sign de autorizacion(ticket de accesso, pasos previos)
         wsfev1.SetTicketAcceso(ta)
-        wsfev1.Cuit = LeerIni(clave='CUIT', key='WSFEv1') #CUIT del emisor (debe estar registrado en la AFIP)
+        wsfev1.Cuit = LeerIni(clave='cuit', key='WSFEv1') #CUIT del emisor (debe estar registrado en la AFIP)
         #Conectar al Servicio Web de Facturacion
         #Produccion usar: *-- ok = WSFE.Conectar("", "https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL") & & Producción
-        if LeerIni(clave='HOMO'):
+        if LeerIni(clave='homo'):
             ok = wsfev1.Conectar("") #Homologacion
         else:
-            ok = wsfev1.Conectar("", LeerIni(clave="URL", key="WSFEv1"))
+            ok = wsfev1.Conectar("", LeerIni(clave="url", key="WSFEv1"))
 
         if self.view.checkBoxServicios.isChecked() \
             and self.view.checkBoxProductos.isChecked(): #si es productoso y servicios
@@ -216,7 +216,7 @@ class FacturaController(ControladorBase):
         cbt_hasta = cbt_desde
         imp_total = self.view.lineEditTotal.text()
         imp_tot_conc = "0.00"
-        if int(LeerIni(clave='CAT_IVA',
+        if int(LeerIni(clave='cat_iva',
                        key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
             imp_neto = str(float(self.view.lineEditTotal.text()) - \
                 float(self.view.lineEditTributos.text()) - \
@@ -317,7 +317,7 @@ class FacturaController(ControladorBase):
             detfact.cantidad = cantidad
             detfact.unidad = articulo.unidad
             detfact.costo = articulo.costo
-            if LeerIni(clave='CAT_IVA', key='WSFEv1') == 1:
+            if LeerIni(clave='cat_iva', key='WSFEv1') == 1:
                 detfact.precio = importe + importe * iva / 100
             else:
                 detfact.precio = importe
@@ -342,7 +342,7 @@ class FacturaController(ControladorBase):
         print("imprimir factura {}".format(cabfact.numero))
         pyfpdf = FEPDF()
         #cuit del emisor
-        pyfpdf.CUIT = LeerIni(clave='CUIT', key='WSFEv1')
+        pyfpdf.CUIT = LeerIni(clave='cuit', key='WSFEv1')
         #establezco formatos (cantidad de decimales):
         pyfpdf.FmtCantidad = "0.4"
         pyfpdf.FmtPrecio = "0.2"
@@ -447,13 +447,13 @@ class FacturaController(ControladorBase):
 
         #Agrego datos adicionales fijos:
         ok = pyfpdf.AgregarDato("logo", ubicacion_sistema() + "plantillas/logo.png")
-        ok = pyfpdf.AgregarDato("EMPRESA", "Razon social: {}".format(LeerIni(clave='EMPRESA', key='FACTURA')))
-        ok = pyfpdf.AgregarDato("MEMBRETE1", "Domicilio Comercial: {}".format(LeerIni(clave='MEMBRETE1', key='FACTURA')))
-        ok = pyfpdf.AgregarDato("MEMBRETE2", LeerIni(clave='MEMBRETE2', key='FACTURA'))
-        ok = pyfpdf.AgregarDato("CUIT", LeerIni(clave='CUIT', key='FACTURA'))
-        ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='IIBB', key='FACTURA'))
-        ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='IVA', key='FACTURA')))
-        ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='INICIO', key='FACTURA')))
+        ok = pyfpdf.AgregarDato("EMPRESA", "Razon social: {}".format(LeerIni(clave='empresa', key='FACTURA')))
+        ok = pyfpdf.AgregarDato("MEMBRETE1", "Domicilio Comercial: {}".format(LeerIni(clave='membrete1', key='FACTURA')))
+        ok = pyfpdf.AgregarDato("MEMBRETE2", LeerIni(clave='membrete2', key='FACTURA'))
+        ok = pyfpdf.AgregarDato("CUIT", LeerIni(clave='cuit', key='FACTURA'))
+        ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='iibb', key='FACTURA'))
+        ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))
+        ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='inicio', key='FACTURA')))
 
         #Cargo el formato desde el archivo CSV(opcional)
         #(carga todos los campos a utilizar desde la planilla)

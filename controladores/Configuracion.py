@@ -18,18 +18,18 @@ class ConfiguracionController(ControladorBase):
         self.view.btnCerrar.clicked.connect(self.GrabaParametros)
 
     def CargaDatos(self):
-        self.view.controles['empresa'].setText(LeerIni(clave='EMPRESA', key='FACTURA'))
-        self.view.controles['membrete1'].setText(LeerIni(clave='MEMBRETE1', key='FACTURA'))
-        self.view.controles['membrete2'].setText(LeerIni(clave='MEMBRETE2', key='FACTURA'))
-        self.view.controles['cuit'].setText(LeerIni(clave='CUIT', key='FACTURA'))
-        self.view.controles['iibb'].setText(LeerIni(clave='IIBB', key='FACTURA'))
+        self.view.controles['empresa'].setText(LeerIni(clave='empresa', key='FACTURA'))
+        self.view.controles['membrete1'].setText(LeerIni(clave='membrete1', key='FACTURA'))
+        self.view.controles['membrete2'].setText(LeerIni(clave='membrete2', key='FACTURA'))
+        self.view.controles['cuit'].setText(LeerIni(clave='cuit', key='FACTURA'))
+        self.view.controles['iibb'].setText(LeerIni(clave='iibb', key='FACTURA'))
 
         self.view.controles['nombre_sistema'].setText(LeerIni(clave='nombre_sistema', key='param'))
-        self.view.controles['BaseDatos'].setText(LeerIni(clave='BaseDatos', key='param'))
-        self.view.controles['Usuario'].setText(LeerIni(clave='Usuario', key='param'))
-        self.view.controles['Host'].setText(LeerIni(clave='Host', key='param'))
-        self.view.controles['HOMO'].setText(LeerIni(clave='HOMO', key='param'))
-        self.view.controles['Base'].setText(LeerIni(clave='Base', key='param'))
+        self.view.controles['BaseDatos'].setText(LeerIni(clave='basedatos', key='param'))
+        self.view.controles['Usuario'].setText(LeerIni(clave='usuario', key='param'))
+        self.view.controles['Host'].setText(LeerIni(clave='host', key='param'))
+        self.view.controles['HOMO'].setText(LeerIni(clave='homo', key='param'))
+        self.view.controles['Base'].setText(LeerIni(clave='base', key='param'))
         self.view.controles['password'].setText(
             desencriptar(LeerIni(clave='password', key='param'), LeerIni(clave='key', key='param')))
 
@@ -46,6 +46,6 @@ class ConfiguracionController(ControladorBase):
         GrabarIni(clave='Host', key='param', valor=self.view.controles['Host'].text())
         GrabarIni(clave='HOMO', key='param', valor=self.view.controles['HOMO'].text())
         GrabarIni(clave='Base', key='param', valor=self.view.controles['Base'].text())
-        key, password = encriptar(bytes(self.view.controles['password'].text()))
+        password, key = encriptar(bytes(self.view.controles['password'].text()))
         GrabarIni(clave='password', key='param', valor=password)
         GrabarIni(clave='key', key='param', valor=key)

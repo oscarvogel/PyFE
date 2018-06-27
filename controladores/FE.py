@@ -22,8 +22,8 @@ class FEv1(WSFEv1):
 
     def __init__(self):
         WSFEv1.__init__(self)
-        if LeerIni(clave='HOMO') != 'S':
-            self.WSDL = LeerIni(clave='URL_PROD', key='WSFEv1')
+        if LeerIni(clave='homo') != 'S':
+            self.WSDL = LeerIni(clave='url_prod', key='WSFEv1')
 
     #crea ticket de acceso verificando que ya no tenga abierto uno
     def CreaTA(self):
@@ -45,7 +45,7 @@ class FEv1(WSFEv1):
 
         ta = self.Autenticar()
         self.SetTicketAcceso(ta)
-        self.Cuit = LeerIni(clave="CUIT", key='WSFEv1')
+        self.Cuit = LeerIni(clave="cuit", key='WSFEv1')
         ultimo = self.CompUltimoAutorizado(tipo_cbte=tipo, punto_vta=ptovta)
         return ultimo
 
@@ -73,14 +73,14 @@ class FEv1(WSFEv1):
             tra = wsaa.CreateTRA()
 
             #Generar el mensaje firmado(CMS)
-            if LeerIni(clave='HOMO') == 'S':#homologacion
-                cms = wsaa.SignTRA(tra, LeerIni(clave="CERT_HOMO", key="WSAA"),
-                               LeerIni(clave="PRIVATEKEY_HOMO", key="WSAA"))
-                ok = wsaa.Conectar("", LeerIni(clave='URL_HOMO', key='WSAA'))  # Homologación
+            if LeerIni(clave='homo') == 'S':#homologacion
+                cms = wsaa.SignTRA(tra, LeerIni(clave="cert_homo", key="WSAA"),
+                               LeerIni(clave="privatekey_homo", key="WSAA"))
+                ok = wsaa.Conectar("", LeerIni(clave='url_homo', key='WSAA'))  # Homologación
             else:
-                cms = wsaa.SignTRA(tra, LeerIni(clave="CERT_PROD", key="WSAA"),
-                               LeerIni(clave="PRIVATEKEY_PROD", key="WSAA"))
-                ok = wsaa.Conectar("", LeerIni(clave='URL_PROD', key='WSAA')) #Produccion
+                cms = wsaa.SignTRA(tra, LeerIni(clave="cert_prod", key="WSAA"),
+                               LeerIni(clave="privatekey_prod", key="WSAA"))
+                ok = wsaa.Conectar("", LeerIni(clave='url_prod', key='WSAA')) #Produccion
 
             #Llamar al web service para autenticar
             ta = wsaa.LoginCMS(cms)

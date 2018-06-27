@@ -3,12 +3,12 @@ from peewee import MySQLDatabase, Model, Field, BooleanField, SqliteDatabase
 
 from libs.Utiles import LeerIni, desencriptar
 
-if LeerIni(clave='Base') == 'sqlite':
+if LeerIni(clave='base') == 'sqlite':
     db = SqliteDatabase('sistema.db')
 else:
-    db = MySQLDatabase(LeerIni("BaseDatos"), user=LeerIni("Usuario"), password=desencriptar(LeerIni('Password'),
-                                                                                        LeerIni('Key')),
-                   host=LeerIni("Host"), port=3306)
+    db = MySQLDatabase(LeerIni("basedatos"), user=LeerIni("usuario"), password=desencriptar(LeerIni('password'),
+                                                                                        LeerIni('key')),
+                   host=LeerIni("host"), port=3306)
 
 class ModeloBase(Model):
 

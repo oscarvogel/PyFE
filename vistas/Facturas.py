@@ -58,7 +58,7 @@ class FacturaView(Formulario):
 
         self.layoutComprobante = QHBoxLayout()
         self.lblComprobante = Etiqueta(texto="Comprobante", tamanio=10)
-        self.cboComprobante = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='CAT_IVA', key='WSFEv1')),
+        self.cboComprobante = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='cat_iva', key='WSFEv1')),
                                                              tamanio=10, enabled=False)
         self.layoutComprobante.addWidget(self.lblComprobante)
         self.layoutComprobante.addWidget(self.cboComprobante)
@@ -175,7 +175,7 @@ class FacturaView(Formulario):
         ]
         self.gridFactura.ArmaCabeceras(cabeceras=cabeceras)
         self.gridFactura.enabled = True
-        if int(LeerIni(clave='CAT_IVA', key='WSFEv1')) != 6:
+        if int(LeerIni(clave='cat_iva', key='WSFEv1')) != 6:
             self.gridFactura.columnasHabilitadas = [
                 0, 1, 2, 3, 4
             ]
