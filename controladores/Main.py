@@ -3,6 +3,7 @@ from PyQt4.QtGui import QApplication, QMenu, QCursor
 
 from controladores.Articulos import ArticulosController
 from controladores.Clientes import ClientesController
+from controladores.Configuracion import ConfiguracionController
 from controladores.ConsultaCtaCte import ConsultaCtaCteController
 from controladores.ControladorBase import ControladorBase
 from controladores.Facturas import FacturaController
@@ -26,6 +27,7 @@ class Main(ControladorBase):
         self.view.btnClientes.clicked.connect(self.onClickBtnCliente)
         self.view.btnArticulo.clicked.connect(self.onClickBtnArticulo)
         self.view.btnFactura.clicked.connect(self.onClickBtnFactura)
+        self.view.btnSeteo.clicked.connect(self.onClickBtnSeteo)
 
     def SalirSistema(self):
         QApplication.exit(1)
@@ -67,3 +69,7 @@ class Main(ControladorBase):
         elif action == reimprimeAction:
             ventana = ReImprimeFacturaController()
             ventana.view.exec_()
+
+    def onClickBtnSeteo(self):
+        config = ConfiguracionController()
+        config.view.exec_()

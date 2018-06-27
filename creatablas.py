@@ -43,10 +43,10 @@ grupo = [
 Grupo().insert(grupo).execute()
 
 Unidad().create_table()
-unidad = [
-    {'unidad':'UN','descripcion':'UNIDAD'},
-]
-Unidad().insert(unidad).execute()
+unidad = Unidad()
+unidad.unidad = 'UN'
+unidad.descripcion = 'UNIDAD'
+unidad.save()
 
 Formapago().create_table()
 formapago = [

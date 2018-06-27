@@ -93,7 +93,7 @@ class FacturaController(ControladorBase):
             _ventana.campoBusqueda = _ventana.cOrden
             _ventana.campoRetorno = Articulo.idarticulo
             _ventana.campoRetornoDetalle = Articulo.nombre
-            _ventana.campos = ['idarticulo', 'nombre']
+            _ventana.campos = ['idarticulo', 'nombre', 'preciopub']
             _ventana.CargaDatos()
             _ventana.exec_()
             if _ventana.lRetval:
@@ -103,13 +103,14 @@ class FacturaController(ControladorBase):
                 self.view.gridFactura.ModificaItem(valor=_ventana.campoRetornoDetalle,
                                                    fila=self.view.gridFactura.currentRow(),
                                                    col=2)
+            self.view.gridFactura.setFocus()
         elif key in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab] and col == 1:
             codigo = self.view.gridFactura.ObtenerItem(fila=row, col=1)
 
         self.SumaTodo()
 
     def SumaTodo(self):
-
+        art = None
         totalgral = 0.
         ivagral = 0.
         dgrgral = 0.
@@ -136,7 +137,7 @@ class FacturaController(ControladorBase):
                     pass
             cantidad = self.view.gridFactura.ObtenerItem(fila=x, col='Cant.')
             #self.view.gridFactura.ModificaItem(valor=cantidad, fila=x, col='Cant.')
-            unitario = self.view.gridFactura.ObtenerItem(fila=x, col='Unitario')
+            unitario = float(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
             iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
             total = float(cantidad) * float(unitario)
             self.netos[iva] += total
@@ -426,7 +427,7 @@ class FacturaController(ControladorBase):
             u_mtx = 0 #unidades
             cod_mtx = "" #c�digo de barras
             codigo = d.idarticulo.idarticulo #codigo interno a imprimir(ej. "articulo")
-            ds = d.descad
+            ds = d.descad.strip()
             qty = d.cantidad #cantidad
             umed = 7 #c�digo de unidad de medida(ej. 7 para"unidades")
             precio = d.precio #precio neto(A) o iva incluido(B)

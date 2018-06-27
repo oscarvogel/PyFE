@@ -37,6 +37,7 @@ class ArticulosView(ABM):
         self.controles['tipoiva'].widgetNombre = self.lblNombreTipoiva
         self.ArmaEntrada('modificaprecios', boxlayout=self.layoutProvedor, control=CheckBox())
         self.layoutCosto = self.ArmaEntrada('costo', texto='Costo')
+        self.ArmaEntrada('preciopub', boxlayout=self.layoutCosto)
 
     def btnAceptarClicked(self):
         if self.tipo == 'M':
@@ -52,5 +53,6 @@ class ArticulosView(ABM):
         articulo.provppal = self.controles['provppal'].text()
         articulo.tipoiva = self.controles['tipoiva'].text()
         articulo.modificaprecios = self.controles['modificaprecios'].text()
+        articulo.preciopub = self.controles['preciopub'].text()
         articulo.save()
         ABM.btnAceptarClicked(self)

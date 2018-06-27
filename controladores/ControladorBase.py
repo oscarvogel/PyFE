@@ -18,3 +18,6 @@ class ControladorBase(object):
 
     def exec_(self):
         self.view.exec_()
+
+    def CargaDatos(self):
+        pass

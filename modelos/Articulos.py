@@ -12,7 +12,7 @@ class Articulo(ModeloBase):
     idarticulo = AutoField()
     nombre = CharField(max_length=100, default='')
     nombreticket = CharField(max_length=30, default='')
-    unidad = ForeignKeyField(Unidad, column_name='unidad')
+    unidad = ForeignKeyField(Unidad, column_name='unidad', related_name='articulo', default='UN')
     grupo = ForeignKeyField(Grupo, backref='grupo', column_name='idgrupo', default=1)
     costo = DecimalField(max_digits=12, decimal_places=2, default=0)
     provppal = ForeignKeyField(Proveedor, backref='proveedor', column_name='provppal', default=1)

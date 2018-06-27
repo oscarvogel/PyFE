@@ -1,11 +1,14 @@
 # coding=utf-8
-from peewee import MySQLDatabase, Model, Field, BooleanField
+from peewee import MySQLDatabase, Model, Field, BooleanField, SqliteDatabase
 
 from libs.Utiles import LeerIni, desencriptar
 
-mysql_db = MySQLDatabase(LeerIni("BaseDatos"), user=LeerIni("Usuario"), password=desencriptar(LeerIni('Password'),
-                                                                                              LeerIni('Key')),
-                         host=LeerIni("Host"), port=3306)
+if LeerIni(clave='Base') == 'sqlite':
+    db = SqliteDatabase('sistema.db')
+else:
+    db = MySQLDatabase(LeerIni("BaseDatos"), user=LeerIni("Usuario"), password=desencriptar(LeerIni('Password'),
+                                                                                        LeerIni('Key')),
+                   host=LeerIni("Host"), port=3306)
 
 class ModeloBase(Model):
 
@@ -13,14 +16,14 @@ class ModeloBase(Model):
         super(ModeloBase, self).__init__(*args, **kwargs)
 
     def getDb(self):
-        return mysql_db
+        return db
 
     def connect(self):
-        mysql_db.connect(reuse_if_open=True)
+        db.connect(reuse_if_open=True)
 
     """A base model that will use our MySQL database"""
     class Meta:
-        database = mysql_db
+        database = db
 
 
 class BitBooleanField(BooleanField):

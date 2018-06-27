@@ -14,7 +14,7 @@ class FEv1(WSFEv1):
     PRODUCTOS = 1
     ID_IMP_PCIAL = 2
     TASA_IVA = {
-        "0":3,
+        "0.0":3,
         "10.5":4,
         "21.00":5,
         "27.00": 6
