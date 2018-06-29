@@ -15,6 +15,7 @@ class ClientesController(ControladorBase):
 
     def conectarWidgets(self):
         self.view.btnEmail.clicked.connect(self.CargaEmailCliente)
+        self.view.controles['dni'].editingFinished.connect(self.onDNIEditingFinished)
 
     def CargaEmailCliente(self):
         controllerEmail = EmailClienteController()
@@ -23,3 +24,9 @@ class ClientesController(ControladorBase):
         )
         controllerEmail.CargaEmail()
         controllerEmail.exec_()
+
+    def onDNIEditingFinished(self):
+        if not self.view.controles['dni'].text():
+            self.view.controles['dni'].setText('0')
+        if not self.view.controles['tipodocu'].text():
+            self.view.controles['tipodocu'].setText('0')

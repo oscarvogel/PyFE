@@ -7,6 +7,7 @@ from controladores.Configuracion import ConfiguracionController
 from controladores.ConsultaCtaCte import ConsultaCtaCteController
 from controladores.ControladorBase import ControladorBase
 from controladores.Facturas import FacturaController
+from controladores.IVAVentas import IVAVentasController
 from controladores.ReImprimeFactura import ReImprimeFacturaController
 from modelos.ModeloBase import ModeloBase
 from vistas.Main import MainView
@@ -60,6 +61,7 @@ class Main(ControladorBase):
         menu = QMenu(self.view)
         emisionAction = menu.addAction(u"Emision de Factura")
         reimprimeAction = menu.addAction(u"Re imprime factura")
+        ivaventasAction = menu.addAction(u"IVA Ventas")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -68,6 +70,9 @@ class Main(ControladorBase):
             factura.view.exec_()
         elif action == reimprimeAction:
             ventana = ReImprimeFacturaController()
+            ventana.view.exec_()
+        elif action == ivaventasAction:
+            ventana = IVAVentasController()
             ventana.view.exec_()
 
     def onClickBtnSeteo(self):

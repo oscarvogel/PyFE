@@ -44,7 +44,8 @@ class ClientesView(ABM):
         self.layoutImpuesto.addWidget(self.lblNombreImpuesto)
         self.controles['percepcion'].widgetNombre = self.lblNombreImpuesto
 
-    def btnAceptarClicked(self):
+    @inicializar_y_capturar_excepciones
+    def btnAceptarClicked(self, *args, **kwargs):
         if self.tipo == 'M':
             cliente = Cliente.get_by_id(self.controles[Cliente.idcliente.column_name].text())
             cliente.idcliente = self.controles['idcliente'].text()

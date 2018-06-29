@@ -44,6 +44,7 @@ class FacturaController(ControladorBase):
         self.view.gridFactura.keyPressed.connect(self.onKeyPressedGridFactura)
         self.view.btnGrabarFactura.clicked.connect(self.GrabaFactura)
         self.view.lineEditDocumento.editingFinished.connect(self.onEditingFinishedDocumento)
+        self.view.botonBorrarArt.clicked.connect(self.onClickbotonBorraArt)
 
     def CargaDatosCliente(self):
         if not self.view.validaCliente.text():
@@ -127,7 +128,8 @@ class FacturaController(ControladorBase):
             if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 6:
                 self.view.gridFactura.ModificaItem(valor=21, fila=x, col='IVA')
             detalle = self.view.gridFactura.ObtenerItem(fila=x, col='Detalle')
-            if not detalle:
+            unitario = float(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
+            if not detalle or unitario == 0:
                 codigo = self.view.gridFactura.ObtenerItem(fila=x, col='Codigo')
                 try:
                     art = Articulo.get_by_id(codigo)
@@ -140,7 +142,11 @@ class FacturaController(ControladorBase):
             unitario = float(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
             iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
             total = float(cantidad) * float(unitario)
-            self.netos[iva] += total
+            try:
+                self.netos[iva] += total
+            except KeyError:
+                pass
+
             if int(LeerIni(clave='cat_iva',
                            key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
                 ivagral += total * iva / 100
@@ -256,6 +262,22 @@ class FacturaController(ControladorBase):
             importe = self.view.lineEditTributos.text()
             wsfev1.AgregarTributo(tributo_id=idimp, desc=detalle, base_imp=base_imp,
                                   alic=alicuota, importe=importe)
+        if LeerIni(clave='cat_iva', key='WSFEv1') == 1: #◘unicamente si es RI se informa los IVA
+            #agrego todos los iva
+            for k,v in self.netos.items():
+                if v != 0:
+                    id = FEv1().TASA_IVA[str(float(k))]
+                    base_imp = v
+                    iva = k
+                    importe = base_imp * iva / 100
+                    ok = wsfev1.AgregarIva(id, base_imp, importe)
+        # for x in range(self.view.gridFactura.rowCount()):
+        #     iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
+        #     id = FEv1().TASA_IVA[str(iva)]
+        #     base_imp = float(self.view.gridFactura.ObtenerItem(fila=x, col='SubTotal'))
+        #     importe = base_imp * iva / 100
+        #     ok = wsfev1.AgregarIva(id, base_imp, importe)
+
         #SolicitoCAE:
         cae = wsfev1.CAESolicitar()
         if wsfev1.ErrMsg:
@@ -300,8 +322,10 @@ class FacturaController(ControladorBase):
         cabfact.nombre = self.view.lblNombreCliente.text()
         cabfact.domicilio = self.view.lineEditDomicilio.text()
         cabfact.cae = self.view.lineditCAE.text()
-        cabfact.venccae = self.view.fechaVencCAE.getFechaSql()
+        cabfact.venccae = self.view.fechaVencCAE.date().toPyDate()
         cabfact.concepto = self.concepto
+        cabfact.desde = self.view.fechaDesde.date().toPyDate()
+        cabfact.hasta = self.view.fechaHasta.date().toPyDate()
         cabfact.save()
 
         for x in range(self.view.gridFactura.rowCount()):
@@ -324,7 +348,7 @@ class FacturaController(ControladorBase):
             detfact.tipoiva = articulo.tipoiva.codigo
             detfact.montoiva = importe * iva / 100
             if self.view.lineEditTributos.value() > 0:
-                detfact.montodgr = importe * self.cliente.percepcion.porcentaje / 100
+                detfact.montodgr = importe * float(self.cliente.percepcion.porcentaje) / 100
             else:
                 detfact.montodgr = 0.00
             detfact.montomuni = 0.00
@@ -369,8 +393,13 @@ class FacturaController(ControladorBase):
         fecha_cbte = fecha
         fecha_venc_pago = fecha
         #Fechas del período del servicio facturado
-        fecha_serv_desde = fecha
-        fecha_serv_hasta = fecha
+        if int(cabfact.concepto) in [FEv1().SERVICIOS, FEv1().PRODUCTOYSERVICIOS]:
+            fecha_serv_desde = FechaMysql(cabfact.desde)
+            fecha_serv_hasta = FechaMysql(cabfact.hasta)
+        else:
+            fecha_serv_hasta = None
+            fecha_serv_desde = None
+
         moneda_id = "PES"
         moneda_ctz = "1.000"
         obs_generales = ""
@@ -432,7 +461,7 @@ class FacturaController(ControladorBase):
             umed = 7 #c�digo de unidad de medida(ej. 7 para"unidades")
             precio = d.precio #precio neto(A) o iva incluido(B)
             bonif = 0 #importe de descuentos
-            iva_id = FEv1().TASA_IVA[str(d.tipoiva.iva)] #c�digopara al�cuota del 21 %
+            iva_id = FEv1().TASA_IVA[str(float(d.tipoiva.iva))] #c�digopara al�cuota del 21 %
             imp_iva = d.montoiva #importe liquidado deiva
             importe = d.precio #importe total del item
             despacho = "" #numero de despacho de importaci�n
@@ -459,10 +488,14 @@ class FacturaController(ControladorBase):
         #(carga todos los campos a utilizar desde la planilla)
         ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura.csv")
         #Creo plantilla para esta factura(papel A4vertical):
+
+        if LeerIni(clave='homo') == 'S':
+            pyfpdf.AgregarCampo("homo", 'T', 100, 250, 0, 0,
+                              size=70, rotate=45, foreground=0x808080, priority=-1)
         papel = "A4" #o "letter" para carta, "legal" para oficio
         orientacion = "portrait" #o landscape(apaisado)
         ok = pyfpdf.CrearPlantilla(papel, orientacion)
-        num_copias = 3 #original, duplicado y triplicado
+        num_copias = int(LeerIni(clave='num_copias', key='FACTURA')) #original, duplicado y triplicado
         lineas_max = 24 #cantidad de linas de items porp�gina
         qty_pos = "izq" #(cantidad a la izquierda de la descripci�n del art�culo)
         #Proceso la plantilla
@@ -481,4 +514,17 @@ class FacturaController(ControladorBase):
             Ventanas.showAlert(LeerIni('nombre_sistema'), "ERROR: No se ha especificado un cliente valido")
             retorno = False
 
+        for x in range(self.view.gridFactura.rowCount()):
+            iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
+            if iva == 0:
+                Ventanas.showAlert(LeerIni('nombre_sistema'), "ERROR: El item {} no tiene un IVA asignado".format(x+1))
+                retorno = False
+            else:
+                if str(iva) not in FEv1().TASA_IVA:
+                    Ventanas.showAlert(LeerIni('nombre_sistema'), "Error el item {} no tiene un IVA valido".format(x+1))
+                    retorno = False
         return retorno
+
+    def onClickbotonBorraArt(self):
+        self.view.gridFactura.removeRow(self.view.gridFactura.currentRow())
+        self.SumaTodo()

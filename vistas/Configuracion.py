@@ -24,6 +24,9 @@ class ConfiguracionView(Formulario):
         self.ArmaEntrada('membrete2')
         self.layoutCUIT = self.ArmaEntrada('cuit')
         self.ArmaEntrada('iibb', boxlayout=self.layoutCUIT)
+        self.layoutCopias = self.ArmaEntrada('num_copias', texto=u'Nº de copias de factura')
+        self.ArmaEntrada('cat_iva', texto='Categoria IVA (1: Resp. Inscripto, 4 Exento, 6: Monotributo)',
+                         boxlayout=self.layoutCopias)
 
         self.lblTituloParametros = EtiquetaTitulo(texto='Parametros')
         self.verticalLayoutDatos.addWidget(self.lblTituloParametros)

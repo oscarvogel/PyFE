@@ -19,6 +19,8 @@ class ReImprimeFacturaController(ControladorBase):
 
     def CargaFacturasCliente(self):
         self.view.gridDatos.setRowCount(0)
+        if not self.view.controles['cliente'].text():
+            return
         cab = Cabfact().select().where(Cabfact.fecha >= self.view.controles['fecha'].date().toPyDate(),
                                        Cabfact.cliente == self.view.controles['cliente'].text())
         for c in cab:

@@ -1,8 +1,10 @@
 # coding=utf-8
 import logging
 
+from libs import Ventanas
 from libs.Utiles import LeerIni, ubicacion_sistema, inicializar_y_capturar_excepciones
 from pyafipws.wsaa import WSAA
+from pyafipws.wscdc import WSCDC
 from pyafipws.wsfev1 import WSFEv1
 
 
@@ -16,8 +18,8 @@ class FEv1(WSFEv1):
     TASA_IVA = {
         "0.0":3,
         "10.5":4,
-        "21.00":5,
-        "27.00": 6
+        "21.0":5,
+        "27.0": 6
     }
 
     def __init__(self):
@@ -51,6 +53,10 @@ class FEv1(WSFEv1):
 
     @inicializar_y_capturar_excepciones
     def Autenticar(self, *args, **kwargs):
+        if 'service' in kwargs:
+            service = kwargs['service']
+        else:
+            service = 'wsfe'
         wsaa = WSAA()
         archivo = ubicacion_sistema() + 'ta.xml'
         try:
@@ -70,7 +76,7 @@ class FEv1(WSFEv1):
 
         if solicitar:
             #Generar un Ticket de Requerimiento de Acceso(TRA)
-            tra = wsaa.CreateTRA()
+            tra = wsaa.CreateTRA(service=service)
 
             #Generar el mensaje firmado(CMS)
             if LeerIni(clave='homo') == 'S':#homologacion
@@ -91,3 +97,28 @@ class FEv1(WSFEv1):
             file.close()
         # devuelvo el ticket de acceso
         return ta
+
+    @inicializar_y_capturar_excepciones
+    def ConstatarComprobantes(self, *args, **kwargs):
+        cbte_modo =  kwargs['cbte_modo'] # modalidad de emision: CAI, CAE, CAEA
+        cuit_emisor = LeerIni(clave='cuit', key='WSFEv1')  # proveedor
+        pto_vta = kwargs['pto_vta']  # punto de venta habilitado en AFIP
+        cbte_tipo = kwargs['cbte_tipo']  # 1: factura A (ver tabla de parametros)
+        cbte_nro = kwargs['cbte_nro']  # numero de factura
+        cbte_fch = kwargs['cbte_fch']  # fecha en formato aaaammdd
+        imp_total = kwargs['imp_total']  # importe total
+        cod_autorizacion = kwargs['cod_autorizacion']  # numero de CAI, CAE o CAEA
+        doc_tipo_receptor = kwargs['doc_tipo_receptor']  # CUIT (obligatorio Facturas A o M)
+        doc_nro_receptor = kwargs['doc_nro_receptor']  # numero de CUIT del cliente
+        wscdc = WSCDC()
+        ta = self.Autenticar()
+        wscdc.SetTicketAcceso(ta_string=ta)
+        wscdc.SetParametros(cuit=LeerIni(clave='cuit', key='WSFEv1'),
+                            token=self.Token, sign=self.Sign)
+        ok = wscdc.ConstatarComprobante(cbte_modo, cuit_emisor, pto_vta, cbte_tipo,
+                                        cbte_nro, cbte_fch, imp_total, cod_autorizacion,
+                                        doc_tipo_receptor, doc_nro_receptor)
+        if not ok:
+            Ventanas.showAlert(LeerIni('nombre_sistema'), "ERROR: {}".format(wscdc.ErrMsg))
+
+        return ok

@@ -37,6 +37,8 @@ class Cabfact(ModeloBase):
     cae = CharField(max_length=20, default='')
     venccae = DateField()
     concepto = CharField(max_length=1, default='')
+    desde = DateField(default='0000-00-00')
+    hasta = DateField(default='0000-00-00')
 
     class Meta:
         table_name = 'cabfact'

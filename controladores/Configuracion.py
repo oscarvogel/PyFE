@@ -32,6 +32,8 @@ class ConfiguracionController(ControladorBase):
         self.view.controles['Base'].setText(LeerIni(clave='base', key='param'))
         self.view.controles['password'].setText(
             desencriptar(LeerIni(clave='password', key='param'), LeerIni(clave='key', key='param')))
+        self.view.controles['num_copias'].setText(LeerIni(clave='num_copias', key='FACTURA'))
+        self.view.controles['cat_iva'].setText(LeerIni(clave='cat_iva', key='WSFEv1'))
 
     def GrabaParametros(self):
         GrabarIni(clave='EMPRESA', key='FACTURA', valor=self.view.controles['empresa'].text())
@@ -39,6 +41,7 @@ class ConfiguracionController(ControladorBase):
         GrabarIni(clave='MEMBRETE2', key='FACTURA', valor=self.view.controles['membrete2'].text())
         GrabarIni(clave='CUIT', key='FACTURA', valor=self.view.controles['cuit'].text())
         GrabarIni(clave='IIBB', key='FACTURA', valor=self.view.controles['iibb'].text())
+        GrabarIni(clave='num_copias', key='FACTURA', valor=self.view.controles['num_copias'].text())
 
         GrabarIni(clave='nombre_sistema', key='param', valor=self.view.controles['nombre_sistema'].text())
         GrabarIni(clave='BaseDatos', key='param', valor=self.view.controles['BaseDatos'].text())
@@ -49,3 +52,4 @@ class ConfiguracionController(ControladorBase):
         password, key = encriptar(bytes(self.view.controles['password'].text()))
         GrabarIni(clave='password', key='param', valor=password)
         GrabarIni(clave='key', key='param', valor=key)
+        GrabarIni(clave='cat_iva', key='WSFEv1', valor=self.view.controles['cat_iva'].text())

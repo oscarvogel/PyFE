@@ -1,4 +1,22 @@
 # coding=utf-8
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+
+#Utilidades varias necesarias en el sistema
+
+__author__ = "Jose Oscar Vogel <oscarvogel@gmail.com>"
+__copyright__ = "Copyright (C) 2018 Jose Oscar Vogel"
+__license__ = "GPL 3.0"
+__version__ = "0.1"
+
 import datetime
 import hashlib
 import logging
@@ -18,15 +36,19 @@ from PyQt4 import QtGui
 
 from libs import Ventanas
 
-
+#necesario porque en mysql tengo definido el campo boolean como bit
 def EsVerdadero(valor):
 
     return valor == b'\01'
 
+#abro el archivo con el programa por defecto en windows
+#tendria que ver como hacerlo en Linux
 def AbrirArchivo(cArchivo=None):
     if cArchivo:
         win32api.ShellExecute(0, "open", cArchivo, None, ".", 0)
 
+#leo el archivo de configuracion del sistema
+#recibe la clave y el key a leer en caso de que tenga mas de una seccion el archivo
 def LeerIni(clave=None, key=None):
     retorno = ''
     Config = ConfigParser()
@@ -39,8 +61,18 @@ def LeerIni(clave=None, key=None):
         Ventanas.showAlert("Sistema", "No existe la seccion {}".format(clave))
     return retorno
 
+def GrabarIni(clave=None, key=None, valor=''):
+    if not clave or not key:
+        return
+    Config = ConfigParser()
+    Config.read('sistema.ini')
+    cfgfile = open("sistema.ini",'wb')
+    Config.set(key, clave, valor)
+    Config.write(cfgfile)
+    cfgfile.close()
+
 def ubicacion_sistema():
-    cUbicacion = LeerIni("InicioSistema") or os.path.dirname(argv[0])
+    cUbicacion = LeerIni("iniciosistema") or os.path.dirname(argv[0])
 
     return cUbicacion
 

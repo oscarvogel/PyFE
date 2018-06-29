@@ -262,7 +262,8 @@ class ABM(VistaBase):
         self.tabWidget.setCurrentIndex(0)
         self.tabDetalle.setEnabled(False)
 
-    def btnAceptarClicked(self):
+    @inicializar_y_capturar_excepciones
+    def btnAceptarClicked(self, *args, **kwargs):
         # data = self.model.get_by_id(self.controles[self.campoClave.column_name].text())
         # data.nombre = self.controles['nombre'].text()
         self.ArmaTabla()
