@@ -5,6 +5,8 @@ from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Cajeros import Cajero
 from modelos.Clientes import Cliente
+from modelos.CpbteRelacionado import CpbteRel
+from modelos.Ctacte import CtaCte
 from modelos.Detfact import Detfact
 from modelos.Emailcliente import EmailCliente
 from modelos.Formaspago import Formapago
@@ -19,6 +21,8 @@ from modelos.Tiporesp import Tiporesp
 from modelos.Unidades import Unidad
 
 if 'drop' in sys.argv:
+    CpbteRel().drop_table()
+    CtaCte().drop_table()
     Detfact().drop_table()
     Cabfact().drop_table()
     EmailCliente().drop_table()
@@ -138,3 +142,5 @@ Articulo.create_table()
 
 Cabfact().create_table()
 Detfact().create_table()
+CtaCte().create_table()
+CpbteRel().create_table()

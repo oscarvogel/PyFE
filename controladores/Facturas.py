@@ -12,6 +12,7 @@ from modelos import Tipocomprobantes
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Clientes import Cliente
+from modelos.CpbteRelacionado import CpbteRel
 from modelos.Detfact import Detfact
 from modelos.Impuestos import Impuesto
 from pyafipws.pyfepdf import FEPDF
@@ -45,6 +46,7 @@ class FacturaController(ControladorBase):
         self.view.btnGrabarFactura.clicked.connect(self.GrabaFactura)
         self.view.lineEditDocumento.editingFinished.connect(self.onEditingFinishedDocumento)
         self.view.botonBorrarArt.clicked.connect(self.onClickbotonBorraArt)
+        self.view.cboComprobante.currentIndexChanged.connect(self.onCurrentIndexChanged)
 
     def CargaDatosCliente(self):
         if not self.view.validaCliente.text():
@@ -67,6 +69,9 @@ class FacturaController(ControladorBase):
             self.view.cboComprobante.setText('Factura C')
 
         self.view.cboTipoIVA.setText(cliente.tiporesp.nombre)
+        self.ObtieneNumeroFactura()
+
+    def ObtieneNumeroFactura(self):
         self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='pto_vta', key='WSFEv1').zfill(4))
         tipos = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='cat_iva', key='WSFEv1')))
         tipo_cpte = [k for (k, v) in tipos.valores.iteritems() if v == self.view.cboComprobante.text()][0]
@@ -245,12 +250,20 @@ class FacturaController(ControladorBase):
             fecha_venc_pago = ""
         moneda_id = "PES"
         moneda_ctz = "1.000"
+
         #Llamo al WebService de Autorizacion para obtener el CAE
         ok = wsfev1.CrearFactura(concepto, tipo_doc, nro_doc, tipo_cbte, punto_vta,
                 cbt_desde, cbt_hasta, imp_total, imp_tot_conc, imp_neto,
                 imp_iva, imp_trib, imp_op_ex, fecha_cbte, fecha_venc_pago,
                 fecha_serv_desde, fecha_serv_hasta,
                 moneda_id, moneda_ctz)
+
+        # Agregar comprobantes asociados(si es una NC / ND):
+        if str(self.view.cboComprobante.text()).find('credito'):
+            tipo = tipo_cbte
+            pto_vta = self.view.layoutCpbteRelacionado.lineEditPtoVta.text()
+            nro = self.view.layoutCpbteRelacionado.lineEditNumero.text()
+            wsfev1.AgregarCmpAsoc(tipo, pto_vta, nro)
 
         if round(float(self.view.lineEditTributos.text()), 3) != 0:
             idimp = wsfev1.ID_IMP_PCIAL
@@ -262,7 +275,7 @@ class FacturaController(ControladorBase):
             importe = self.view.lineEditTributos.text()
             wsfev1.AgregarTributo(tributo_id=idimp, desc=detalle, base_imp=base_imp,
                                   alic=alicuota, importe=importe)
-        if LeerIni(clave='cat_iva', key='WSFEv1') == 1: #◘unicamente si es RI se informa los IVA
+        if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1: #◘unicamente si es RI se informa los IVA
             #agrego todos los iva
             for k,v in self.netos.items():
                 if v != 0:
@@ -271,12 +284,6 @@ class FacturaController(ControladorBase):
                     iva = k
                     importe = base_imp * iva / 100
                     ok = wsfev1.AgregarIva(id, base_imp, importe)
-        # for x in range(self.view.gridFactura.rowCount()):
-        #     iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
-        #     id = FEv1().TASA_IVA[str(iva)]
-        #     base_imp = float(self.view.gridFactura.ObtenerItem(fila=x, col='SubTotal'))
-        #     importe = base_imp * iva / 100
-        #     ok = wsfev1.AgregarIva(id, base_imp, importe)
 
         #SolicitoCAE:
         cae = wsfev1.CAESolicitar()
@@ -356,6 +363,19 @@ class FacturaController(ControladorBase):
             detfact.detalle = detalle[:40]
             detfact.descuento = 0.00
             detfact.save()
+        # Agregar comprobantes asociados(si es una NC / ND):
+        if str(self.view.cboComprobante.text()).find('credito'):
+            cpbte = CpbteRel()
+            cpbte.idcabfact = cabfact.idcabfact
+            if self.tipo_cpte == 13:
+                cpbte.idtipocpbte = 11
+            else:
+                if self.cliente.tiporesp.idtiporesp == 2:  # resp inscripto
+                    cpbte.idtipocpbte = 1
+                else:
+                    cpbte.idtipocpbte = 6
+            cpbte.numero = self.view.layoutCpbteRelacionado.numero
+            cpbte.save()
         self.ImprimeFactura(idcabecera=cabfact.idcabfact)
 
     @inicializar_y_capturar_excepciones
@@ -423,22 +443,30 @@ class FacturaController(ControladorBase):
         pyfpdf.EstablecerParametro("iva_cli", cabfact.cliente.tiporesp.nombre)
 
         #Agregar comprobantes asociados(si es una NC / ND):
-        #tipo = 19
-        #pto_vta = 2
-        #nro = 1234
-        #pyfepdf.AgregarCmpAsoc(tipo, pto_vta, nro)
+        if cabfact.tipocomp.codigo in [3, 8, 13]:
+            cpbterel = CpbteRel().select().where(CpbteRel.idcabfact == cabfact.idcabfact)
+            for cp in cpbterel:
+                tipo = cp.idtipocpbte.codigo
+                pto_vta = cp.numero[:4]
+                nro = cp.numero[-8:]
+                pyfpdf.AgregarCmpAsoc(tipo, pto_vta, nro)
+        # if str(self.view.cboComprobante.text()).find('credito'):
+        #     tipo = 19
+        #     pto_vta = 2
+        #     nro = 1234
+        #     pyfepdf.AgregarCmpAsoc(tipo, pto_vta, nro)
 
         #Agrego subtotales de IVA(uno por alicuota)
         if cabfact.netoa != 0:
             iva_id = 5 #c�digo para al�cuota del 21 %
             base_imp = cabfact.netoa #importe neto sujeto a esta al�cuota
-            importe = 21 #importe liquidado de iva
+            importe = cabfact.netoa * 21 / 100 #importe liquidado de iva
             ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
 
         if cabfact.netob != 0:
             iva_id = 4  # c�digo para al�cuota del 21 %
             base_imp = cabfact.netob  # importe neto sujeto a esta al�cuota
-            importe = 10.5  # importe liquidado de iva
+            importe = cabfact.netob * 10.5 / 100  # importe liquidado de iva
             ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
 
         if cabfact.percepciondgr != 0:
@@ -463,7 +491,7 @@ class FacturaController(ControladorBase):
             bonif = 0 #importe de descuentos
             iva_id = FEv1().TASA_IVA[str(float(d.tipoiva.iva))] #c�digopara al�cuota del 21 %
             imp_iva = d.montoiva #importe liquidado deiva
-            importe = d.precio #importe total del item
+            importe = d.precio  #importe total del item
             despacho = "" #numero de despacho de importaci�n
             dato_a = "" #primer dato adicional del item
             dato_b = ""
@@ -528,3 +556,9 @@ class FacturaController(ControladorBase):
     def onClickbotonBorraArt(self):
         self.view.gridFactura.removeRow(self.view.gridFactura.currentRow())
         self.SumaTodo()
+
+    def onCurrentIndexChanged(self):
+        self.ObtieneNumeroFactura()
+        if str(self.view.cboComprobante.text()).find('credito'):
+            self.view.layoutCpbteRelacionado.lineEditNumero.setEnabled(True)
+            self.view.layoutCpbteRelacionado.lineEditPtoVta.setEnabled(True)

@@ -118,6 +118,8 @@ class Factura(QHBoxLayout):
         self.lineEditPtoVta.proximoWidget = self.lineEditNumero
         self.lineEditNumero.largo = 8
         self.lineEditPtoVta.largo = 4
+        self.lineEditPtoVta.setMaximumWidth(40)
+        self.lineEditNumero.setMaximumWidth(70)
 
         self.lineEditPtoVta.editingFinished.connect(self.AssignNumero)
         self.lineEditNumero.editingFinished.connect(self.AssignNumero)
