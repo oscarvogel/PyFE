@@ -14,6 +14,7 @@ from PyQt4.QtGui import QVBoxLayout, QHBoxLayout
 
 from libs.BarraProgreso import Avance
 from libs.Botones import Boton, BotonCerrarFormulario
+from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Fechas import Fecha
 from libs.Formulario import Formulario
@@ -35,6 +36,10 @@ class IVAVentasView(Formulario):
         self.avance.setVisible(False)
         self.verticalLayoutDatos.addWidget(self.avance)
 
+        self.layoutPtoVta = self.ArmaEntrada('desdeptovta', texto="Desde punto de venta")
+        self.ArmaEntrada('hastaptovta', texto="Hasta punto de venta", boxlayout=self.layoutPtoVta)
+        self.controles['desdeptovta'].setInputMask("9999")
+        self.controles['hastaptovta'].setInputMask("9999")
         self.layoutFechas = QHBoxLayout()
         self.lblDesdeFecha = Etiqueta(texto="Desde fecha")
         self.lineDesdeFecha = Fecha()

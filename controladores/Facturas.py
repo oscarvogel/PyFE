@@ -138,8 +138,10 @@ class FacturaController(ControladorBase):
                 codigo = self.view.gridFactura.ObtenerItem(fila=x, col='Codigo')
                 try:
                     art = Articulo.get_by_id(codigo)
-                    self.view.gridFactura.ModificaItem(valor=art.nombre, fila=x, col='Detalle')
-                    self.view.gridFactura.ModificaItem(valor=art.preciopub, fila=x, col='Unitario')
+                    if not detalle:
+                        self.view.gridFactura.ModificaItem(valor=art.nombre, fila=x, col='Detalle')
+                    if unitario == 0:
+                        self.view.gridFactura.ModificaItem(valor=art.preciopub, fila=x, col='Unitario')
                 except Articulo.DoesNotExist:
                     pass
             cantidad = self.view.gridFactura.ObtenerItem(fila=x, col='Cant.')
@@ -192,7 +194,8 @@ class FacturaController(ControladorBase):
             self.GrabaFE()
         self.view.Cerrar()
 
-    def CreaFE(self):
+    @inicializar_y_capturar_excepciones
+    def CreaFE(self, *args, **kwargs):
         ok = True
         wsfev1 = FEv1()
         ta = wsfev1.Autenticar()
@@ -259,7 +262,8 @@ class FacturaController(ControladorBase):
                 moneda_id, moneda_ctz)
 
         # Agregar comprobantes asociados(si es una NC / ND):
-        if str(self.view.cboComprobante.text()).find('credito'):
+        if self.tipo_cpte in [3, 8, 13]:
+        # if str(self.view.cboComprobante.text()).find('credito'):
             tipo = tipo_cbte
             pto_vta = self.view.layoutCpbteRelacionado.lineEditPtoVta.text()
             nro = self.view.layoutCpbteRelacionado.lineEditNumero.text()
@@ -275,6 +279,7 @@ class FacturaController(ControladorBase):
             importe = self.view.lineEditTributos.text()
             wsfev1.AgregarTributo(tributo_id=idimp, desc=detalle, base_imp=base_imp,
                                   alic=alicuota, importe=importe)
+
         if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1: #◘unicamente si es RI se informa los IVA
             #agrego todos los iva
             for k,v in self.netos.items():
@@ -288,7 +293,7 @@ class FacturaController(ControladorBase):
         #SolicitoCAE:
         cae = wsfev1.CAESolicitar()
         if wsfev1.ErrMsg:
-            Ventanas.showAlert("Sistema", wsfev1.ErrMsg)
+            Ventanas.showAlert("Sistema", "ERROR {}".format(wsfev1.ErrMsg))
             ok = False
         else:
             if wsfev1.Resultado == 'R':
@@ -399,7 +404,7 @@ class FacturaController(ControladorBase):
         #datos del cliente:
         tipo_doc = "80" if cabfact.cliente.tiporesp_id == 2 else "96"
         nro_doc = cabfact.cliente.cuit if cabfact.cliente.tiporesp_id == 2 else str(cabfact.cliente.dni)
-        nombre_cliente = cabfact.nombre
+        nombre_cliente = cabfact.nombre if cabfact.nombre != '' else cabfact.cliente.nombre
         domicilio_cliente = cabfact.domicilio
 
         #totales del comprobante:

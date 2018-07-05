@@ -6,6 +6,7 @@ from controladores.Clientes import ClientesController
 from controladores.Configuracion import ConfiguracionController
 from controladores.ConsultaCtaCte import ConsultaCtaCteController
 from controladores.ControladorBase import ControladorBase
+from controladores.EmiteRecibo import EmiteReciboController
 from controladores.Facturas import FacturaController
 from controladores.IVAVentas import IVAVentasController
 from controladores.ReImprimeFactura import ReImprimeFacturaController
@@ -62,6 +63,7 @@ class Main(ControladorBase):
         emisionAction = menu.addAction(u"Emision de Factura")
         reimprimeAction = menu.addAction(u"Re imprime factura")
         ivaventasAction = menu.addAction(u"IVA Ventas")
+        reciboAction = menu.addAction(u"Emision de recibo")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -73,6 +75,9 @@ class Main(ControladorBase):
             ventana.view.exec_()
         elif action == ivaventasAction:
             ventana = IVAVentasController()
+            ventana.view.exec_()
+        elif action == reciboAction:
+            ventana = EmiteReciboController()
             ventana.view.exec_()
 
     def onClickBtnSeteo(self):

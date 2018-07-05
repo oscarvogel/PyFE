@@ -14,7 +14,7 @@ import xlsxwriter
 from PyQt4.QtGui import QFileDialog
 
 from controladores.ControladorBase import ControladorBase
-from libs.Utiles import AbrirArchivo
+from libs.Utiles import AbrirArchivo, EsVerdadero
 from modelos.Cabfact import Cabfact
 from vistas.IVAVentas import IVAVentasView
 
@@ -34,6 +34,7 @@ class IVAVentasController(ControladorBase):
     def conectarWidgets(self):
         self.view.btnCerrar.clicked.connect(self.view.Cerrar)
         self.view.btnExcel.clicked.connect(self.ExportaExcel)
+        self.view.controles['desdeptovta'].editingFinished.connect(self.onEditinFinished)
 
     def ExportaExcel(self):
         cArchivo = str(QFileDialog.getSaveFileName(caption="Guardar archivo", directory="", filter="*.XLSX"))
@@ -44,6 +45,7 @@ class IVAVentasController(ControladorBase):
 
         data = Cabfact().select().where(Cabfact.fecha.between(
             self.view.lineDesdeFecha.date().toPyDate(), self.view.lineHastaFecha.date().toPyDate()))
+
         fila, col = 0, 0
         worksheet.write(fila, 0, 'Fecha')
         worksheet.write(fila, 1, 'Tipo Comprobante')
@@ -60,20 +62,27 @@ class IVAVentasController(ControladorBase):
         worksheet.write(fila, 12, 'Total')
         fila += 1
         for d in data:
-            worksheet.write(fila, 0, d.fecha.strftime('%d/%m/%Y'))
-            worksheet.write(fila, 1, d.tipocomp.nombre)
-            worksheet.write(fila, 2, d.cliente.nombre)
-            worksheet.write(fila, 3, d.cliente.tiporesp.nombre)
-            worksheet.write(fila, 4, d.cliente.cuit)
-            worksheet.write(fila, 5, d.netoa)
-            worksheet.write(fila, 6, d.netob)
-            worksheet.write(fila, 7, 0)
-            worksheet.write(fila, 8, d.iva)
-            worksheet.write(fila, 9, d.percepciondgr)
-            worksheet.write(fila, 10, d.cae)
-            worksheet.write(fila, 11, d.venccae)
-            worksheet.write(fila, 12, '=sum(F{}:J{})'.format(fila+1, fila+1))
-            fila += 1
+            if d.numero[:4] in [str(self.view.controles['desdeptovta'].text()).zfill(4),
+                                str(self.view.controles['hastaptovta'].text()).zfill(4)]\
+                    and d.tipocomp.exporta:
+                worksheet.write(fila, 0, d.fecha.strftime('%d/%m/%Y'))
+                worksheet.write(fila, 1, d.tipocomp.nombre)
+                worksheet.write(fila, 2, d.cliente.nombre)
+                worksheet.write(fila, 3, d.cliente.tiporesp.nombre)
+                worksheet.write(fila, 4, d.cliente.cuit)
+                worksheet.write(fila, 5, d.netoa)
+                worksheet.write(fila, 6, d.netob)
+                worksheet.write(fila, 7, 0)
+                worksheet.write(fila, 8, d.iva)
+                worksheet.write(fila, 9, d.percepciondgr)
+                worksheet.write(fila, 10, d.cae)
+                worksheet.write(fila, 11, d.venccae)
+                worksheet.write(fila, 12, '=sum(F{}:J{})'.format(fila+1, fila+1))
+                fila += 1
 
         workbook.close()
         AbrirArchivo(cArchivo)
+
+    def onEditinFinished(self):
+        print(self.view.controles['desdeptovta'].text().zfill(4))
+        self.view.controles['desdeptovta'].setText(self.view.controles['desdeptovta'].text().zfill(4))

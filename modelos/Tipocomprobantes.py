@@ -3,6 +3,7 @@ from peewee import IntegerField, CharField
 
 from libs.ComboBox import Combo
 from modelos.ModeloBase import ModeloBase, BitBooleanField
+from vistas.Busqueda import UiBusqueda
 
 
 class TipoComprobante(ModeloBase):
@@ -37,4 +38,13 @@ class ComboTipoComp(Combo):
                 8: 'Nota de credito B'
             }
             self.CargaDatosValores(self.valores)
+
+class Busqueda(UiBusqueda):
+    modelo = TipoComprobante #modelo sobre la que se realiza la busqueda
+    cOrden = "nombre" #orden de busqueda
+    limite = 100 #maximo registros a mostrar
+    campos = ["codigo, nombre"] #campos a mostrar
+    campoBusqueda = "nombre" #campo sobre el cual realizar la busqueda
+    campoRetorno = TipoComprobante.codigo #campo del cual obtiene el dato para retornar el codigo/valor
+    campoRetornoDetalle = TipoComprobante.nombre #campo que retorna el detalle
 

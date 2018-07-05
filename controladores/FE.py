@@ -122,3 +122,12 @@ class FEv1(WSFEv1):
             Ventanas.showAlert(LeerIni('nombre_sistema'), "ERROR: {}".format(wscdc.ErrMsg))
 
         return ok
+
+    def EstadoServidores(self):
+
+        ta = self.Autenticar()
+        self.Dummy()
+        Ventanas.showAlert(LeerIni('nombre_sistema'),
+                           "appserver status {} dbserver status {} authserver status {}".format(
+                               self.AppServerStatus, self.DbServerStatus, self.AuthServerStatus
+                           ))
