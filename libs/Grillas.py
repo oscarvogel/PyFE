@@ -106,6 +106,7 @@ class Grilla(QTableWidget):
                         item = 'Si'
                     else:
                         item = 'No'
+                    item = QTableWidgetItem(QTableWidgetItem(x))
                 else:
                     item = QTableWidgetItem(QTableWidgetItem(x))
 

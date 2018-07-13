@@ -32,7 +32,7 @@ class Boton(QPushButton):
         if 'autodefault' in kwargs:
             self.setAutoDefault(kwargs['autodefault'])
         else:
-            self.setDefault(True)
+            self.setAutoDefault(True)
         self.setDefault(False)
 
 

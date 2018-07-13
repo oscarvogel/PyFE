@@ -3,7 +3,7 @@ from peewee import AutoField, CharField
 
 from modelos.ModeloBase import ModeloBase, BitBooleanField
 
-
+CAJERO_POR_DEFECTO = 1
 class Cajero(ModeloBase):
 
     idcajero = AutoField(primary_key=True)

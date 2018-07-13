@@ -154,6 +154,6 @@ class CUIT(EntradaTexto):
         self.setInputMask("99-99999999-9")
 
     def focusOutEvent(self, QFocusEvent):
-        EntradaTexto.focusOutEvent(QFocusEvent)
+        EntradaTexto().focusOutEvent(QFocusEvent)
         if not validar_cuit(self.text()):
             Ventanas.showAlert("Sistema", "ERROR: CUIT/CUIL no valido. Verfique!!!")

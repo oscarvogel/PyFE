@@ -3,6 +3,7 @@ from datetime import date
 
 from peewee import IntegerField, ForeignKeyField, DateField, CharField, DecimalField, TextField, AutoField
 
+from modelos import Cajeros
 from modelos.Cajeros import Cajero
 from modelos.Clientes import Cliente
 from modelos.Formaspago import Formapago
@@ -33,9 +34,9 @@ class Cabfact(ModeloBase):
     nombre = CharField(max_length=30)
     domicilio = CharField(max_length=30)
     obs = TextField(default='')
-    cajero = ForeignKeyField(Cajero, backref='cajero', db_column='cajero')
+    cajero = ForeignKeyField(Cajero, backref='cajero', db_column='cajero', default=Cajeros.CAJERO_POR_DEFECTO)
     cae = CharField(max_length=20, default='')
-    venccae = DateField()
+    venccae = DateField(default='0000-00-00')
     concepto = CharField(max_length=1, default='')
     desde = DateField(default='0000-00-00')
     hasta = DateField(default='0000-00-00')

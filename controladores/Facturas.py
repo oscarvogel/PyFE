@@ -36,6 +36,7 @@ class FacturaController(ControladorBase):
         super(FacturaController, self).__init__()
         self.view = FacturaView()
         self.conectarWidgets()
+        self.EstablecerOrden()
 
     def conectarWidgets(self):
         self.view.validaCliente.editingFinished.connect(self.CargaDatosCliente)
@@ -87,6 +88,8 @@ class FacturaController(ControladorBase):
 
     def AgregaArt(self):
         self.view.gridFactura.setRowCount(self.view.gridFactura.rowCount() + 1)
+        self.view.gridFactura.ModificaItem(valor=1, fila=self.view.gridFactura.rowCount() - 1, col='Unitario')
+        self.view.gridFactura.ModificaItem(valor=21, fila=self.view.gridFactura.rowCount() - 1, col='IVA')
         self.SumaTodo()
 
     def onKeyPressedGridFactura(self, key):
@@ -567,3 +570,10 @@ class FacturaController(ControladorBase):
         if str(self.view.cboComprobante.text()).find('credito'):
             self.view.layoutCpbteRelacionado.lineEditNumero.setEnabled(True)
             self.view.layoutCpbteRelacionado.lineEditPtoVta.setEnabled(True)
+
+    def EstablecerOrden(self):
+        self.view.validaCliente.proximoWidget = self.view.lineEditDomicilio
+        self.view.lineEditDomicilio.proximoWidget = self.view.lineEditDocumento
+        self.view.lineEditDocumento.proximoWidget = self.view.cboTipoIVA
+        self.view.cboTipoIVA.proximoWidget = self.view.cboComprobante
+        self.view.cboComprobante.proximoWidget = self.view.botonAgregaArt

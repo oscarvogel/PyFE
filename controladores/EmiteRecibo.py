@@ -1,10 +1,14 @@
 # coding=utf-8
+from datetime import datetime
+
 from PyQt4 import QtGui
 from PyQt4.QtCore import Qt
 
 from controladores.ControladorBase import ControladorBase
 from modelos import Tipocomprobantes
 from modelos.Cabfact import Cabfact
+from modelos.Clientes import Cliente
+from modelos.Tipocomprobantes import TipoComprobante
 from vistas.EmiteRecibo import EmiteReciboView
 
 
@@ -14,6 +18,7 @@ class EmiteReciboController(ControladorBase):
         super(EmiteReciboController, self).__init__()
         self.view = EmiteReciboView()
         self.conectarWidgets()
+        self.EstablecerOrden()
 
     def conectarWidgets(self):
         self.view.btnCerra.clicked.connect(self.view.Cerrar)
@@ -21,6 +26,7 @@ class EmiteReciboController(ControladorBase):
         self.view.btnAgrega.clicked.connect(self.AgregaPago)
         self.view.gridDeuda.keyPressed.connect(self.onKeyPressedGridDeuda)
         self.view.gridPagos.keyPressed.connect(self.onKeyPressedGridPagos)
+        self.view.btnGraba.clicked.connect(self.onClickGraba)
 
     def CargaDeuda(self):
         self.view.gridDeuda.setRowCount(0)
@@ -29,8 +35,12 @@ class EmiteReciboController(ControladorBase):
         cabfact = Cabfact().select().where(Cabfact.saldo != 0, Cabfact.cliente == self.view.controles['cliente'].text())
 
         for c in cabfact:
+            if c.tipocomp.lado == 'H':
+                saldo = c.saldo * -1
+            else:
+                saldo = c.saldo
             item = [
-                c.tipocomp.nombre, c.numero, c.fecha, c.saldo, 0
+                c.tipocomp.nombre, c.numero, c.fecha, saldo, 0, c.idcabfact
             ]
             self.view.gridDeuda.AgregaItem(items=item)
 
@@ -65,7 +75,54 @@ class EmiteReciboController(ControladorBase):
     def onKeyPressedGridPagos(self, key):
         fila = self.view.gridPagos.currentRow()
         colact = self.view.gridPagos.currentColumn()
-        print("Col act {}".format(colact))
         if key == Qt.Key_F2:
             if colact == 0:
-                Tipocomprobantes.Busqueda()
+                ventana = Tipocomprobantes.Busqueda()
+                ventana.CargaDatos()
+                ventana.exec_()
+                if ventana.lRetval:
+                    self.view.gridPagos.ModificaItem(valor=ventana.ValorRetorno,
+                                                     fila=fila, col=colact)
+
+            self.view.gridPagos.setFocus()
+
+        self.SumaPagos()
+
+    def SumaPagos(self):
+        total = 0.
+        for x in range(self.view.gridPagos.rowCount()):
+            total += float(self.view.gridPagos.ObtenerItem(fila=x, col='Importe'))
+
+        self.view.controles['pagos'].setText(str(round(total, 3)))
+
+    def EstablecerOrden(self):
+        self.view.controles['cliente'].proximoWidget = self.view.gridDeuda
+
+    def onClickGraba(self):
+        self.SumaDeuda()
+        self.SumaPagos()
+        cliente = Cliente.get_by_id(int(self.view.controles['cliente'].text()))
+        recibo = Cabfact()
+        recibo.tipocomp = Tipocomprobantes.CODIGO_RECIBO
+        recibo.cliente = cliente.idcliente
+        recibo.fecha = datetime.today()
+        recibo.numero = str(TipoComprobante().SiguienteNumero(Tipocomprobantes.CODIGO_RECIBO)).zfill(12)
+        recibo.total = float(self.view.controles['pagos'].text())
+        if float(self.view.controles['saldo'].text()) < 0:
+            recibo.saldo = abs(float(self.view.controles['saldo'].text()))
+
+        recibo.tipoiva = cliente.tiporesp.idtiporesp
+        recibo.formapago = Tipocomprobantes.FORMA_PAGO['Cta Cte']
+        recibo.nombre = cliente.nombre
+        recibo.domicilio = cliente.domicilio
+        recibo.save()
+
+        for x in range(self.view.gridDeuda.rowCount()):
+            id = self.view.gridDeuda.ObtenerItem(fila=x, col='id')
+            importe = float(self.view.gridDeuda.ObtenerItem(fila=x, col='Importe'))
+            cabecera = Cabfact.get_by_id(int(id))
+            cabecera.saldo = cabecera.saldo - abs(importe)
+            cabecera.desde = "0000-00-00"
+            cabecera.hasta = "0000-00-00"
+            cabecera.venccae = "0000-00-00"
+            cabecera.save()

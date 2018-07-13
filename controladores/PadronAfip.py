@@ -11,7 +11,8 @@
 
 #consultar datos del padron de la afip online
 from controladores.FE import FEv1
-from libs.Utiles import LeerIni
+from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, AbrirArchivo
+from pyafipws.padron import PadronAFIP
 from pyafipws.ws_sr_padron import WSSrPadronA5, WSSrPadronA4
 
 __author__ = "Jose Oscar Vogel <oscarvogel@gmail.com>"
@@ -20,22 +21,30 @@ __license__ = "GPL 3.0"
 __version__ = "0.1"
 
 class PadronAfip(WSSrPadronA5):
-
+     
+    @inicializar_y_capturar_excepciones
     def ConsultarPersona(self, cuit=''):
         self.HOMO = True if LeerIni(clave='homo') == 'S' else False
         wsfev1 = FEv1()
 
-        ta = wsfev1.Autenticar(service='ws_sr_constancia_inscripcion')
+        ta = wsfev1.Autenticar(service='ws_sr_padron_a5')
         self.SetTicketAcceso(ta_string=ta)
         self.Cuit = LeerIni(clave='cuit', key='WSFEv1') #cuit de la empresa/persona
-        self.Token = wsfev1.Token
-        self.Sign = wsfev1.Sign
+
         if LeerIni(clave='homo') == 'N':
             self.WSDL = "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5?wsdl"
             self.Conectar("", self.WSDL)
         else:
             self.Conectar()
         ok = self.Consultar(id_persona=cuit)
-        if not ok:
-            print(self.LeerError())
 
+        return ok
+
+    @inicializar_y_capturar_excepciones
+    def DescargarConstancia(self, cuit='', filename='', *args, **kwargs):
+        padron = PadronAFIP()
+        if LeerIni(clave='homo') == 'S':
+            padron.Conectar()
+        ok = padron.DescargarConstancia(cuit, filename)
+        filename = LeerIni("iniciosistema") + filename
+        AbrirArchivo(filename)

@@ -38,3 +38,6 @@ class ControladorBase(object):
 
     def CargaDatos(self):
         pass
+
+    def EstablecerOrden(self):
+        pass

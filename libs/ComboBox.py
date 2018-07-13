@@ -1,6 +1,7 @@
 # coding=utf-8
 import decimal
 
+from PyQt4 import QtCore
 from PyQt4.QtCore import Qt
 from PyQt4.QtGui import QComboBox, QFont
 
@@ -17,6 +18,7 @@ class ComboSQL(QComboBox):
     tabla = ''
     cOrden = None
     model = None
+    proximoWidget = None
 
     def __init__(self, *args, **kwargs):
         QComboBox.__init__(self)
@@ -59,6 +61,15 @@ class ComboSQL(QComboBox):
 
     def setIndex(self, p_str):
         self.setCurrentIndex(self.findText(p_str))
+
+    def keyPressEvent(self, event):
+        self.lastKey = event.key()
+        if event.key() == QtCore.Qt.Key_Enter or \
+                        event.key() == QtCore.Qt.Key_Return or\
+                        event.key() == QtCore.Qt.Key_Tab:
+            if self.proximoWidget:
+                self.proximoWidget.setFocus()
+        QComboBox.keyPressEvent(self, event)
 
 class Combo(QComboBox):
 
@@ -115,3 +126,14 @@ class FormaPago(Combo):
     def __init__(self, parent=None, *args, **kwargs):
         Combo.__init__(self, parent, *args, **kwargs)
         self.CargaDatosValores(data={'S':'Contado','N':'Cuenta corriente'})
+
+class ComboConstComp(Combo):
+
+    def __init__(self, parent=None, *args, **kwargs):
+        Combo.__init__(self, parent, *args, **kwargs)
+        self.CargaDatos(data=[
+            'Comprobantes con CAI',
+            'Comprobantes Sin CAI',
+            'Comprobantes con CAE',
+            'Comprobantes con CAEA',
+        ])

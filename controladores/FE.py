@@ -58,7 +58,7 @@ class FEv1(WSFEv1):
         else:
             service = 'wsfe'
         wsaa = WSAA()
-        archivo = ubicacion_sistema() + 'ta.xml'
+        archivo = ubicacion_sistema() + service + '-ta.xml'
         try:
             file = open(archivo, "r")
             ta = file.read()

@@ -10,11 +10,11 @@ from libs.Utiles import LeerIni
 
 
 def inicio():
-    logging.basicConfig(filename=join(LeerIni("InicioSistema"), 'errors.log'), level=logging.DEBUG,
+    logging.basicConfig(filename=join(LeerIni("iniciosistema"), 'errors.log'), level=logging.DEBUG,
                         format='%(asctime)s %(message)s',
                         datefmt='%m/%d/%Y %I:%M:%S %p')
 
-    if LeerIni(clave='HOMO') == 'S':
+    if LeerIni(clave='homo') == 'S':
         print("Sistema en modo homologacion")
     else:
         print("Sistema en modo produccion")

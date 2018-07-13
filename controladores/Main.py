@@ -4,7 +4,9 @@ from PyQt4.QtGui import QApplication, QMenu, QCursor
 from controladores.Articulos import ArticulosController
 from controladores.Clientes import ClientesController
 from controladores.Configuracion import ConfiguracionController
+from controladores.ConstatacionComprobantes import ConstatacionComprobantesController
 from controladores.ConsultaCtaCte import ConsultaCtaCteController
+from controladores.ConsultaPadronAfip import ConsultaPadronAfipController
 from controladores.ControladorBase import ControladorBase
 from controladores.EmiteRecibo import EmiteReciboController
 from controladores.Facturas import FacturaController
@@ -30,6 +32,7 @@ class Main(ControladorBase):
         self.view.btnArticulo.clicked.connect(self.onClickBtnArticulo)
         self.view.btnFactura.clicked.connect(self.onClickBtnFactura)
         self.view.btnSeteo.clicked.connect(self.onClickBtnSeteo)
+        self.view.btnAFIP.clicked.connect(self.onClickBtnAFIP)
 
     def SalirSistema(self):
         QApplication.exit(1)
@@ -83,3 +86,18 @@ class Main(ControladorBase):
     def onClickBtnSeteo(self):
         config = ConfiguracionController()
         config.view.exec_()
+
+
+    def onClickBtnAFIP(self):
+        menu = QMenu(self.view)
+        consultaAction = menu.addAction(u"Consulta de CUIT")
+        constatacionAction = menu.addAction(u"Constatacion de comprobantes")
+        menu.addAction(u"Volver")
+        action = menu.exec_(QCursor.pos())
+
+        if action == consultaAction:
+            ventana = ConsultaPadronAfipController()
+            ventana.view.exec_()
+        elif action == constatacionAction:
+            ventana = ConstatacionComprobantesController()
+            ventana.view.exec_()
