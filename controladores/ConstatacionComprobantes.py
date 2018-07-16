@@ -5,6 +5,7 @@ from datetime import datetime
 from fpdf import FPDF
 
 from controladores.ControladorBase import ControladorBase
+from controladores.PadronAfip import PadronAfip
 from controladores.WSConstComp import WSConstComp
 from libs.Utiles import FechaMysql, AbrirArchivo, imagen, LeerIni
 from modelos.Tipocomprobantes import TipoComprobante
@@ -118,6 +119,13 @@ class ConstatacionComprobantesController(ControladorBase):
         filename = LeerIni('iniciosistema') + "tmp/constatacion{}.pdf".format(self.cuit_emisor)
         pdf.output(name=filename)
         AbrirArchivo(filename)
+
+        padron = PadronAfip()
+        cuit = self.doc_nro_receptor.replace("-", "")
+        if not os.path.isdir("tmp"):
+            os.mkdir("tmp")
+        filename = "tmp/constancia{}.pdf".format(cuit)
+        padron.DescargarConstancia(cuit=cuit, filename=filename)
 
 class PDF(FPDF):
 
