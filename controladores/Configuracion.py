@@ -15,7 +15,7 @@ class ConfiguracionController(ControladorBase):
 
     def conectarWidgets(self):
         self.view.btnCerrar.clicked.connect(self.view.Cerrar)
-        self.view.btnCerrar.clicked.connect(self.GrabaParametros)
+        self.view.btnGrabar.clicked.connect(self.GrabaParametros)
 
     def CargaDatos(self):
         self.view.controles['empresa'].setText(LeerIni(clave='empresa', key='FACTURA'))
@@ -53,3 +53,5 @@ class ConfiguracionController(ControladorBase):
         GrabarIni(clave='password', key='param', valor=password)
         GrabarIni(clave='key', key='param', valor=key)
         GrabarIni(clave='cat_iva', key='WSFEv1', valor=self.view.controles['cat_iva'].text())
+
+        Ventanas.showAlert(LeerIni('nombre_sistema'), 'Configuracion guardada con exito')

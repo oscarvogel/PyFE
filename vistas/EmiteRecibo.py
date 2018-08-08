@@ -41,11 +41,14 @@ class EmiteReciboView(VistaBase):
         self.ArmaEntrada(boxlayout=self.layoutDeudas, nombre='saldo', enabled=False)
 
         self.gridPagos = Grilla()
+        self.gridPagos.columnasHabilitadas = [0, 1, 2, 3, 4, 5, 6]
         self.gridPagos.enabled = True
         cabecera = [
-            'TipoComp', 'Importe', 'Banco', 'Sucursal', 'Numero', 'Vence', 'CUIT'
+            'TipoComp', 'Importe', 'Banco', 'Sucursal', 'Numero', 'Vence', 'CUIT', 'id'
         ]
         self.gridPagos.ArmaCabeceras(cabeceras=cabecera)
+        self.gridPagos.columnasOcultas = [7,]
+        self.gridPagos.OcultaColumnas()
         self.verticalLayoutDatos.addWidget(self.gridPagos)
 
         self.layoutPagos = self.ArmaEntrada('pagos', enabled=False)

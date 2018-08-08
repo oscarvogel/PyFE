@@ -2,6 +2,8 @@
 from PyQt4.QtGui import QApplication, QMenu, QCursor
 
 from controladores.Articulos import ArticulosController
+from controladores.CargaFacturasProveedor import CargaFacturaProveedorController
+from controladores.CentroCostos import CentroCostoController
 from controladores.Clientes import ClientesController
 from controladores.Configuracion import ConfiguracionController
 from controladores.ConstatacionComprobantes import ConstatacionComprobantesController
@@ -11,6 +13,7 @@ from controladores.ControladorBase import ControladorBase
 from controladores.EmiteRecibo import EmiteReciboController
 from controladores.Facturas import FacturaController
 from controladores.IVAVentas import IVAVentasController
+from controladores.Proveedores import ProveedoresController
 from controladores.ReImprimeFactura import ReImprimeFacturaController
 from modelos.ModeloBase import ModeloBase
 from vistas.Main import MainView
@@ -33,6 +36,7 @@ class Main(ControladorBase):
         self.view.btnFactura.clicked.connect(self.onClickBtnFactura)
         self.view.btnSeteo.clicked.connect(self.onClickBtnSeteo)
         self.view.btnAFIP.clicked.connect(self.onClickBtnAFIP)
+        self.view.btnCompras.clicked.connect(self.onClickBtnCompras)
 
     def SalirSistema(self):
         QApplication.exit(1)
@@ -100,4 +104,23 @@ class Main(ControladorBase):
             ventana.view.exec_()
         elif action == constatacionAction:
             ventana = ConstatacionComprobantesController()
+            ventana.view.exec_()
+
+    def onClickBtnCompras(self):
+        menu = QMenu(self.view)
+        proveedoresAction = menu.addAction(u"Proveedores")
+        centrocostosAction = menu.addAction(u"Centro de costos")
+        facturasAction = menu.addAction(u"Carga facturas")
+        ivaAction = menu.addAction(u"IVA Compras")
+        menu.addAction(u"Volver")
+        action = menu.exec_(QCursor.pos())
+
+        if action == proveedoresAction:
+            ventana = ProveedoresController()
+            ventana.view.exec_()
+        elif action == centrocostosAction:
+            ventana = CentroCostoController()
+            ventana.view.exec_()
+        elif action == facturasAction:
+            ventana = CargaFacturaProveedorController()
             ventana.view.exec_()

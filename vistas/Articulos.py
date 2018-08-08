@@ -38,21 +38,24 @@ class ArticulosView(ABM):
         self.ArmaEntrada('modificaprecios', boxlayout=self.layoutProvedor, control=CheckBox())
         self.layoutCosto = self.ArmaEntrada('costo', texto='Costo')
         self.ArmaEntrada('preciopub', boxlayout=self.layoutCosto)
+        self.ArmaEntrada('concepto', boxlayout=self.layoutCosto)
 
     def btnAceptarClicked(self):
+        # for x in self.controles:
+        #     print("Control {} Valor {} tipo {}".format(x, self.controles[x].text(), type(self.controles[x].text())))
         if self.tipo == 'M':
             articulo = Articulo.get_by_id(self.controles[Articulo.idarticulo.column_name].text())
             articulo.idarticulo = self.controles['idarticulo'].text()
         else:
             articulo = Articulo()
-        articulo.nombre = self.controles['nombre'].text()
-        articulo.nombreticket = self.controles['nombreticket'].text()
-        articulo.unidad = self.controles['unidad'].text()
-        articulo.grupo = self.controles['grupo'].text()
-        articulo.costo = self.controles['costo'].text()
-        articulo.provppal = self.controles['provppal'].text()
-        articulo.tipoiva = self.controles['tipoiva'].text()
+        articulo.nombre = str(self.controles['nombre'].text())
+        articulo.nombreticket = str(self.controles['nombreticket'].text())
+        articulo.unidad = str(self.controles['unidad'].text())
+        articulo.grupo = str(self.controles['grupo'].text())
+        articulo.costo = str(self.controles['costo'].text())
+        articulo.provppal = str(self.controles['provppal'].text())
+        articulo.tipoiva = str(self.controles['tipoiva'].text())
         articulo.modificaprecios = self.controles['modificaprecios'].text()
-        articulo.preciopub = self.controles['preciopub'].text()
+        articulo.preciopub = str(self.controles['preciopub'].text())
         articulo.save()
         ABM.btnAceptarClicked(self)

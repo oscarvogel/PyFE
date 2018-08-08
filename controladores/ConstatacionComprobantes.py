@@ -103,7 +103,7 @@ class ConstatacionComprobantesController(ControladorBase):
         self.view.btnImprimir.setEnabled(True)
 
     def onClickImprimir(self):
-        pdf = PDF()
+        pdf = PDFConstatatacion()
         pdf.estado = self.estado
         pdf.obs = self.obs
         pdf.cbte_modo = self.cbte_modo
@@ -127,7 +127,7 @@ class ConstatacionComprobantesController(ControladorBase):
         filename = "tmp/constancia{}.pdf".format(cuit)
         padron.DescargarConstancia(cuit=cuit, filename=filename)
 
-class PDF(FPDF):
+class PDFConstatatacion(FPDF):
 
     cbte_modo = 'CAE'
     estado = 'Aprobado'

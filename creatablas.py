@@ -2,11 +2,14 @@
 import sys
 
 from modelos.Articulos import Articulo
+from modelos.CabFacProv import CabFactProv
 from modelos.Cabfact import Cabfact
 from modelos.Cajeros import Cajero
+from modelos.CentroCostos import CentroCosto
 from modelos.Clientes import Cliente
 from modelos.CpbteRelacionado import CpbteRel
 from modelos.Ctacte import CtaCte
+from modelos.DetFactProv import DetFactProv
 from modelos.Detfact import Detfact
 from modelos.Emailcliente import EmailCliente
 from modelos.Formaspago import Formapago
@@ -25,6 +28,8 @@ if 'drop' in sys.argv:
     CtaCte().drop_table()
     Detfact().drop_table()
     Cabfact().drop_table()
+    CabFactProv().drop_table()
+    DetFactProv().drop_table()
     EmailCliente().drop_table()
     Cliente().drop_table()
     Articulo().drop_table()
@@ -39,6 +44,7 @@ if 'drop' in sys.argv:
     Tipoiva().drop_table()
     Cajero().drop_table()
     TipoComprobante().drop_table()
+    CentroCosto().drop_table()
 
 Grupo().create_table()
 grupo = [
@@ -47,10 +53,10 @@ grupo = [
 Grupo().insert(grupo).execute()
 
 Unidad().create_table()
-unidad = Unidad()
-unidad.unidad = 'UN'
-unidad.descripcion = 'UNIDAD'
-unidad.save()
+# unidad = [
+#     {'unidad':'UN', 'descripcion':'UNIDAD'}
+# ]
+# Unidad().insert(unidad).execute()
 
 Formapago().create_table()
 formapago = [
@@ -101,6 +107,7 @@ tipocomp = [
     {'codigo': 81, 'nombre': 'TIQUE FACTURA A', 'abreviatura': '', 'exporta': b'\01', 'letra': 'A', 'lado': 'D'},
     {'codigo': 82, 'nombre': 'TIQUE FACTURA B', 'abreviatura': '', 'exporta': b'\01', 'letra': 'B', 'lado': 'D'},
     {'codigo': 83, 'nombre': 'TIQUE', 'abreviatura': '', 'exporta': b'\01', 'letra': 'B', 'lado': 'D'},
+    {'codigo': 42, 'nombre': 'RECIBO X', 'abreviatura': 'RCX', 'exporta': b'\00', 'letra': ' ', 'lado': 'H'},
 ]
 TipoComprobante().insert(tipocomp).execute()
 
@@ -113,7 +120,7 @@ Impuesto().insert(impuestos).execute()
 
 Proveedor().create_table()
 proveedor = [
-    {'idproveedor':1, 'nombre':'SIN PROVEEDOR','domicilio':'','telefono':'','cuit':''}
+    {'idproveedor':1, 'nombre':'SIN PROVEEDOR','domicilio':'','telefono':'','cuit':'','tiporesp':1,'idLocalidad':1}
 ]
 Proveedor().insert(proveedor).execute()
 
@@ -144,3 +151,6 @@ Cabfact().create_table()
 Detfact().create_table()
 CtaCte().create_table()
 CpbteRel().create_table()
+CentroCosto().create_table()
+CabFactProv().create_table()
+DetFactProv().create_table()

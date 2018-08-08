@@ -62,8 +62,8 @@ class IVAVentasController(ControladorBase):
         worksheet.write(fila, 12, 'Total')
         fila += 1
         for d in data:
-            if d.numero[:4] in [str(self.view.controles['desdeptovta'].text()).zfill(4),
-                                str(self.view.controles['hastaptovta'].text()).zfill(4)]\
+            if str(self.view.controles['desdeptovta'].text()).zfill(4) <= d.numero[:4] <= \
+                                str(self.view.controles['hastaptovta'].text()).zfill(4) \
                     and d.tipocomp.exporta:
                 worksheet.write(fila, 0, d.fecha.strftime('%d/%m/%Y'))
                 worksheet.write(fila, 1, d.tipocomp.nombre)
@@ -76,7 +76,7 @@ class IVAVentasController(ControladorBase):
                 worksheet.write(fila, 8, d.iva)
                 worksheet.write(fila, 9, d.percepciondgr)
                 worksheet.write(fila, 10, d.cae)
-                worksheet.write(fila, 11, d.venccae)
+                worksheet.write(fila, 11, d.venccae.strftime('%d/%m/%Y'))
                 worksheet.write(fila, 12, '=sum(F{}:J{})'.format(fila+1, fila+1))
                 fila += 1
 

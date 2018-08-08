@@ -28,6 +28,12 @@ class MainView(VistaBase):
         self.btnArticulo = BotonMain(texto='&Articulos', imagen='imagenes/if_product-sales-report_49607.png')
         self.layoutBotones.addWidget(self.btnArticulo)
 
+        self.btnAFIP = BotonMain(texto='A&FIP', imagen='imagenes/logoafipfondoblanco.png')
+        self.layoutBotones.addWidget(self.btnAFIP)
+
+        self.btnCompras = BotonMain(texto='Compras', imagen='imagenes/compras.png')
+        self.layoutBotones.addWidget(self.btnCompras)
+
         self.btnSeteo = BotonMain(texto='&Configuracion', imagen='imagenes/if_Settings-2_379349.png')
         self.layoutBotones.addWidget(self.btnSeteo)
 

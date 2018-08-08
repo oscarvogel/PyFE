@@ -43,6 +43,7 @@ class ClientesView(ABM):
         self.lblNombreImpuesto = Etiqueta()
         self.layoutImpuesto.addWidget(self.lblNombreImpuesto)
         self.controles['percepcion'].widgetNombre = self.lblNombreImpuesto
+        self.campoFoco = self.controles['nombre']
 
     @inicializar_y_capturar_excepciones
     def btnAceptarClicked(self, *args, **kwargs):

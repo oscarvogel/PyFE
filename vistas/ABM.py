@@ -40,6 +40,12 @@ class ABM(VistaBase):
     #campo
     campoClave = None
 
+    #campo clave autoincremental
+    autoincremental = True
+
+    #campo para el foco
+    campoFoco = None
+
     def __init__(self, *args, **kwargs):
         VistaBase.__init__(self, *args, **kwargs)
         self.controles = {}
@@ -193,6 +199,8 @@ class ABM(VistaBase):
         self.tabDetalle.setEnabled(True)
         self.tabWidget.setCurrentIndex(1)
         self.CargaDatos(data)
+        if self.campoFoco:
+            self.campoFoco.setFocus()
 
     def CargaDatos(self, data=None):
         if not data:
@@ -274,7 +282,12 @@ class ABM(VistaBase):
 
     def Agrega(self):
         for x in self.controles:
+            if self.autoincremental:
+                if x == self.campoClave.column_name:
+                    self.controles[x].setEnabled(False)
             self.controles[x].setText('')
             self.controles[x].setStyleSheet("background-color: white")
         self.tabDetalle.setEnabled(True)
         self.tabWidget.setCurrentIndex(1)
+        if self.campoFoco:
+            self.campoFoco.setFocus()
