@@ -24,7 +24,7 @@ class FEv1(WSFEv1):
 
     def __init__(self):
         WSFEv1.__init__(self)
-        if LeerIni(clave='homo') != 'S':
+        if LeerIni(clave='homo') != 'S': #si no es homologacion traigo la url de produccion
             self.WSDL = LeerIni(clave='url_prod', key='WSFEv1')
 
     #crea ticket de acceso verificando que ya no tenga abierto uno

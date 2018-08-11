@@ -40,7 +40,8 @@ class ArticulosView(ABM):
         self.ArmaEntrada('preciopub', boxlayout=self.layoutCosto)
         self.ArmaEntrada('concepto', boxlayout=self.layoutCosto)
 
-    def btnAceptarClicked(self):
+    @inicializar_y_capturar_excepciones
+    def btnAceptarClicked(self, *args, **kwargs):
         # for x in self.controles:
         #     print("Control {} Valor {} tipo {}".format(x, self.controles[x].text(), type(self.controles[x].text())))
         if self.tipo == 'M':
@@ -57,5 +58,6 @@ class ArticulosView(ABM):
         articulo.tipoiva = str(self.controles['tipoiva'].text())
         articulo.modificaprecios = self.controles['modificaprecios'].text()
         articulo.preciopub = str(self.controles['preciopub'].text())
+        articulo.concepto = self.controles['concepto'].text()
         articulo.save()
         ABM.btnAceptarClicked(self)

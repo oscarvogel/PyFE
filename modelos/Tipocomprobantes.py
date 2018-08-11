@@ -13,7 +13,7 @@ FORMA_PAGO = {
 }
 
 class TipoComprobante(ModeloBase):
-    codigo = IntegerField(primary_key=True)
+    codigo = IntegerField(primary_key=True, db_column='codigo')
     nombre = CharField(max_length=30)
     abreviatura = CharField(max_length=3, db_column='abr')
     lado = CharField(max_length=1, default='')
@@ -83,7 +83,7 @@ class Valida(Validaciones):
             data = self.modelo.select().where(TipoComprobante.codigo == codigo).get()
             if data:
                 self.valido = True
-                self.setStyleSheet("background-color: green")
+                self.setStyleSheet("background-color: Dodgerblue")
                 self.cursor = data
                 if self.widgetNombre:
                     self.widgetNombre.setText(data.nombre.strip())

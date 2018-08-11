@@ -17,3 +17,6 @@ class CtaCte(ModeloBase):
     usuario = CharField(default='', db_column='_usuario')
     fechagraba = DateField(default=datetime.now(), db_column='_fecha')
     hora = CharField(default=datetime.now().strftime('%H:%M:%S'), db_column='_hora')
+
+    class Meta:
+        table_name = 'ctacte'

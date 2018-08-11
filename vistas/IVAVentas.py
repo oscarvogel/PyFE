@@ -18,7 +18,7 @@ from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Fechas import Fecha
 from libs.Formulario import Formulario
-from libs.Utiles import imagen
+from libs.Utiles import imagen, InicioMes, FinMes
 
 
 class IVAVentasView(Formulario):
@@ -40,13 +40,15 @@ class IVAVentasView(Formulario):
         self.ArmaEntrada('hastaptovta', texto="Hasta punto de venta", boxlayout=self.layoutPtoVta)
         self.controles['desdeptovta'].setInputMask("9999")
         self.controles['hastaptovta'].setInputMask("9999")
+        self.controles['desdeptovta'].setText("0000")
+        self.controles['hastaptovta'].setText("9999")
         self.layoutFechas = QHBoxLayout()
         self.lblDesdeFecha = Etiqueta(texto="Desde fecha")
         self.lineDesdeFecha = Fecha()
-        self.lineDesdeFecha.setFecha()
+        self.lineDesdeFecha.setFecha(InicioMes())
         self.lblHastaFecha = Etiqueta(texto="Hasta fecha")
         self.lineHastaFecha = Fecha()
-        self.lineHastaFecha.setFecha()
+        self.lineHastaFecha.setFecha(FinMes())
         self.layoutFechas.addWidget(self.lblDesdeFecha)
         self.layoutFechas.addWidget(self.lineDesdeFecha)
         self.layoutFechas.addWidget(self.lblHastaFecha)

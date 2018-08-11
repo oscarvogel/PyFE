@@ -6,7 +6,7 @@ from modelos.ModeloBase import ModeloBase, BitBooleanField
 
 class Formapago(ModeloBase):
 
-    idformapago = AutoField()
+    idformapago = AutoField(db_column='idformapago')
     detalle = CharField(max_length=30, default='')
     ctacte = BitBooleanField(default=0)
     descuento = DecimalField(max_digits=12, decimal_places=2, default=0)
