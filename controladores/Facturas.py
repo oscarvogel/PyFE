@@ -1,5 +1,7 @@
 # coding=utf-8
 import decimal
+
+import peewee
 from os.path import join
 
 from PyQt4.QtCore import Qt
@@ -70,7 +72,7 @@ class FacturaController(ControladorBase):
             self.view.cboComprobante.setText('Factura C')
 
         self.view.cboTipoIVA.setText(cliente.tiporesp.nombre)
-        self.ObtieneNumeroFactura()
+        #self.ObtieneNumeroFactura()
 
     def ObtieneNumeroFactura(self):
         self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='pto_vta', key='WSFEv1').zfill(4))
@@ -88,7 +90,7 @@ class FacturaController(ControladorBase):
 
     def AgregaArt(self):
         self.view.gridFactura.setRowCount(self.view.gridFactura.rowCount() + 1)
-        self.view.gridFactura.ModificaItem(valor=1, fila=self.view.gridFactura.rowCount() - 1, col='Unitario')
+        self.view.gridFactura.ModificaItem(valor=0, fila=self.view.gridFactura.rowCount() - 1, col='Unitario')
         self.view.gridFactura.ModificaItem(valor=21, fila=self.view.gridFactura.rowCount() - 1, col='IVA')
         self.SumaTodo()
 
@@ -112,9 +114,25 @@ class FacturaController(ControladorBase):
                 self.view.gridFactura.ModificaItem(valor=_ventana.campoRetornoDetalle,
                                                    fila=self.view.gridFactura.currentRow(),
                                                    col=2)
+                art = Articulo.get_by_id(_ventana.ValorRetorno)
+                self.view.gridFactura.ModificaItem(valor=art.preciopub,
+                                                   fila=self.view.gridFactura.currentRow(),
+                                                   col='Unitario')
             self.view.gridFactura.setFocus()
-        elif key in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab] and col == 1:
-            codigo = self.view.gridFactura.ObtenerItem(fila=row, col=1)
+        if key in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab] and col == 1:
+            if float(self.view.gridFactura.ObtenerItem(fila=row, col='Unitario')) == 0:
+                codigo = self.view.gridFactura.ObtenerItem(fila=row, col=1)
+                if codigo:
+                    art = Articulo.get_by_id(codigo)
+                    self.view.gridFactura.ModificaItem(valor=art.preciopub,
+                                               fila=self.view.gridFactura.currentRow(),
+                                               col='Unitario')
+
+        if key in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab]:
+            if col < self.view.gridFactura.columnCount():
+                self.view.gridFactura.setCurrentCell(row, col + 1)
+            else:
+                self.view.gridFactura.setCurrentCell(row + 1, 0)
 
         self.SumaTodo()
 
@@ -190,6 +208,7 @@ class FacturaController(ControladorBase):
     def GrabaFactura(self):
         if not self.Validacion():
             return
+        self.view.btnGrabarFactura.setEnabled(False)
         self.SumaTodo()
         ok = self.CreaFE()
         if ok:
@@ -200,6 +219,7 @@ class FacturaController(ControladorBase):
     @inicializar_y_capturar_excepciones
     def CreaFE(self, *args, **kwargs):
         ok = True
+        self.ObtieneNumeroFactura()
         wsfev1 = FEv1()
         ta = wsfev1.Autenticar()
         #Setear tocken y sign de autorizacion(ticket de accesso, pasos previos)
@@ -235,13 +255,13 @@ class FacturaController(ControladorBase):
         imp_tot_conc = "0.00"
         if int(LeerIni(clave='cat_iva',
                        key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
-            imp_neto = str(float(self.view.lineEditTotal.text()) - \
+            imp_neto = str(round(float(self.view.lineEditTotal.text()) - \
                 float(self.view.lineEditTributos.text()) - \
-                float(self.view.lineEditTotalIVA.text()))
+                float(self.view.lineEditTotalIVA.text()), 2))
         else:
-            imp_neto = self.view.lineEditTotal.text()
-        imp_iva = self.view.lineEditTotalIVA.text()
-        imp_trib = self.view.lineEditTributos.text()
+            imp_neto = str(round(float(self.view.lineEditTotal.text()),2))
+        imp_iva = str(round(float(self.view.lineEditTotalIVA.text()),2))
+        imp_trib = str(round(float(self.view.lineEditTributos.text()),2))
         impto_liq_rni = "0.00"
         imp_op_ex = "0.00"
         fecha_cbte = self.view.lineEditFecha.getFechaSql()
@@ -275,11 +295,11 @@ class FacturaController(ControladorBase):
         if round(float(self.view.lineEditTributos.text()), 3) != 0:
             idimp = wsfev1.ID_IMP_PCIAL
             detalle = self.cliente.percepcion.detalle
-            base_imp = float(self.view.lineEditTotal.text()) - \
+            base_imp = round(float(self.view.lineEditTotal.text()) - \
                 float(self.view.lineEditTributos.text()) - \
-                float(self.view.lineEditTotalIVA.text())
+                float(self.view.lineEditTotalIVA.text()),2)
             alicuota = self.cliente.percepcion.porcentaje
-            importe = self.view.lineEditTributos.text()
+            importe = str(round(float(self.view.lineEditTributos.text()),2))
             wsfev1.AgregarTributo(tributo_id=idimp, desc=detalle, base_imp=base_imp,
                                   alic=alicuota, importe=importe)
 
@@ -288,9 +308,9 @@ class FacturaController(ControladorBase):
             for k,v in self.netos.items():
                 if v != 0:
                     id = FEv1().TASA_IVA[str(float(k))]
-                    base_imp = v
-                    iva = k
-                    importe = base_imp * iva / 100
+                    base_imp = round(v,2)
+                    iva = round(k,2)
+                    importe = round(base_imp * iva / 100,2)
                     ok = wsfev1.AgregarIva(id, base_imp, importe)
 
         #SolicitoCAE:
@@ -349,28 +369,31 @@ class FacturaController(ControladorBase):
             importe = float(self.view.gridFactura.ObtenerItem(fila=x, col='SubTotal'))
             iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
             detalle = self.view.gridFactura.ObtenerItem(fila=x, col='Detalle')
-            articulo = Articulo.get_by_id(codigo)
-            detfact = Detfact()
-            detfact.idcabfact = cabfact.idcabfact
-            detfact.idarticulo = codigo
-            detfact.cantidad = cantidad
-            detfact.unidad = articulo.unidad
-            detfact.costo = articulo.costo
-            if LeerIni(clave='cat_iva', key='WSFEv1') == 1:
-                detfact.precio = importe + importe * iva / 100
-            else:
-                detfact.precio = importe
-            detfact.tipoiva = articulo.tipoiva.codigo
-            detfact.montoiva = importe * iva / 100
-            if self.view.lineEditTributos.value() > 0:
-                detfact.montodgr = importe * float(self.cliente.percepcion.porcentaje) / 100
-            else:
-                detfact.montodgr = 0.00
-            detfact.montomuni = 0.00
-            detfact.descad = detalle
-            detfact.detalle = detalle[:40]
-            detfact.descuento = 0.00
-            detfact.save()
+            try:
+                articulo = Articulo.get_by_id(codigo)
+                detfact = Detfact()
+                detfact.idcabfact = cabfact.idcabfact
+                detfact.idarticulo = codigo
+                detfact.cantidad = cantidad
+                detfact.unidad = articulo.unidad
+                detfact.costo = articulo.costo
+                if LeerIni(clave='cat_iva', key='WSFEv1') == 1:
+                    detfact.precio = (importe + importe * iva / 100) / cantidad
+                else:
+                    detfact.precio = importe / cantidad
+                detfact.tipoiva = articulo.tipoiva.codigo
+                detfact.montoiva = importe * iva / 100
+                if self.view.lineEditTributos.value() > 0:
+                    detfact.montodgr = importe * float(self.cliente.percepcion.porcentaje) / 100
+                else:
+                    detfact.montodgr = 0.00
+                detfact.montomuni = 0.00
+                detfact.descad = detalle
+                detfact.detalle = detalle[:40]
+                detfact.descuento = 0.00
+                detfact.save()
+            except peewee.DoesNotExist:
+                pass
         # Agregar comprobantes asociados(si es una NC / ND):
         if str(self.view.cboComprobante.text()).find('credito'):
             cpbte = CpbteRel()
@@ -499,7 +522,7 @@ class FacturaController(ControladorBase):
             bonif = 0 #importe de descuentos
             iva_id = FEv1().TASA_IVA[str(float(d.tipoiva.iva))] #c�digopara al�cuota del 21 %
             imp_iva = d.montoiva #importe liquidado deiva
-            importe = d.precio  #importe total del item
+            importe = d.precio * d.cantidad  #importe total del item
             despacho = "" #numero de despacho de importaci�n
             dato_a = "" #primer dato adicional del item
             dato_b = ""
@@ -566,7 +589,7 @@ class FacturaController(ControladorBase):
         self.SumaTodo()
 
     def onCurrentIndexChanged(self):
-        self.ObtieneNumeroFactura()
+        #self.ObtieneNumeroFactura()
         if str(self.view.cboComprobante.text()).find('credito'):
             self.view.layoutCpbteRelacionado.lineEditNumero.setEnabled(True)
             self.view.layoutCpbteRelacionado.lineEditPtoVta.setEnabled(True)

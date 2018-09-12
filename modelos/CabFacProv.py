@@ -25,6 +25,7 @@ class CabFactProv(ModeloBase):
     nogravados = DecimalField(max_digits=12, decimal_places=4, default=0)
     cai = CharField(max_length=14, default='')
     modocpte = CharField(max_length=4, default='')
+    periodo = CharField(max_length=6, default='')
 
     class Meta:
         table_name = "pcabecera"

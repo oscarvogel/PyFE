@@ -13,7 +13,7 @@ class Detfact(ModeloBase):
     idcabfact = ForeignKeyField(Cabfact, backref='cabfact', column_name='idcabfact')
     idarticulo = ForeignKeyField(Articulo, backref='articulo', column_name='idarticulo')
     cantidad = DecimalField(max_digits=12, decimal_places=4)
-    unidad = ForeignKeyField(Unidad, backref='unidad', column_name='unidad')
+    unidad = ForeignKeyField(Unidad, column_name='unidad')
     costo = DecimalField(max_digits=12, decimal_places=4)
     precio = DecimalField(max_digits=12, decimal_places=4)
     tipoiva = ForeignKeyField(Tipoiva, backref='tipoiva', column_name='tipoiva')

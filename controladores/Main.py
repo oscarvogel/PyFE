@@ -12,6 +12,7 @@ from controladores.ConsultaPadronAfip import ConsultaPadronAfipController
 from controladores.ControladorBase import ControladorBase
 from controladores.EmiteRecibo import EmiteReciboController
 from controladores.Facturas import FacturaController
+from controladores.IVACompras import IVAComprasController
 from controladores.IVAVentas import IVAVentasController
 from controladores.Proveedores import ProveedoresController
 from controladores.RG3685Ventas import RG3685VentasController
@@ -128,4 +129,7 @@ class Main(ControladorBase):
             ventana.view.exec_()
         elif action == facturasAction:
             ventana = CargaFacturaProveedorController()
+            ventana.view.exec_()
+        elif action == ivaAction:
+            ventana = IVAComprasController()
             ventana.view.exec_()

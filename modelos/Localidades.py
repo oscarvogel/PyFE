@@ -8,9 +8,9 @@ from modelos.ModeloBase import ModeloBase
 class Localidad(ModeloBase):
 
     idlocalidad = AutoField()
-    nombre = CharField(max_length=30)
-    provincia = CharField(max_length=30)
-    nacion = CharField(max_length=30)
+    nombre = CharField(max_length=50)
+    provincia = CharField(max_length=50)
+    nacion = CharField(max_length=50)
 
     class Meta:
         table_name = 'localidades'

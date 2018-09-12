@@ -5,14 +5,14 @@ from controladores.ControladorBase import ControladorBase
 from libs import Ventanas, Constantes
 from libs.Utiles import GuardarArchivo, FechaMysql, Normaliza
 from modelos.Cabfact import Cabfact
-from vistas.RG3685Ventas import RG3685VentasView
+from vistas.RG3685 import RG3685View
 
 
 class RG3685VentasController(ControladorBase):
 
     def __init__(self):
         super(RG3685VentasController, self).__init__()
-        self.view = RG3685VentasView()
+        self.view = RG3685View()
         self.conectarWidgets()
         self.EstablecerOrden()
 

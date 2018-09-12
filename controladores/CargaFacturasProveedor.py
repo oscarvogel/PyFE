@@ -1,6 +1,8 @@
 # coding=utf-8
 import os
 
+from PyQt4.QtCore import Qt
+
 from controladores.ConstatacionComprobantes import PDFConstatatacion
 from controladores.ControladorBase import ControladorBase
 from controladores.PadronAfip import PadronAfip
@@ -9,8 +11,11 @@ from libs import Ventanas
 from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, FechaMysql, AbrirArchivo
 from modelos.CabFacProv import CabFactProv
 from modelos.DetFactProv import DetFactProv
+from modelos.PercepcionesDGR import PercepDGR
 from modelos.Proveedores import Proveedor
-from vistas.CargaFacturasProveedor import CargaFacturaProveedorView
+from modelos.Provincias import Provincia
+from vistas.Busqueda import UiBusqueda
+from vistas.CargaFacturasProveedor import CargaFacturaProveedorView, PercepDGRView
 
 
 class CargaFacturaProveedorController(ControladorBase):
@@ -28,6 +33,7 @@ class CargaFacturaProveedorController(ControladorBase):
     doc_nro_receptor = ""  # numero de CUIT del cliente
     estado = 'A' #estado del comprobante
     obs = '' #observaciones
+    ventana = None #ventana de carga de percepciones de DGR
 
     def __init__(self):
         super(CargaFacturaProveedorController, self).__init__()
@@ -37,6 +43,8 @@ class CargaFacturaProveedorController(ControladorBase):
 
     def conectarWidgets(self):
         self.view.btnCerrar.clicked.connect(self.view.Cerrar)
+        self.view.textFactura.lineEditPtoVta.editingFinished.connect(self.ValidaFactura)
+        self.view.textFactura.lineEditNumero.editingFinished.connect(self.ValidaFactura)
         #self.view.gridDatos.itemChanged.connect(self.SumaTodo)
         self.view.gridDatos.currentItemChanged.connect(self.SumaTodo)
         self.view.btnGrabar.clicked.connect(self.onClickBtnGrabar)
@@ -45,12 +53,16 @@ class CargaFacturaProveedorController(ControladorBase):
         self.view.textPercepcionIVA.editingFinished.connect(self.SumaTodo)
         self.view.textExentos.editingFinished.connect(self.SumaTodo)
         self.view.btnConstatacion.clicked.connect(self.onClickBtnConstata)
+        self.view.btnPercepDGR.clicked.connect(self.onClickBtnPercepDGR)
 
     def SumaTodo(self):
         neto = 0.
         iva = 0.
         total = 0.
 
+        self.view.btnGrabar.setEnabled(True)
+        self.view.btnConstatacion.setEnabled(True)
+        self.view.btnPercepDGR.setEnabled(True)
         for row in range(self.view.gridDatos.rowCount()):
             cantidad = float(self.view.gridDatos.ObtenerItem(fila=row, col='Cantidad'))
             netorenglon = float(self.view.gridDatos.ObtenerItem(fila=row, col='Neto'))
@@ -72,6 +84,8 @@ class CargaFacturaProveedorController(ControladorBase):
 
     @inicializar_y_capturar_excepciones
     def onClickBtnGrabar(self, *args, **kwargs):
+        if not self.ValidaFactura(): #si ya fue cargada la factura no permite que se cargue de nuevo
+            return
         cab = CabFactProv()
         cab.fecha = self.view.fechaCarga.date().toPyDate()
         cab.fechaem = self.view.fechaEmision.date().toPyDate()
@@ -86,6 +100,7 @@ class CargaFacturaProveedorController(ControladorBase):
         cab.nogravados = self.view.textNoGravado.value()
         cab.cai = str(self.view.textCAE.text())
         cab.modocpte = self.view.cboModoCpte.valor()
+        cab.periodo = self.view.periodo.cPeriodo
         cab.save()
 
         for row in range(self.view.gridDatos.rowCount()):
@@ -104,8 +119,25 @@ class CargaFacturaProveedorController(ControladorBase):
                 det.neto = neto
                 det.detalle = detalle
                 det.save()
+        if self.ventana:
+            for row in range(self.ventana.view.gridPercepDGR.rowCount()):
+                codjur = self.ventana.view.gridPercepDGR.ObtenerItem(fila=row, col='Codigo')
+                monto = float(self.ventana.view.gridPercepDGR.ObtenerItem(fila=row, col='Monto'))
+                if int(codjur) != 0:
+                    try:
+                        prov = Provincia.get_by_id(codjur)
+                        percep = PercepDGR()
+                        percep.codjur = codjur
+                        percep.monto = monto
+                        percep.idpcabecera = cab.idpcabfact
+                        percep.save()
+
+                    except Provincia.DoesNotExist:
+                        Ventanas.showAlert(LeerIni('nombre_sistema'),
+                                           "Codigo de jurisdiccion no existente {}".format(codjur))
 
         Ventanas.showAlert(LeerIni('nombre_sistema'), "Factura grabada correctamente")
+        self.view.Cerrar()
 
     def EstablecerOrden(self):
         self.view.textProveedor.proximoWidget = self.view.textTipoComp
@@ -186,3 +218,71 @@ class CargaFacturaProveedorController(ControladorBase):
         cuit = self.doc_nro_receptor.replace("-", "")
         filename = "tmp/constancia{}.pdf".format(cuit)
         padron.DescargarConstancia(cuit=cuit, filename=filename)
+
+    def ValidaFactura(self):
+        try:
+            data = CabFactProv.select().where(CabFactProv.idproveedor == self.view.textProveedor.value(),
+                                              CabFactProv.tipocomp == self.view.textTipoComp.value(),
+                                              CabFactProv.numero == self.view.textFactura.numero).get()
+            if data:
+                Ventanas.showAlert(LeerIni("nombre_sistema"), "Error factura ya cargada al sistema")
+                self.view.btnGrabar.setEnabled(False)
+                retorno = False
+            else:
+                self.view.btnGrabar.setEnabled(True)
+                retorno = True
+        except CabFactProv.DoesNotExist:
+            retorno = True
+
+        return retorno
+
+    def onClickBtnPercepDGR(self):
+        self.ventana = PercepDGRController()
+        self.ventana.exec_()
+        percep = 0.
+        for row in range(self.ventana.view.gridPercepDGR.rowCount()):
+            percep += float(self.ventana.view.gridPercepDGR.ObtenerItem(fila=row, col='Monto'))
+        self.view.textPercepcionDGR.setText(str(round(percep, 2)))
+        self.SumaTodo()
+
+class PercepDGRController(ControladorBase):
+
+    def __init__(self):
+        super(PercepDGRController, self).__init__()
+        self.view = PercepDGRView()
+        self.conectarWidgets()
+
+    def conectarWidgets(self):
+        self.view.btnCerrarDGR.clicked.connect(self.view.Cerrar)
+        self.view.gridPercepDGR.keyPressed.connect(self.onKeyGridPercepDGR)
+
+    def onKeyGridPercepDGR(self, key):
+        col = self.view.gridPercepDGR.currentColumn()
+        fila = self.view.gridPercepDGR.currentRow()
+
+        if key == Qt.Key_F2 and col == 0:
+            _ventana = UiBusqueda()
+            _ventana.modelo = Provincia
+            _ventana.cOrden = Provincia.nombre
+            _ventana.campoBusqueda = _ventana.cOrden
+            _ventana.campoRetorno = Provincia.codjur
+            _ventana.campoRetornoDetalle = Provincia.nombre
+            _ventana.campos = ['codjur', 'nombre']
+            _ventana.CargaDatos()
+            _ventana.exec_()
+            if _ventana.lRetval:
+                self.view.gridPercepDGR.ModificaItem(valor=_ventana.ValorRetorno,
+                                                     col=0, fila=fila)
+                self.view.gridPercepDGR.ModificaItem(valor=_ventana.campoRetornoDetalle,
+                                                     col='Nombre', fila=fila)
+            self.view.gridPercepDGR.setFocus()
+
+        if key in [Qt.Key_Tab, Qt.Key_Enter, Qt.Key_Return] and col == 0:
+            try:
+                prov = Provincia.get_by_id(
+                    int(self.view.gridPercepDGR.ObtenerItem(fila=fila, col=col))
+                )
+                self.view.gridPercepDGR.ModificaItem(valor=prov.nombre, fila=fila, col='Nombre')
+            except Provincia.DoesNotExist:
+                #Ventanas.showAlert(LeerIni("nombre_sistema"), "Error codigo de jurisdiccion no encontrado")
+                pass
