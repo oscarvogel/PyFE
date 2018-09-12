@@ -428,8 +428,8 @@ class FacturaController(ControladorBase):
         fecha = FechaMysql(cabfact.fecha)
         concepto = cabfact.concepto
         #datos del cliente:
-        tipo_doc = "80" if cabfact.cliente.tiporesp_id == 2 else "96"
-        nro_doc = cabfact.cliente.cuit if cabfact.cliente.tiporesp_id == 2 else str(cabfact.cliente.dni)
+        tipo_doc = "80" if cabfact.cliente.tiporesp_id != 3 else "96"
+        nro_doc = cabfact.cliente.cuit if cabfact.cliente.tiporesp_id != 3 else str(cabfact.cliente.dni)
         nombre_cliente = cabfact.nombre if cabfact.nombre != '' else cabfact.cliente.nombre
         domicilio_cliente = cabfact.domicilio
 

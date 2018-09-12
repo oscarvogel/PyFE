@@ -1,4 +1,6 @@
 # coding=utf-8
+import os
+
 from PyQt4.QtGui import QApplication
 
 from controladores.ControladorBase import ControladorBase
@@ -23,12 +25,15 @@ class RG3685VentasController(ControladorBase):
     def Procesar(self):
         #arch = open(Constantes.ARCHIVO_CITI_VTAS + "ventas" + self.periodo.cPeriodo + ".txt", "w")
         #archDet = open(Constantes.ARCHIVO_CITI_VTAS + "alicuotas-ventas" + self.periodo.cPeriodo + ".txt", "w")
+        if not os.path.isdir("cpras-vtas"):
+            os.mkdir("cpras-vtas")
+
         data = Cabfact.select().where(Cabfact.fecha.between(lo=self.view.periodo.dInicio,
                                                               hi=self.view.periodo.dFin))
         arch = open(GuardarArchivo(caption="Guardar archivo", directory="cpras-vtas", filter="*.TXT",
-                              filename="REGINFO_CV_VENTAS_CBTE"), "w")
+                              filename="REGINFO_CV_VENTAS_CBTE_{}".format(self.view.periodo.cPeriodo)), "w")
         archDet = open(GuardarArchivo(caption="Guardar archivo", directory="cpras-vtas", filter="*.TXT",
-                                 filename="REGINFO_CV_VENTAS_ALICUOTAS"), "w")
+                                 filename="REGINFO_CV_VENTAS_ALICUOTAS_{}".format(self.view.periodo.cPeriodo)), "w")
         if not arch or not archDet:
             return
 

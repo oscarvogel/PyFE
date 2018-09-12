@@ -1,4 +1,6 @@
 # coding=utf-8
+import datetime
+
 from PyQt4 import QtCore
 from PyQt4.QtGui import QLineEdit, QFont, QHBoxLayout, QTextEdit
 
@@ -63,7 +65,7 @@ class EntradaTexto(QLineEdit):
             self.setText(self.text().zfill(self.relleno))
 
         if self.text():
-            self.setStyleSheet("background-color: green")
+            self.setStyleSheet("background-color: Dodgerblue")
         else:
             self.setStyleSheet("background-color: white")
         QLineEdit.focusOutEvent(self, QFocusEvent)
@@ -78,7 +80,7 @@ class EntradaTexto(QLineEdit):
             self.setMaxLength(self.largo)
 
     def value(self):
-        return float(self.text())
+        return float(self.text()) if self.text() else 0.
 
 class Factura(QHBoxLayout):
 
@@ -157,3 +159,32 @@ class CUIT(EntradaTexto):
         EntradaTexto().focusOutEvent(QFocusEvent)
         if not validar_cuit(self.text()):
             Ventanas.showAlert("Sistema", "ERROR: CUIT/CUIL no valido. Verfique!!!")
+
+class EntradaFecha(EntradaTexto):
+
+    def __init__(self, *args, **kwargs):
+        EntradaTexto.__init__(self, *args, **kwargs)
+        self.setInputMask("99/99/9999")
+
+    def setFecha(self, fecha=datetime.datetime.today(), format=None):
+        if format:
+            if format == "Ymd":
+                fecha = datetime.date(year=int(fecha[:4]),
+                                      month=int(fecha[4:6]),
+                                      day=int(fecha[-2:]))
+        if isinstance(fecha, int):
+            if fecha > 0:
+                self.setDate(datetime.date.today() + datetime.timedelta(days=fecha))
+            else:
+                self.setDate(datetime.date.today() - datetime.timedelta(days=abs(fecha)))
+        else:
+            self.setDate(fecha)
+
+    def getFechaSql(self):
+        fecha = str(self.text())
+        fecha = datetime.datetime.strptime(fecha, "%d/%m/%Y").date().strftime('%Y%m%d')
+        return fecha
+
+    def setDate(self, QDate):
+        fecha = QDate.strftime("%d/%m/%Y")
+        self.setText(fecha)

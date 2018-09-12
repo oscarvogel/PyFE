@@ -35,6 +35,8 @@ class Boton(QPushButton):
             self.setAutoDefault(True)
         self.setDefault(False)
 
+        if 'enabled' in kwargs:
+            self.setEnabled(kwargs['enabled'])
 
 class BotonMain(Boton):
 

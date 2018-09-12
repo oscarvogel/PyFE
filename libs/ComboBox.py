@@ -136,4 +136,22 @@ class ComboConstComp(Combo):
             'Comprobantes Sin CAI',
             'Comprobantes con CAE',
             'Comprobantes con CAEA',
+            'Controlador Fiscal CF',
         ])
+
+    def valor(self):
+        retorno = ''
+        texto = str(self.text())
+        if texto.endswith('CAI'):
+            if texto.find('Sin') != -1:
+                retorno = 'SIN'
+            else:
+                retorno = 'CAI'
+        elif texto.endswith('CAE'):
+            retorno = 'CAE'
+        elif texto.endswith('CAEA'):
+            retorno = 'CAEA'
+        elif texto.endswith('CF'):
+            retorno = 'CF'
+
+        return retorno

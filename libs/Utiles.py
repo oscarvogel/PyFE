@@ -11,6 +11,9 @@
 # for more details.
 
 #Utilidades varias necesarias en el sistema
+import calendar
+
+from PyQt4.QtGui import QFileDialog
 
 __author__ = "Jose Oscar Vogel <oscarvogel@gmail.com>"
 __copyright__ = "Copyright (C) 2018 Jose Oscar Vogel"
@@ -169,3 +172,37 @@ def HoraMysql(hora=None):
     retorno = hora.strftime('%H:%M:%S')
 
     return retorno
+
+def InicioMes(dFecha=None):
+    if not dFecha:
+        dFecha = datetime.date.today()
+
+    return dFecha.replace(day=1)
+
+def FinMes(hFecha=None):
+    if not hFecha:
+        hFecha = datetime.date.today()
+
+    return hFecha.replace(day = calendar.monthrange(hFecha.year, hFecha.month)[1])
+
+def GuardarArchivo(caption="Guardar archivo", directory="", filter="", filename=""):
+
+    #dialog = QFileDialog()
+    #dialog.selectFile(filename)
+    #dialog.setDirectory(directory)
+    #dialog.setAcceptMode(QFileDialog.AcceptSave)
+    #dialog.setFileMode(filter)
+    cArchivo = QFileDialog.getSaveFileName(caption=caption,
+                                           directory=join(directory, filename),
+                                           filter=filter)
+    #dialog.exec_()
+    #cArchivo = dialog.selectedFiles()[0]
+    return cArchivo if cArchivo else ''
+
+
+def Normaliza(valor):
+    valor = DeCodifica(valor)
+    return valor.replace('Ñ','N').replace('ñ','n').replace('º','')
+
+def DeCodifica(dato):
+    return "{}".format(bytearray(dato, 'latin-1', errors='ignore').decode('utf-8','ignore'))

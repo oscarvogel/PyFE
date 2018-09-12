@@ -73,8 +73,7 @@ class Validaciones(EntradaTexto):
             self.valida()
             if self.proximoWidget:
                 self.proximoWidget.setFocus()
-        else:
-            QLineEdit.keyPressEvent(self, event)
+        QLineEdit.keyPressEvent(self, event)
 
     def focusOutEvent(self, QFocusEvent):
         if self.lastKey != QtCore.Qt.Key_F2:
@@ -85,12 +84,12 @@ class Validaciones(EntradaTexto):
         if not self.text():
             return
         if self.largo != 0:
-            self.setText(self.text().zfill(self.largo))
+            self.setText(str(self.text()).zfill(self.largo))
         #data = SQL().BuscaUno(self.tabla, self.campoRetorno, self.text())
         data = self.modelo.select().where(self.campoRetorno == self.text()).dicts()
         if data:
             self.valido = True
-            self.setStyleSheet("background-color: green")
+            self.setStyleSheet("background-color: Dodgerblue")
             self.cursor = data
             if self.widgetNombre:
                 for d in data:

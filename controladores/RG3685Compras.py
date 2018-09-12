@@ -1,9 +1,11 @@
 # coding=utf-8
+import os
+
 from peewee import fn
 
 from controladores.ControladorBase import ControladorBase
 from libs import Ventanas, Constantes
-from libs.Utiles import GuardarArchivo, FechaMysql
+from libs.Utiles import GuardarArchivo, FechaMysql, LeerIni
 from modelos.CabFacProv import CabFactProv
 from modelos.DetFactProv import DetFactProv
 from vistas.RG3685 import RG3685View
@@ -23,10 +25,13 @@ class RG3685ComprasController(ControladorBase):
         self.view.btnProcesar.clicked.connect(self.Procesar)
 
     def Procesar(self):
+        if not os.path.isdir("cpras-vtas"):
+            os.mkdir("cpras-vtas")
+
         arch = open(GuardarArchivo(caption="Guardar archivo", directory="cpras-vtas", filter="*.TXT",
-                              filename="REGINFO_CV_COMPRAS_CBTE"), "w")
+                              filename="REGINFO_CV_COMPRAS_CBTE_{}".format(self.view.periodo.cPeriodo)), "w")
         archDet = open(GuardarArchivo(caption="Guardar archivo", directory="cpras-vtas", filter="*.TXT",
-                                 filename="REGINFO_CV_COMPRAS_ALICUOTAS"), "w")
+                                 filename="REGINFO_CV_COMPRAS_ALICUOTAS_{}".format(self.view.periodo.cPeriodo)), "w")
         if not arch or not archDet:
             return
 
@@ -36,7 +41,11 @@ class RG3685ComprasController(ControladorBase):
         data = CabFactProv.select().where(CabFactProv.periodo == self.view.periodo.cPeriodo)
 
         for d in data:
-            if d.tipocomp.exporta:
+            if LeerIni(clave='base') == 'sqlite': #esto es porque sqlite no soporta boolean
+                exporta = d.tipocomp.codigo in Constantes.COMPEXPORTA
+            else:
+                exporta = d.tipocomp.exporta
+            if exporta:
                 detalle = DetFactProv.select(DetFactProv.iva, fn.SUM(DetFactProv.neto).alias("neto")).group_by(
                     DetFactProv.iva).where(DetFactProv.idpcabecera == d.idpcabfact)
                 fecha = FechaMysql(d.fechaem)
@@ -82,7 +91,7 @@ class RG3685ComprasController(ControladorBase):
                     neto = '{:.{prec}f}'.format(det.neto, prec=2).replace('.', '').zfill(15)
                     alicuota = Constantes.ALICUOTA_AFIP[int('{:.{prec}f}'.format(det.iva, prec=0))]
                     impuestodetalle = '{:.{prec}f}'.format(det.neto * det.iva / 100, prec=2).replace('.', '').zfill(15)
-                    if d.tipocomp.codigo not in [11, 32, 39]:
+                    if d.tipocomp.codigo not in [11, 32, 13]:
                         itemsdet = [
                             tipocomp, ptovta, numero, tipodoc, nrodoc,
                             neto, alicuota, impuestodetalle

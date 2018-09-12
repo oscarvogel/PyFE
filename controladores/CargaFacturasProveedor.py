@@ -106,8 +106,8 @@ class CargaFacturaProveedorController(ControladorBase):
         cab.save()
 
         for row in range(self.view.gridDatos.rowCount()):
-            iva = self.view.gridDatos.ObtenerItem(fila=row, col='IVA')
-            neto = self.view.gridDatos.ObtenerItem(fila=row, col='Neto')
+            iva = float(self.view.gridDatos.ObtenerItem(fila=row, col='IVA'))
+            neto = float(self.view.gridDatos.ObtenerItem(fila=row, col='Neto'))
             ctrocosto = int(self.view.gridDatos.ObtenerItem(fila=row, col='Ctro Costos'))
             cantidad = float(self.view.gridDatos.ObtenerItem(fila=row, col='Cantidad'))
             detalle = self.view.gridDatos.ObtenerItem(fila=row, col='Detalle')
@@ -121,6 +121,7 @@ class CargaFacturaProveedorController(ControladorBase):
                 det.neto = neto
                 det.detalle = detalle
                 det.save()
+
         if self.ventana:
             for row in range(self.ventana.view.gridPercepDGR.rowCount()):
                 codjur = self.ventana.view.gridPercepDGR.ObtenerItem(fila=row, col='Codigo')

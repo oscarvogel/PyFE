@@ -1,6 +1,8 @@
 # coding=utf-8
 from PyQt4.QtGui import QCheckBox, QFont
 
+from libs.Utiles import LeerIni
+
 
 class CheckBox(QCheckBox):
 
@@ -14,7 +16,13 @@ class CheckBox(QCheckBox):
             self.setText(kwargs['texto'])
 
     def text(self):
-        if self.isChecked():
-            return b'\01'
+        if LeerIni('base') == 'mysql':
+            if self.isChecked():
+                return b'\01'
+            else:
+                return b'\00'
         else:
-            return b'\00'
+            if self.isChecked():
+                return True
+            else:
+                return False
