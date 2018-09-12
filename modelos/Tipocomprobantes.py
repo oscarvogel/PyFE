@@ -19,6 +19,7 @@ class TipoComprobante(ModeloBase):
     lado = CharField(max_length=1, default='')
     exporta = BitBooleanField(default=0)
     ultcomp = IntegerField(default=0)
+    letra = CharField(max_length=1, default='')
 
     class Meta:
         table_name = "tip_comp"

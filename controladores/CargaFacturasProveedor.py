@@ -76,7 +76,8 @@ class CargaFacturaProveedorController(ControladorBase):
         total += neto + iva + self.view.textExentos.value() + \
             self.view.textPercepcionIVA.value() + \
             self.view.textNoGravado.value() + \
-            self.view.textPercepcionDGR.value()
+            self.view.textPercepcionDGR.value() + \
+            self.view.textInternos.value()
 
         self.view.textIVA.setText(str(round(iva, 3)))
         self.view.textNeto.setText(str(round(neto, 3)))
@@ -96,6 +97,7 @@ class CargaFacturaProveedorController(ControladorBase):
         cab.iva = self.view.textIVA.value()
         cab.percepciondgr = self.view.textPercepcionDGR.value()
         cab.percepcioniva = self.view.textPercepcionIVA.value()
+        cab.impuestos = self.view.textInternos.value()
         cab.exentos = self.view.textExentos.value()
         cab.nogravados = self.view.textNoGravado.value()
         cab.cai = str(self.view.textCAE.text())

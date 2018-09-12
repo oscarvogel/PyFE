@@ -186,6 +186,11 @@ class FacturaView(Formulario):
                 0, 1, 2, 3
             ]
 
+        item = [
+            1, '', '', 0, 21, 0
+        ]
+        self.gridFactura.AgregaItem(items=item)
+
         layoutppal.addWidget(self.gridFactura)
         layoutBotones = QHBoxLayout()
         self.botonAgregaArt = Boton(texto="Agrega", imagen=imagen("nuevo.png"),

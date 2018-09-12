@@ -86,6 +86,10 @@ class CargaFacturaProveedorView(Formulario):
         self.textExentos = EntradaTexto(placeholderText="Exentos")
         self.gridTotales.addWidget(self.lblExentos, 0, 0)
         self.gridTotales.addWidget(self.textExentos, 0, 1)
+        lblInternos = Etiqueta(texto="Imp. Internos")
+        self.textInternos = EntradaTexto(placeholderText="Imp. Internos")
+        self.gridTotales.addWidget(lblInternos, 0, 2)
+        self.gridTotales.addWidget(self.textInternos, 0, 3)
         self.lblNeto = Etiqueta(texto="Netos")
         self.textNeto = EntradaTexto(enabled=False, placeholderText="Neto")
         self.gridTotales.addWidget(self.lblNeto, 0, 4)
@@ -96,7 +100,7 @@ class CargaFacturaProveedorView(Formulario):
         self.gridTotales.addWidget(self.lblNoGravado, 1, 0)
         self.gridTotales.addWidget(self.textNoGravado, 1, 1)
         self.lblPercepcionDGR = Etiqueta(texto="Percepcion DGR")
-        self.textPercepcionDGR = EntradaTexto(placeholderText="Percepcion DGR")
+        self.textPercepcionDGR = EntradaTexto(placeholderText="Percepcion DGR", enabled=False)
         self.gridTotales.addWidget(self.lblPercepcionDGR, 1, 2)
         self.gridTotales.addWidget(self.textPercepcionDGR, 1, 3)
         self.lblIVA = Etiqueta(texto="IVA")
@@ -116,10 +120,14 @@ class CargaFacturaProveedorView(Formulario):
         self.layoutPpal.addLayout(self.gridTotales)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnGrabar = Boton(texto="Grabar", imagen='imagenes/if_save.png', autodefault=False)
-        self.btnConstatacion = Boton(texto="Constatacion", imagen="imagenes/logoafipfondoblanco.png", autodefault=False)
+        self.btnGrabar = Boton(texto="Grabar", imagen='imagenes/if_save.png', autodefault=False, enabled=False)
+        self.btnConstatacion = Boton(texto="Constatacion", imagen="imagenes/logoafipfondoblanco.png",
+                                     autodefault=False, enabled=False)
+        self.btnPercepDGR = Boton(texto="Percepcion DGR", imagen='imagenes/dgr-misiones.png',
+                                  enabled=False, autodefault=False)
         self.btnCerrar = BotonCerrarFormulario(autodefault=False)
         self.layoutBotones.addWidget(self.btnGrabar)
+        self.layoutBotones.addWidget(self.btnPercepDGR)
         self.layoutBotones.addWidget(self.btnConstatacion)
         self.layoutBotones.addWidget(self.btnCerrar)
         self.layoutPpal.addLayout(self.layoutBotones)
@@ -172,3 +180,37 @@ class GrillaFactProv(Grilla):
                 else:
                     self.setCurrentCell(self.currentRow(), self.currentColumn() + 1)
         super(GrillaFactProv, self).keyPressEvent(event)
+
+
+class PercepDGRView(Formulario):
+
+    def __init__(self):
+        Formulario.__init__(self)
+        self.setupUi(self)
+
+    def setupUi(self, Form):
+        self.setWindowTitle("Carga de percepciones de DGR")
+        self.resize(650,550)
+        layoutPpal = QVBoxLayout(Form)
+        lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
+        layoutPpal.addWidget(lblTitulo)
+
+        self.gridPercepDGR = Grilla()
+        self.gridPercepDGR.enabled = True
+        cabeceras = [
+            'Codigo', 'Nombre', 'Monto'
+        ]
+        self.gridPercepDGR.ArmaCabeceras(cabeceras=cabeceras)
+        self.gridPercepDGR.columnasHabilitadas = [0, 2]
+        items = [
+            '', '', ''
+        ]
+        for x in range(10):
+            self.gridPercepDGR.AgregaItem(items=items)
+
+        layoutPpal.addWidget(self.gridPercepDGR)
+
+        layoutBotones = QHBoxLayout()
+        self.btnCerrarDGR = BotonCerrarFormulario(autodefault=False)
+        layoutBotones.addWidget(self.btnCerrarDGR)
+        layoutPpal.addLayout(layoutBotones)

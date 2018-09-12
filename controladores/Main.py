@@ -15,6 +15,7 @@ from controladores.Facturas import FacturaController
 from controladores.IVACompras import IVAComprasController
 from controladores.IVAVentas import IVAVentasController
 from controladores.Proveedores import ProveedoresController
+from controladores.RG3685Compras import RG3685ComprasController
 from controladores.RG3685Ventas import RG3685VentasController
 from controladores.ReImprimeFactura import ReImprimeFacturaController
 from modelos.ModeloBase import ModeloBase
@@ -118,6 +119,7 @@ class Main(ControladorBase):
         centrocostosAction = menu.addAction(u"Centro de costos")
         facturasAction = menu.addAction(u"Carga facturas")
         ivaAction = menu.addAction(u"IVA Compras")
+        rg3685 = menu.addAction(u"RG 3685 AFIP")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -132,4 +134,7 @@ class Main(ControladorBase):
             ventana.view.exec_()
         elif action == ivaAction:
             ventana = IVAComprasController()
+            ventana.view.exec_()
+        elif action == rg3685:
+            ventana = RG3685ComprasController()
             ventana.view.exec_()
