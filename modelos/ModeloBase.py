@@ -47,7 +47,11 @@ class BitBooleanField(BooleanField):
     field_type = 'Bit'
 
     def db_value(self, value):
+        if isinstance(db, SqliteDatabase):
+            return value == 1
         return value  == b'\01'
 
     def python_value(self, value):
+        if isinstance(db, SqliteDatabase):
+            return value == 1
         return value == b'\01'

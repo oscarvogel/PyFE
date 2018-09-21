@@ -17,7 +17,8 @@ from PyQt4.QtGui import QFileDialog
 
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1
-from libs.Utiles import AbrirArchivo, EsVerdadero
+from libs import Constantes
+from libs.Utiles import AbrirArchivo, EsVerdadero, LeerIni
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Detfact import Detfact
