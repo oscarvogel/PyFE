@@ -25,8 +25,8 @@ class PadronAfip(WSSrPadronA5):
     @inicializar_y_capturar_excepciones
     def ConsultarPersona(self, cuit=''):
         self.HOMO = True if LeerIni(clave='homo') == 'S' else False
-        wsfev1 = FEv1()
 
+        wsfev1 = FEv1()
         ta = wsfev1.Autenticar(service='ws_sr_padron_a5')
         self.SetTicketAcceso(ta_string=ta)
         self.Cuit = LeerIni(clave='cuit', key='WSFEv1') #cuit de la empresa/persona

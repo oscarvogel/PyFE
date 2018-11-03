@@ -26,6 +26,7 @@ class FacturaView(Formulario):
     def setupUi(self, Form):
         self.layoutPpal = QVBoxLayout(Form)
         self.setWindowTitle("Emision de factura")
+        self.resize(850, 650)
         self.lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
         self.layoutPpal.addWidget(self.lblTitulo)
         self.layoutCliente = QGridLayout()
@@ -36,24 +37,25 @@ class FacturaView(Formulario):
         self.validaCliente.widgetNombre = self.lblNombreCliente
         self.layoutCliente.addWidget(self.lblCodigoCliente, 0, 0)
         self.layoutCliente.addWidget(self.validaCliente, 0, 1)
-        self.layoutCliente.addWidget(self.lblNombreCliente, 0, 2)
+        self.layoutCliente.addWidget(self.lblNombreCliente, 0, 2, 1, 4)
 
+        layoutIVA = QHBoxLayout()
         self.lblDomicilio = Etiqueta(texto="Domicilio")
         self.lineEditDomicilio = EntradaTexto(placeholderText="Domicilio cliente")
         self.layoutCliente.addWidget(self.lblDomicilio, 1, 0)
-        self.layoutCliente.addWidget(self.lineEditDomicilio, 1, 1, 1, 2)
+        self.layoutCliente.addWidget(self.lineEditDomicilio, 1, 1, 1, 1)
 
-        self.lblDocumento = Etiqueta(texto="CUIT/CUIL/DNI")
+        self.lblDocumento = Etiqueta(texto=u"Nº Doc")
         self.lineEditDocumento = EntradaTexto(placeholderText="CUIT/CUIL/DNI")
-        self.layoutCliente.addWidget(self.lblDocumento, 2, 0)
-        self.layoutCliente.addWidget(self.lineEditDocumento, 2, 1, 1, 2)
+        self.layoutCliente.addWidget(self.lblDocumento, 1, 2)
+        self.layoutCliente.addWidget(self.lineEditDocumento, 1, 3)
         self.agrupaCliente.setLayout(self.layoutCliente)
 
         self.lblTipoIVA = Etiqueta(texto='IVA:')
         self.cboTipoIVA = Tiporesp.Combo()
-        self.layoutCliente.addWidget(self.lblTipoIVA, 3, 0)
-        self.layoutCliente.addWidget(self.cboTipoIVA, 3, 1, 1, 2)
-        
+        self.layoutCliente.addWidget(self.lblTipoIVA, 1, 4)
+        self.layoutCliente.addWidget(self.cboTipoIVA, 1, 5)
+
         self.layoutPpal.addWidget(self.agrupaCliente)
 
         self.layoutComprobante = QHBoxLayout()
@@ -163,7 +165,7 @@ class FacturaView(Formulario):
         self.layoutPpal.addLayout(self.layoutTotales)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnGrabarFactura = Boton(texto="Grabar", imagen=imagen('guardar.png'), autodefault=False)
+        self.btnGrabarFactura = Boton(texto="Emitir", imagen=imagen('guardar.png'), autodefault=False)
         self.btnCerrarFormulario = BotonCerrarFormulario(autodefault=False)
         self.layoutBotones.addWidget(self.btnGrabarFactura)
         self.layoutBotones.addWidget(self.btnCerrarFormulario)
@@ -187,7 +189,7 @@ class FacturaView(Formulario):
             ]
 
         item = [
-            1, '', '', 0, 21, 0
+            1, 1, '', 0, 21, 0
         ]
         self.gridFactura.AgregaItem(items=item)
 

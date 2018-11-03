@@ -9,7 +9,8 @@ from PyQt4.QtCore import Qt
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1
 from libs import Ventanas
-from libs.Utiles import LeerIni, validar_cuit, FechaMysql, ubicacion_sistema, inicializar_y_capturar_excepciones
+from libs.Utiles import LeerIni, validar_cuit, FechaMysql, ubicacion_sistema, inicializar_y_capturar_excepciones, \
+    DeCodifica
 from modelos import Tipocomprobantes
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
@@ -39,6 +40,9 @@ class FacturaController(ControladorBase):
         self.view = FacturaView()
         self.conectarWidgets()
         self.EstablecerOrden()
+        # for x in range(15):
+        #     item = ['']
+        #     self.view.gridFactura.AgregaItem(item)
 
     def conectarWidgets(self):
         self.view.validaCliente.editingFinished.connect(self.CargaDatosCliente)
@@ -72,7 +76,7 @@ class FacturaController(ControladorBase):
             self.view.cboComprobante.setText('Factura C')
 
         self.view.cboTipoIVA.setText(cliente.tiporesp.nombre)
-        #self.ObtieneNumeroFactura()
+        self.ObtieneNumeroFactura()
 
     def ObtieneNumeroFactura(self):
         self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='pto_vta', key='WSFEv1').zfill(4))
@@ -90,6 +94,7 @@ class FacturaController(ControladorBase):
 
     def AgregaArt(self):
         self.view.gridFactura.setRowCount(self.view.gridFactura.rowCount() + 1)
+        self.view.gridFactura.ModificaItem(valor=1, fila=self.view.gridFactura.rowCount() + 1, col='Cant.')
         self.view.gridFactura.ModificaItem(valor=0, fila=self.view.gridFactura.rowCount() - 1, col='Unitario')
         self.view.gridFactura.ModificaItem(valor=21, fila=self.view.gridFactura.rowCount() - 1, col='IVA')
         self.SumaTodo()
@@ -134,10 +139,12 @@ class FacturaController(ControladorBase):
             else:
                 self.view.gridFactura.setCurrentCell(row + 1, 0)
 
+        if key == Qt.Key_Down and row + 1 == self.view.gridFactura.rowCount():
+            self.AgregaArt()
+
         self.SumaTodo()
 
     def SumaTodo(self):
-        art = None
         totalgral = 0.
         ivagral = 0.
         dgrgral = 0.
@@ -146,11 +153,14 @@ class FacturaController(ControladorBase):
             10.5: 0,
             21: 0
         }
+        if not self.cliente:
+            return
         try:
             impuesto = float(self.cliente.percepcion.porcentaje)
         except Impuesto.DoesNotExist:
             impuesto = decimal.Decimal.from_float(0.)
         for x in range(self.view.gridFactura.rowCount()):
+            art = None
             if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 6:
                 self.view.gridFactura.ModificaItem(valor=21, fila=x, col='IVA')
             detalle = self.view.gridFactura.ObtenerItem(fila=x, col='Detalle')
@@ -159,12 +169,16 @@ class FacturaController(ControladorBase):
                 codigo = self.view.gridFactura.ObtenerItem(fila=x, col='Codigo')
                 try:
                     art = Articulo.get_by_id(codigo)
+                except Articulo.DoesNotExist:
+                    try:
+                        art = Articulo.get(Articulo.codbarra == codigo)
+                    except Articulo.DoesNotExist:
+                        pass
+                if art:
                     if not detalle:
                         self.view.gridFactura.ModificaItem(valor=art.nombre, fila=x, col='Detalle')
                     if unitario == 0:
                         self.view.gridFactura.ModificaItem(valor=art.preciopub, fila=x, col='Unitario')
-                except Articulo.DoesNotExist:
-                    pass
             cantidad = self.view.gridFactura.ObtenerItem(fila=x, col='Cant.')
             #self.view.gridFactura.ModificaItem(valor=cantidad, fila=x, col='Cant.')
             unitario = float(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
@@ -227,10 +241,11 @@ class FacturaController(ControladorBase):
         wsfev1.Cuit = LeerIni(clave='cuit', key='WSFEv1') #CUIT del emisor (debe estar registrado en la AFIP)
         #Conectar al Servicio Web de Facturacion
         #Produccion usar: *-- ok = WSFE.Conectar("", "https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL") & & Producción
-        if LeerIni(clave='homo'):
+        if LeerIni(clave='homo') == "S":
             ok = wsfev1.Conectar("") #Homologacion
         else:
-            ok = wsfev1.Conectar("", LeerIni(clave="url", key="WSFEv1"))
+            cacert = LeerIni(clave='cacert', key='WSFEv1')
+            ok = wsfev1.Conectar("", LeerIni(clave="url_prod", key="WSFEv1"), cacert=cacert)
 
         if self.view.checkBoxServicios.isChecked() \
             and self.view.checkBoxProductos.isChecked(): #si es productoso y servicios
@@ -242,7 +257,10 @@ class FacturaController(ControladorBase):
 
         self.concepto = concepto
         if self.cliente.tiporesp.idtiporesp == 3: #consumidor final
-            tipo_doc = 96
+            if str(self.view.lineEditDocumento.text()).strip() in ['0', '']:
+                tipo_doc = 99
+            else:
+                tipo_doc = 96
         else:
             tipo_doc = 80
 
@@ -316,11 +334,11 @@ class FacturaController(ControladorBase):
         #SolicitoCAE:
         cae = wsfev1.CAESolicitar()
         if wsfev1.ErrMsg:
-            Ventanas.showAlert("Sistema", "ERROR {}".format(wsfev1.ErrMsg))
+            Ventanas.showAlert("Sistema", "ERROR {}".format(DeCodifica(wsfev1.ErrMsg)))
             ok = False
         else:
             if wsfev1.Resultado == 'R':
-                Ventanas.showAlert("Sistema", "Motivo de rechazo {}".format(wsfev1.Obs))
+                Ventanas.showAlert("Sistema", "Motivo de rechazo {}".format(DeCodifica(wsfev1.Obs)))
                 ok = False
             else:
                 self.view.lineditCAE.setText(cae)

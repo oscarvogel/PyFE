@@ -12,12 +12,14 @@ from controladores.ConsultaPadronAfip import ConsultaPadronAfipController
 from controladores.ControladorBase import ControladorBase
 from controladores.EmiteRecibo import EmiteReciboController
 from controladores.Facturas import FacturaController
+from controladores.FacturasCodBarra import FacturaCodBarraController
 from controladores.IVACompras import IVAComprasController
 from controladores.IVAVentas import IVAVentasController
 from controladores.Proveedores import ProveedoresController
 from controladores.RG3685Compras import RG3685ComprasController
 from controladores.RG3685Ventas import RG3685VentasController
 from controladores.ReImprimeFactura import ReImprimeFacturaController
+from libs.Utiles import LeerIni
 from modelos.ModeloBase import ModeloBase
 from vistas.Main import MainView
 
@@ -79,7 +81,10 @@ class Main(ControladorBase):
         action = menu.exec_(QCursor.pos())
 
         if action == emisionAction:
-            factura = FacturaController()
+            if LeerIni(key='FACTURA', clave='venta') == 'grilla':
+                factura = FacturaController()
+            else:
+                factura = FacturaCodBarraController()
             factura.view.exec_()
         elif action == reimprimeAction:
             ventana = ReImprimeFacturaController()

@@ -5,6 +5,8 @@ from controladores.ControladorBase import ControladorBase
 from controladores.PadronAfip import PadronAfip
 from libs import Ventanas
 from libs.Utiles import LeerIni
+from modelos.Clientes import Cliente
+from modelos.Localidades import Localidad
 from vistas.ConsultaPadronAFIP import ConsultaPadronAFIPView
 
 class ConsultaPadronAfipController(ControladorBase):
@@ -18,6 +20,7 @@ class ConsultaPadronAfipController(ControladorBase):
         self.view.btnCerrar.clicked.connect(self.view.Cerrar)
         self.view.btnConsulta.clicked.connect(self.onClickConsulta)
         self.view.btnImprimir.clicked.connect(self.onClickImprimir)
+        self.view.btnAgregaCliente.clicked.connect(self.onClickAgregaCliente)
 
     def onClickConsulta(self):
         padron = PadronAfip()
@@ -51,3 +54,26 @@ class ConsultaPadronAfipController(ControladorBase):
             os.mkdir("tmp")
         filename = "tmp/constancia{}.pdf".format(cuit)
         padron.DescargarConstancia(cuit=cuit, filename=filename)
+
+    def onClickAgregaCliente(self):
+        padron = PadronAfip()
+        ok = padron.ConsultarPersona(cuit=str(self.view.textCUIT.text()).replace("-", ""))
+        if padron.errores:
+            Ventanas.showAlert(LeerIni("nombre_sistema"), "Error al leer informacion en la AFIP")
+        else:
+            cliente = Cliente()
+            cliente.nombre = padron.denominacion[:30]
+            cliente.domicilio = padron.direccion[:30]
+            try:
+                localidad = Localidad().select().where(Localidad.nombre.contains(padron.localidad)).get()
+            except Localidad.DoesNotExist:
+                localidad = Localidad().get_by_id(1)
+            cliente.localidad = localidad
+            cliente.cuit = padron.cuit
+            cliente.dni = padron.dni
+            cliente.tipodocu = 80 if padron.tipo_doc == 80 else 0
+            cliente.tiporesp = 2 if padron.tipo_doc == 80 else 0
+            cliente.formapago = 1
+            cliente.percepcion = 1
+            cliente.save()
+            Ventanas.showAlert(LeerIni("nombre_sistema"), "Verifique si los datos cargados son los correctos")

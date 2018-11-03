@@ -16,9 +16,9 @@ class FEv1(WSFEv1):
     PRODUCTOS = 1
     ID_IMP_PCIAL = 2
     TASA_IVA = {
-        "0.0":3,
-        "10.5":4,
-        "21.0":5,
+        "0.0": 3,
+        "10.5": 4,
+        "21.0": 5,
         "27.0": 6
     }
 
@@ -39,7 +39,8 @@ class FEv1(WSFEv1):
         cache = None
         proxy = ""
         wrapper = ""  # "pycurl"
-        cacert = True  # geotrust.crt"
+        #cacert = True  # geotrust.crt"
+        cacert = LeerIni('iniciosistema') + LeerIni(clave='cacert', key='WSFEv1')
         ok = self.Conectar(cache, wsdl, proxy, wrapper, cacert)
 
         if not ok:
@@ -84,9 +85,10 @@ class FEv1(WSFEv1):
                                LeerIni(clave="privatekey_homo", key="WSAA"))
                 ok = wsaa.Conectar("", LeerIni(clave='url_homo', key='WSAA'))  # Homologación
             else:
+                cacert = LeerIni('iniciosistema') + LeerIni(clave='cacert', key='WSFEv1')
                 cms = wsaa.SignTRA(tra, LeerIni(clave="cert_prod", key="WSAA"),
                                LeerIni(clave="privatekey_prod", key="WSAA"))
-                ok = wsaa.Conectar("", LeerIni(clave='url_prod', key='WSAA')) #Produccion
+                ok = wsaa.Conectar("", LeerIni(clave='url_prod', key='WSAA'), cacert=cacert) #Produccion
 
             #Llamar al web service para autenticar
             ta = wsaa.LoginCMS(cms)

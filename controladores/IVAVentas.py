@@ -13,7 +13,7 @@
 import decimal
 
 import xlsxwriter
-from PyQt4.QtGui import QFileDialog
+from PyQt4.QtGui import QFileDialog, QApplication
 
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1
@@ -44,6 +44,7 @@ class IVAVentasController(ControladorBase):
         self.view.controles['desdeptovta'].editingFinished.connect(self.onEditinFinished)
 
     def ExportaExcel(self):
+        self.view.avance.setVisible(True)
         cArchivo = str(QFileDialog.getSaveFileName(caption="Guardar archivo", directory="", filter="*.XLSX"))
         if not cArchivo:
             return
@@ -70,7 +71,12 @@ class IVAVentasController(ControladorBase):
         worksheet.write(fila, 14, 'Servicio')
         worksheet.write(fila, 15, 'Total')
         fila += 1
+        totalData = len(data)
+        cant = 0.0
         for d in data:
+            QApplication.processEvents()
+            cant += 1.
+            self.view.avance.actualizar(cant/totalData*100.)
             if str(self.view.controles['desdeptovta'].text()).zfill(4) <= d.numero[:4] <= \
                                 str(self.view.controles['hastaptovta'].text()).zfill(4) \
                     and d.tipocomp.exporta:
@@ -105,6 +111,7 @@ class IVAVentasController(ControladorBase):
                 fila += 1
 
         workbook.close()
+        self.view.avance.setVisible(False)
         AbrirArchivo(cArchivo)
 
     def onEditinFinished(self):

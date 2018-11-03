@@ -20,6 +20,7 @@ class Articulo(ModeloBase):
     modificaprecios = BitBooleanField(default=False)
     preciopub = DecimalField(max_digits=12, decimal_places=4, default=1)
     concepto = CharField(max_length=1, default='1')
+    codbarra = CharField(max_length=20, default='', column_name='codbarraart')
 
     class Meta:
         table_name = 'articulos'
