@@ -86,11 +86,11 @@ class IVAVentasController(ControladorBase):
                 worksheet.write(fila, 3, d.cliente.nombre)
                 worksheet.write(fila, 4, d.cliente.tiporesp.nombre)
                 worksheet.write(fila, 5, d.cliente.cuit)
-                worksheet.write(fila, 6, d.netoa)
-                worksheet.write(fila, 7, d.netob)
+                worksheet.write(fila, 6, d.netoa if d.tipocomp.lado == 'D' else d.netoa * -1)
+                worksheet.write(fila, 7, d.netob if d.tipocomp.lado == 'D' else d.netob * -1)
                 worksheet.write(fila, 8, 0)
-                worksheet.write(fila, 9, d.iva)
-                worksheet.write(fila, 10, d.percepciondgr)
+                worksheet.write(fila, 9, d.iva if d.tipocomp.lado == 'D' else d.iva * -1)
+                worksheet.write(fila, 10, d.percepciondgr if d.tipocomp.lado == 'D' else d.percepciondgr * -1)
                 worksheet.write(fila, 11, d.cae)
                 worksheet.write(fila, 12, d.venccae.strftime('%d/%m/%Y') if d.venccae else '')
                 deta = Detfact.select().where(Detfact.idcabfact == d.idcabfact)
@@ -100,11 +100,14 @@ class IVAVentasController(ControladorBase):
                     art = Articulo.get_by_id(det.idarticulo)
                     if art.concepto.strip():
                         if int(art.concepto.strip()) == FEv1.SERVICIOS:
-                            totserv += det.precio * det.cantidad
+                            totserv += det.precio * det.cantidad if d.tipocomp.lado == 'D' else \
+                                det.precio * det.cantidad * -1
                         else:
-                            totprod += det.precio * det.cantidad
+                            totprod += det.precio * det.cantidad if d.tipocomp.lado == 'D' else \
+                                det.precio * det.cantidad * -1
                     else:
-                        totprod += det.precio * det.cantidad
+                        totprod += det.precio * det.cantidad if d.tipocomp.lado == 'D' else \
+                            det.precio * det.cantidad * -1
                 worksheet.write(fila, 13, totprod)
                 worksheet.write(fila, 14, totserv)
                 worksheet.write(fila, 15, '=sum(G{}:J{})'.format(fila+1, fila+1))
