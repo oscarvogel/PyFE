@@ -13,6 +13,6 @@ Para facilitar la instalacion de PyQt4 se ha dispuesto una instalacion desde nue
 
 ![Emision de factura](http://www.servinlgsm.com.ar/pyqt4/emision_factura.JPG)
 
-##Demo
+## Demo
 
 *http://www.servinlgsm.com.ar/fe/setupDemoFe.exe*
