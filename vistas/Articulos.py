@@ -47,7 +47,7 @@ class ArticulosView(ABM):
         #     print("Control {} Valor {} tipo {}".format(x, self.controles[x].text(), type(self.controles[x].text())))
         if self.tipo == 'M':
             articulo = Articulo.get_by_id(self.controles[Articulo.idarticulo.column_name].text())
-            articulo.idarticulo = self.controles['idarticulo'].text()
+            articulo.idarticulo = int(self.controles['idarticulo'].text())
         else:
             articulo = Articulo()
         articulo.nombre = str(self.controles['nombre'].text())
@@ -55,8 +55,8 @@ class ArticulosView(ABM):
         articulo.unidad = str(self.controles['unidad'].text())
         articulo.grupo = str(self.controles['grupo'].text())
         articulo.costo = str(self.controles['costo'].text())
-        articulo.provppal = str(self.controles['provppal'].text())
-        articulo.tipoiva = str(self.controles['tipoiva'].text())
+        articulo.provppal = int(str(self.controles['provppal'].text()))
+        articulo.tipoiva = str(self.controles['tipoiva'].text()).zfill(2)
         articulo.modificaprecios = self.controles['modificaprecios'].text()
         articulo.preciopub = str(self.controles['preciopub'].text())
         articulo.concepto = self.controles['concepto'].text()

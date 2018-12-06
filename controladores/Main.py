@@ -15,6 +15,7 @@ from controladores.Facturas import FacturaController
 from controladores.FacturasCodBarra import FacturaCodBarraController
 from controladores.IVACompras import IVAComprasController
 from controladores.IVAVentas import IVAVentasController
+from controladores.Localidades import LocalidadesController
 from controladores.Proveedores import ProveedoresController
 from controladores.RG3685Compras import RG3685ComprasController
 from controladores.RG3685Ventas import RG3685VentasController
@@ -50,6 +51,7 @@ class Main(ControladorBase):
         menu = QMenu(self.view)
         altaAction = menu.addAction(u"Alta, bajas y modificaciones")
         ctacteAction = menu.addAction(u"Cuenta corriente")
+        localidadAction = menu.addAction(u"ABM Localidades")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -59,6 +61,9 @@ class Main(ControladorBase):
         elif action == ctacteAction:
             consulta = ConsultaCtaCteController()
             consulta.view.exec_()
+        elif action == localidadAction:
+            localidad = LocalidadesController()
+            localidad.view.exec_()
 
     def onClickBtnArticulo(self):
         menu = QMenu(self.view)
