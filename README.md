@@ -15,4 +15,4 @@ Para facilitar la instalacion de PyQt4 se ha dispuesto una instalacion desde nue
 
 ## Demo
 
-*http://www.servinlgsm.com.ar/fe/setupDemoFe.exe*
+*http://www.servinlgsm.com.ar/fe/setupDemoFE.exe*
