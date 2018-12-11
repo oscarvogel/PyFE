@@ -95,3 +95,9 @@ class Valida(Validaciones):
         except TipoComprobante.DoesNotExist:
             self.setStyleSheet("background-color: yellow")
         return data
+
+class ComboTipoIngreso(Combo):
+
+    def __init__(self, *args, **kwargs):
+        Combo.__init__(self, *args, **kwargs)
+        self.CargaDatos(['D','H'])

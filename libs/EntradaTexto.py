@@ -23,6 +23,9 @@ class EntradaTexto(QLineEdit):
     #para campos numericos que debo rellenar con ceros adelante
     relleno = 0
 
+    #emit signal
+    keyPressed = QtCore.pyqtSignal(int)
+
     def __init__(self, parent=None, *args, **kwargs):
 
         QLineEdit.__init__(self, *args)
@@ -59,6 +62,7 @@ class EntradaTexto(QLineEdit):
             if self.proximoWidget:
                 self.proximoWidget.setFocus()
         QLineEdit.keyPressEvent(self, event)
+        self.keyPressed.emit(event.key())
 
     def focusOutEvent(self, QFocusEvent):
         if self.relleno > 0:

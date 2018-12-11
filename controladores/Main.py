@@ -20,6 +20,7 @@ from controladores.Proveedores import ProveedoresController
 from controladores.RG3685Compras import RG3685ComprasController
 from controladores.RG3685Ventas import RG3685VentasController
 from controladores.ReImprimeFactura import ReImprimeFacturaController
+from controladores.TipoComprobantes import TipoComprobantesController
 from libs.Utiles import LeerIni
 from modelos.ModeloBase import ModeloBase
 from vistas.Main import MainView
@@ -52,6 +53,7 @@ class Main(ControladorBase):
         altaAction = menu.addAction(u"Alta, bajas y modificaciones")
         ctacteAction = menu.addAction(u"Cuenta corriente")
         localidadAction = menu.addAction(u"ABM Localidades")
+        tipoCompAction = menu.addAction(u"ABM Tipo Comprobantes")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -64,6 +66,9 @@ class Main(ControladorBase):
         elif action == localidadAction:
             localidad = LocalidadesController()
             localidad.view.exec_()
+        elif action == tipoCompAction:
+            tipocomp = TipoComprobantesController()
+            tipocomp.view.exec_()
 
     def onClickBtnArticulo(self):
         menu = QMenu(self.view)

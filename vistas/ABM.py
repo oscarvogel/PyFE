@@ -206,6 +206,7 @@ class ABM(VistaBase):
         if not data:
             return
         for d in data:
+            print(d)
             for k in d:
                 if k in self.controles:
                     if k == self.campoClave.column_name:
@@ -255,6 +256,7 @@ class ABM(VistaBase):
         if 'inputmask' in kwargs:
             lineEditNombre.setInputMask(kwargs['inputmask'])
 
+        #print(type(lineEditNombre))
         lineEditNombre.setObjectName(nombre)
         boxlayout.addWidget(lineEditNombre)
         if 'enabled' in kwargs:
