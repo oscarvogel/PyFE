@@ -133,3 +133,17 @@ class FEv1(WSFEv1):
                            "appserver status {} dbserver status {} authserver status {}".format(
                                self.AppServerStatus, self.DbServerStatus, self.AuthServerStatus
                            ))
+
+    @inicializar_y_capturar_excepciones
+    def ConsultarCAE(self, tipocbte, puntoventa, numero):
+        self.CAE = ""
+        self.Cuit = LeerIni(clave="cuit", key='WSFEv1')
+        ta = self.Autenticar()
+        self.SetTicketAcceso(ta_string=ta)
+        if LeerIni(clave='homo') == 'S':  # homologacion
+            self.Conectar()
+        else:
+            ok = self.Conectar("", self.WSDL) #Producción
+
+        print("Tipo comprobante {}".format(tipocbte))
+        caeconsultado = self.CompConsultar(tipo_cbte=tipocbte, punto_vta=puntoventa, cbte_nro=numero)

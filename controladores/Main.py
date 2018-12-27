@@ -7,6 +7,7 @@ from controladores.CentroCostos import CentroCostoController
 from controladores.Clientes import ClientesController
 from controladores.Configuracion import ConfiguracionController
 from controladores.ConstatacionComprobantes import ConstatacionComprobantesController
+from controladores.ConsultaCAE import ConsultaCAEController
 from controladores.ConsultaCtaCte import ConsultaCtaCteController
 from controladores.ConsultaPadronAfip import ConsultaPadronAfipController
 from controladores.ControladorBase import ControladorBase
@@ -118,6 +119,7 @@ class Main(ControladorBase):
         menu = QMenu(self.view)
         consultaAction = menu.addAction(u"Consulta de CUIT")
         constatacionAction = menu.addAction(u"Constatacion de comprobantes")
+        consultaCAE = menu.addAction(u"Consulta de CAE")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -126,6 +128,9 @@ class Main(ControladorBase):
             ventana.view.exec_()
         elif action == constatacionAction:
             ventana = ConstatacionComprobantesController()
+            ventana.view.exec_()
+        elif action == consultaCAE:
+            ventana = ConsultaCAEController()
             ventana.view.exec_()
 
     def onClickBtnCompras(self):

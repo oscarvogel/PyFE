@@ -600,6 +600,13 @@ class FacturaController(ControladorBase):
                 if str(iva) not in FEv1().TASA_IVA:
                     Ventanas.showAlert(LeerIni('nombre_sistema'), "Error el item {} no tiene un IVA valido".format(x+1))
                     retorno = False
+            codigo = self.view.gridFactura.ObtenerItem(fila=x, col='Codigo')
+            try:
+                articulo = Articulo.get_by_id(codigo)
+            except Articulo.DoesNotExist:
+                Ventanas.showAlert(LeerIni('nombre_sistema'), "Error el item {} tiene un articulo no valido".format(x + 1))
+                retorno = False
+
         return retorno
 
     def onClickbotonBorraArt(self):
