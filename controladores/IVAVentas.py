@@ -13,15 +13,16 @@
 import decimal
 
 import xlsxwriter
-from PyQt4.QtGui import QFileDialog, QApplication
+from PyQt4.QtGui import QFileDialog, QApplication, QInputDialog
 
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1
 from libs import Constantes
-from libs.Utiles import AbrirArchivo, EsVerdadero, LeerIni
+from libs.Utiles import AbrirArchivo, EsVerdadero, LeerIni, inicializar_y_capturar_excepciones, GrabarIni
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Detfact import Detfact
+from pyafipws.pyemail import PyEmail
 from vistas.IVAVentas import IVAVentasView
 
 __author__ = "Jose Oscar Vogel <oscarvogel@gmail.com>"
@@ -32,6 +33,8 @@ __version__ = "0.1"
 
 class IVAVentasController(ControladorBase):
 
+    cArchivoGenerado = None
+
     def __init__(self):
         super(IVAVentasController, self).__init__()
         self.view = IVAVentasView()
@@ -40,14 +43,16 @@ class IVAVentasController(ControladorBase):
 
     def conectarWidgets(self):
         self.view.btnCerrar.clicked.connect(self.view.Cerrar)
-        self.view.btnExcel.clicked.connect(self.ExportaExcel)
+        self.view.btnExcel.clicked.connect(lambda: self.ExportaExcel(mostrar=True))
+        self.view.btnEnviaCorreo.clicked.connect(self.EnviaCorreo)
         self.view.controles['desdeptovta'].editingFinished.connect(self.onEditinFinished)
 
-    def ExportaExcel(self):
+    def ExportaExcel(self, mostrar=True):
         self.view.avance.setVisible(True)
         cArchivo = str(QFileDialog.getSaveFileName(caption="Guardar archivo", directory="", filter="*.XLSX"))
         if not cArchivo:
             return
+        self.cArchivoGenerado = cArchivo
         workbook = xlsxwriter.Workbook(cArchivo)
         worksheet = workbook.add_worksheet()
 
@@ -112,10 +117,18 @@ class IVAVentasController(ControladorBase):
                 worksheet.write(fila, 14, totserv)
                 worksheet.write(fila, 15, '=sum(G{}:J{})'.format(fila+1, fila+1))
                 fila += 1
-
+        worksheet.write(fila, 6, '=sum(G{}:G{})'.format(1, fila-1))
+        worksheet.write(fila, 7, '=sum(H{}:H{})'.format(1, fila - 1))
+        worksheet.write(fila, 8, '=sum(I{}:I{})'.format(1, fila-1))
+        worksheet.write(fila, 9, '=sum(J{}:J{})'.format(1, fila - 1))
+        worksheet.write(fila, 10, '=sum(K{}:K{})'.format(1, fila-1))
+        worksheet.write(fila, 13, '=sum(N{}:N{})'.format(1, fila - 1))
+        worksheet.write(fila, 14, '=sum(O{}:O{})'.format(1, fila-1))
+        worksheet.write(fila, 15, '=sum(P{}:P{})'.format(1, fila - 1))
         workbook.close()
         self.view.avance.setVisible(False)
-        AbrirArchivo(cArchivo)
+        if mostrar:
+            AbrirArchivo(cArchivo)
 
     def onEditinFinished(self):
         print(str(self.view.controles['desdeptovta'].text()).zfill(4))
@@ -125,3 +138,28 @@ class IVAVentasController(ControladorBase):
         self.view.controles['desdeptovta'].proximoWidget = self.view.controles['hastaptovta']
         self.view.controles['hastaptovta'].proximoWidget = self.view.lineDesdeFecha
         self.view.lineDesdeFecha.proximoWidget = self.view.lineHastaFecha
+
+    @inicializar_y_capturar_excepciones
+    def EnviaCorreo(self, *args, **kwargs):
+
+        self.ExportaExcel(mostrar=False)
+
+        if not self.cArchivoGenerado:
+            return
+        email_contador = LeerIni('email_contador')
+        text, ok = QInputDialog.getText(self.view, 'Sistema', 'Ingrese el mail destinatario:',
+                                        text=email_contador if email_contador else '')
+        if ok:
+            GrabarIni(clave='email_contador', key='param', valor=str(text))
+            pyemail = PyEmail()
+            remitente = 'fe@servinlgsm.com.ar'
+            destinatario = str(text).strip()
+            mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar"
+            archivo = self.cArchivoGenerado
+            motivo = "Se envia informe de ventas de {}".format(LeerIni(clave='empresa', key='FACTURA'))
+            pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
+                             usuario=Constantes.USUARIO_SMTP,
+                             clave=Constantes.CLAVE_SMTP,
+                             puerto=Constantes.PUERTO_SMTP)
+
+            ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje, archivo)
