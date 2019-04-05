@@ -22,7 +22,8 @@ from controladores.RG3685Compras import RG3685ComprasController
 from controladores.RG3685Ventas import RG3685VentasController
 from controladores.ReImprimeFactura import ReImprimeFacturaController
 from controladores.TipoComprobantes import TipoComprobantesController
-from libs.Utiles import LeerIni
+from controladores.Resguardo import ResguardoController
+from libs.Utiles import LeerIni, GrabarIni, FechaMysql
 from modelos.ModeloBase import ModeloBase
 from vistas.Main import MainView
 
@@ -36,6 +37,14 @@ class Main(ControladorBase):
         self.conectarWidgets()
         self.model = ModeloBase()
         self.model.getDb()
+        if not LeerIni("ultima_copia"):
+            GrabarIni(clave='ultima_copia', key='param', valor='00000000')
+        ult = LeerIni("ultima_copia")
+        if ult < FechaMysql():
+            resguardo = ResguardoController()
+            resguardo.Cargar("sistema.db")
+            resguardo.Cargar("sistema.ini")
+            GrabarIni(clave='ultima_copia', key='param', valor=FechaMysql())
 
     def conectarWidgets(self):
         self.view.btnSalir.clicked.connect(self.SalirSistema)

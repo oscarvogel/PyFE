@@ -121,7 +121,7 @@ class ConstatacionComprobantesController(ControladorBase):
         AbrirArchivo(filename)
 
         padron = PadronAfip()
-        cuit = self.doc_nro_receptor.replace("-", "")
+        cuit = self.cuit_emisor.replace("-", "")
         if not os.path.isdir("tmp"):
             os.mkdir("tmp")
         filename = "tmp/constancia{}.pdf".format(cuit)

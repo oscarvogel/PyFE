@@ -26,6 +26,9 @@ class ConsultaCAEController(ControladorBase):
         self.view.textNeto.setText(str(fe.ImpNeto))
         self.view.textIVA.setText(str(fe.ImpIVA))
         self.view.textDGR.setText(str(fe.ImpTrib))
+        self.view.textTipoDoc.setText(str(fe.factura["tipo_doc"]))
+        self.view.textDocCli.setText(str(fe.factura["nro_doc"]))
+        self.view.textFecha.setText(fe.FechaCbte)
         self.view.gridIVA.setRowCount(0)
         for iva in fe.factura['iva']:
             item = [

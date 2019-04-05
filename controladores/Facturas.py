@@ -34,6 +34,7 @@ class FacturaController(ControladorBase):
         21:0
     }
     concepto = '1' #concepto de factura electronica (productos, servicios o ambos)
+    facturaGenerada = ''
 
     def __init__(self):
         super(FacturaController, self).__init__()
@@ -428,7 +429,7 @@ class FacturaController(ControladorBase):
         self.ImprimeFactura(idcabecera=cabfact.idcabfact)
 
     @inicializar_y_capturar_excepciones
-    def ImprimeFactura(self, idcabecera = None, *args, **kwargs):
+    def ImprimeFactura(self, idcabecera = None, mostrar = True, *args, **kwargs):
         if not idcabecera:
             return
         cabfact = Cabfact().get_by_id(idcabecera)
@@ -583,7 +584,10 @@ class FacturaController(ControladorBase):
         #Abro el visor de PDF y muestro lo generado
         #(es necesario tener instalado Acrobat Reader o similar)
         imprimir = False #cambiar a True para que lo envie directo a laimpresora
-        ok = pyfpdf.MostrarPDF(salida, imprimir)
+        if mostrar:
+            pyfpdf.MostrarPDF(salida, imprimir)
+
+        self.facturaGenerada = salida
 
     def Validacion(self):
         retorno = True

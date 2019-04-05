@@ -1,6 +1,7 @@
 # coding=utf-8
 from PyQt4.QtCore import QSize
 
+from libs import Ventanas
 from libs.Botones import Boton
 from libs.Etiquetas import Etiqueta
 from libs.Utiles import inicializar_y_capturar_excepciones
@@ -51,6 +52,17 @@ class ClientesView(ABM):
             cliente = Cliente.get_by_id(self.controles[Cliente.idcliente.column_name].text())
             cliente.idcliente = self.controles['idcliente'].text()
         else:
+            if self.controles['dni'].text() != '0':
+                doc = Cliente.select().where(
+                    Cliente.dni == self.controles['dni'].text()
+                )
+            else:
+                doc = Cliente.select().where(
+                    Cliente.cuit == self.controles['cuit'].text()
+                )
+            if doc.count() > 0:
+                Ventanas.showAlert("Sistema", "Cliente con el numero documento de documento cargado, ya dado de alta")
+                return
             cliente = Cliente()
         cliente.nombre = self.controles['nombre'].text()
         cliente.telefono = self.controles['telefono'].text()
@@ -58,7 +70,7 @@ class ClientesView(ABM):
         cliente.domicilio = self.controles['domicilio'].text()
         cliente.tipodocu = self.controles['tipodocu'].text()
         cliente.dni = self.controles['dni'].text() if self.controles['dni'].text() else '0'
-        cliente.cuit = self.controles['cuit'].text() if self.controles['cuit'].text() else '0'
+        cliente.cuit = self.controles['cuit'].text() if str(self.controles['cuit'].text()).replace('-', '') else '0'
         cliente.tiporesp = self.controles['tiporesp'].text()
         cliente.formapago = '1'
         cliente.percepcion = self.controles['percepcion'].text()
