@@ -554,9 +554,10 @@ class FacturaController(ControladorBase):
 
         #Agrego datos adicionales fijos:
         ok = pyfpdf.AgregarDato("logo", ubicacion_sistema() + "plantillas/logo.png")
-        ok = pyfpdf.AgregarDato("EMPRESA", "Razon social: {}".format(LeerIni(clave='empresa', key='FACTURA')))
-        ok = pyfpdf.AgregarDato("MEMBRETE1", "Domicilio Comercial: {}".format(LeerIni(clave='membrete1', key='FACTURA')))
-        ok = pyfpdf.AgregarDato("MEMBRETE2", LeerIni(clave='membrete2', key='FACTURA'))
+        ok = pyfpdf.AgregarDato("EMPRESA", "Razon social: {}".format(DeCodifica(LeerIni(clave='empresa', key='FACTURA'))))
+        ok = pyfpdf.AgregarDato("MEMBRETE1", "Domicilio Comercial: {}".format(
+            DeCodifica(LeerIni(clave='membrete1', key='FACTURA'))))
+        ok = pyfpdf.AgregarDato("MEMBRETE2", DeCodifica(LeerIni(clave='membrete2', key='FACTURA')))
         ok = pyfpdf.AgregarDato("CUIT", LeerIni(clave='cuit', key='FACTURA'))
         ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='iibb', key='FACTURA'))
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))

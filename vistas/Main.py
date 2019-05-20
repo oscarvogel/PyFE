@@ -3,7 +3,7 @@ from PyQt4.QtGui import QHBoxLayout, QApplication, QVBoxLayout
 
 from libs.Botones import BotonMain
 from libs.Etiquetas import EtiquetaTitulo
-from libs.Utiles import LeerIni
+from libs.Utiles import LeerIni, DeCodifica
 from vistas.VistaBase import VistaBase
 
 
@@ -14,7 +14,7 @@ class MainView(VistaBase):
         self.setWindowTitle('Factura Electronica')
         self.layoutPpal = QVBoxLayout(self)
         self.lblTitulo = EtiquetaTitulo(texto="{}-{}".format(
-            LeerIni(clave="nombre_sistema"), LeerIni(clave='EMPRESA', key='FACTURA')))
+            LeerIni(clave="nombre_sistema"), DeCodifica(LeerIni(clave='EMPRESA', key='FACTURA'))))
         self.layoutPpal.addWidget(self.lblTitulo)
 
         self.layoutBotones = QHBoxLayout()

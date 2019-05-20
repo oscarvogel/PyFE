@@ -203,6 +203,7 @@ class ABM(VistaBase):
             self.campoFoco.setFocus()
 
     def CargaDatos(self, data=None):
+        self.tipo = 'A'
         if not data:
             return
         for d in data:

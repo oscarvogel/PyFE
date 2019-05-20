@@ -23,8 +23,8 @@ from libs.Utiles import LeerIni, desencriptar
 if LeerIni(clave='base') == 'sqlite':
     db = SqliteDatabase('sistema.db')
 else:
-    db = MySQLDatabase(LeerIni("basedatos"), user=LeerIni("usuario"), password=desencriptar(LeerIni('password'),
-                                                                                        LeerIni('key')),
+    db = MySQLDatabase(LeerIni("basedatos"), user=LeerIni("usuario"),
+                       password=desencriptar(LeerIni('password').encode(),LeerIni('key').encode()),
                    host=LeerIni("host"), port=3306)
 
 class ModeloBase(Model):
@@ -49,7 +49,7 @@ class BitBooleanField(BooleanField):
     def db_value(self, value):
         if isinstance(db, SqliteDatabase):
             return value == 1
-        return value  == b'\01'
+        return value == b'\01'
 
     def python_value(self, value):
         if isinstance(db, SqliteDatabase):

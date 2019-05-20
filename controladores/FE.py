@@ -1,5 +1,6 @@
 # coding=utf-8
 import logging
+import platform
 
 from libs import Ventanas
 from libs.Utiles import LeerIni, ubicacion_sistema, inicializar_y_capturar_excepciones
@@ -33,14 +34,21 @@ class FEv1(WSFEv1):
         return ta
 
     @inicializar_y_capturar_excepciones
-    def UltimoComprobante(self, tipo=1, ptovta=1):
+    def UltimoComprobante(self, tipo=1, ptovta=1, *args, **kwargs):
         wsdl = self.WSDL
         print("WSDL {}".format(wsdl))
         cache = None
         proxy = ""
         wrapper = ""  # "pycurl"
-        #cacert = True  # geotrust.crt"
+        # cacert = True  # geotrust.crt"
         cacert = LeerIni('iniciosistema') + LeerIni(clave='cacert', key='WSFEv1')
+        wrapper = ""
+        # if int(platform.release()) < 10:
+        #     cacert = None
+        # else:
+        #     cacert = LeerIni('iniciosistema') + LeerIni(clave='cacert', key='WSFEv1')
+        # cacert = LeerIni('iniciosistema') + LeerIni(clave='cacert', key='WSFEv1')
+        # cacert = None
         ok = self.Conectar(cache, wsdl, proxy, wrapper, cacert)
 
         if not ok:
@@ -78,7 +86,7 @@ class FEv1(WSFEv1):
         if solicitar:
             #Generar un Ticket de Requerimiento de Acceso(TRA)
             tra = wsaa.CreateTRA(service=service)
-
+            logging.debug("Ticket de acceso {}".format(tra))
             #Generar el mensaje firmado(CMS)
             if LeerIni(clave='homo') == 'S':#homologacion
                 cms = wsaa.SignTRA(tra, LeerIni(clave="cert_homo", key="WSAA"),
