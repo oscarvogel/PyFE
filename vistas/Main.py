@@ -1,5 +1,5 @@
 # coding=utf-8
-from PyQt4.QtGui import QHBoxLayout, QApplication, QVBoxLayout
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
 
 from libs.Botones import BotonMain
 from libs.Etiquetas import EtiquetaTitulo

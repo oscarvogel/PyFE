@@ -11,7 +11,7 @@
 
 #Controlador para Exporta ventas por grupos a Excel
 import xlsxwriter
-from PyQt4.QtGui import QApplication
+from PyQt5.QtWidgets import QApplication
 from peewee import fn
 
 from controladores.ControladorBase import ControladorBase

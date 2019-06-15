@@ -1,5 +1,5 @@
 # coding=utf-8
-from PyQt4.QtGui import QInputDialog
+from PyQt5.QtWidgets import QInputDialog
 
 from controladores.ControladorBase import ControladorBase
 from controladores.Facturas import FacturaController

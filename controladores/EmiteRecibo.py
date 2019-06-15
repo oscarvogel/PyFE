@@ -1,8 +1,8 @@
 # coding=utf-8
 from datetime import datetime
 
-from PyQt4 import QtGui
-from PyQt4.QtCore import Qt
+from PyQt5.QtCore import Qt
+from PyQt5.uic.properties import QtGui
 
 from controladores.ControladorBase import ControladorBase
 from modelos import Tipocomprobantes

@@ -1,5 +1,6 @@
 # coding=utf-8
-from PyQt4.QtGui import QApplication, QMenu, QCursor
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import QApplication, QMenu
 
 from controladores.ABMGrupos import ABMGruposController
 from controladores.Articulos import ArticulosController

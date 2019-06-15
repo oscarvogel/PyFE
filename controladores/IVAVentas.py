@@ -13,7 +13,7 @@
 import decimal
 
 import xlsxwriter
-from PyQt4.QtGui import QFileDialog, QApplication, QInputDialog
+from PyQt5.QtWidgets import QFileDialog, QApplication, QInputDialog
 
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1

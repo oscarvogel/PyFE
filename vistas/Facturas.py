@@ -1,6 +1,6 @@
 # coding=utf-8
-from PyQt4.QtCore import QSize
-from PyQt4.QtGui import QVBoxLayout, QGridLayout, QHBoxLayout
+from PyQt5.QtCore import QSize
+from PyQt5.QtWidgets import QVBoxLayout, QGridLayout, QHBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario
 from libs.Checkbox import CheckBox

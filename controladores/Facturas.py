@@ -2,9 +2,8 @@
 import decimal
 
 import peewee
+from PyQt5.QtCore import Qt
 from os.path import join
-
-from PyQt4.QtCore import Qt
 
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1
@@ -81,8 +80,9 @@ class FacturaController(ControladorBase):
 
     def ObtieneNumeroFactura(self):
         self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='pto_vta', key='WSFEv1').zfill(4))
-        tipos = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='cat_iva', key='WSFEv1')))
-        tipo_cpte = [k for (k, v) in tipos.valores.iteritems() if v == self.view.cboComprobante.text()][0]
+        # tipos = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='cat_iva', key='WSFEv1')))
+        # tipo_cpte = [k for (k, v) in tipos.valores.iteritems() if v == self.view.cboComprobante.text()][0]
+        tipo_cpte = self.view.cboComprobante.text()
         nro = FEv1().UltimoComprobante(tipo=tipo_cpte,
                                        ptovta=self.view.layoutFactura.lineEditPtoVta.text())
         self.tipo_cpte = tipo_cpte
