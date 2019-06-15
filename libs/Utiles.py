@@ -1,5 +1,5 @@
 # coding=utf-8
-
+# encoding: utf-8
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by the
 # Free Software Foundation; either version 3, or (at your option) any later
@@ -12,8 +12,13 @@
 
 #Utilidades varias necesarias en el sistema
 import calendar
+from configparser import ConfigParser
+from logging.handlers import RotatingFileHandler
 
-from PyQt4.QtGui import QFileDialog
+from PyQt5 import QtGui
+from PyQt5.QtWidgets import QFileDialog
+
+from pyafipws.pyemail import PyEmail
 
 __author__ = "Jose Oscar Vogel <oscarvogel@gmail.com>"
 __copyright__ = "Copyright (C) 2018 Jose Oscar Vogel"
@@ -28,16 +33,14 @@ import sys
 import traceback
 import uuid
 import win32api
-from ConfigParser import ConfigParser
 from functools import wraps
 
 from cryptography.fernet import Fernet
 from os.path import join
 from sys import argv
 
-from PyQt4 import QtGui
+from libs import Ventanas, Constantes
 
-from libs import Ventanas
 
 #necesario porque en mysql tengo definido el campo boolean como bit
 def EsVerdadero(valor):
@@ -61,7 +64,18 @@ def LeerIni(clave=None, key=None):
             key = 'param'
         retorno = Config.get(key, clave)
     except:
-        Ventanas.showAlert("Sistema", "No existe la seccion {}".format(clave))
+        # Ventanas.showAlert("Sistema", "No existe la seccion {}".format(clave))
+        print("No existe la seccion {}".format(clave))
+    # parser = SafeConfigParser()
+    # # Open the file with the correct encoding
+    # with codecs.open('sistema.ini', 'r', encoding='utf-8') as f:
+    #     parser.readfp(f)
+    # try:
+    #     if not key:
+    #         key = 'param'
+    #     retorno = parser.get(key, clave)
+    # except:
+    #     print("No existe la seccion {}".format(clave))
     return retorno
 
 def GrabarIni(clave=None, key=None, valor=''):
@@ -69,7 +83,7 @@ def GrabarIni(clave=None, key=None, valor=''):
         return
     Config = ConfigParser()
     Config.read('sistema.ini')
-    cfgfile = open("sistema.ini",'wb')
+    cfgfile = open("sistema.ini",'w')
     Config.set(key, clave, valor)
     Config.write(cfgfile)
     cfgfile.close()
@@ -81,6 +95,7 @@ def ubicacion_sistema():
 
 def imagen(archivo):
     archivoImg = ubicacion_sistema() + join("imagenes", archivo)
+    # print("Icono formulario {}".format(archivoImg))
     if os.path.exists(archivoImg):
         return archivoImg
     else:
@@ -88,7 +103,7 @@ def imagen(archivo):
 
 def icono_sistema():
 
-    cIcono = QtGui.QIcon(imagen("logo.ico"))
+    cIcono = QtGui.QIcon(imagen("Logo S-01.png"))
     return cIcono
 
 def hash_password(password):
@@ -127,6 +142,23 @@ def inicializar_y_capturar_excepciones(func):
             self.Excepcion = traceback.format_exception_only( sys.exc_info()[0], sys.exc_info()[1])[0]
             logging.debug(self.Traceback)
             Ventanas.showAlert("Error", "Se ha producido un error \n{}".format(self.Excepcion))
+            pyemail = PyEmail()
+            remitente = 'fe@servinlgsm.com.ar'
+            destinatario = 'fe@servinlgsm.com.ar'
+            mensaje = "{} {} Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar".format(
+                self.Traceback, self.Excepcion
+            )
+            motivo = "Se envia informe de errores de {}".format(LeerIni(clave='empresa', key='FACTURA'))
+            pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
+                             usuario=Constantes.USUARIO_SMTP,
+                             clave=Constantes.CLAVE_SMTP,
+                             puerto=Constantes.PUERTO_SMTP)
+
+            ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje)
+            if not ok:
+                Ventanas.showAlert("Error", "{} {}".format(
+                    pyemail.Excepcion, pyemail.Traceback
+                ))
             if self.LanzarExcepciones:
                 raise
         finally:
@@ -144,7 +176,7 @@ def validar_cuit(cuit):
 
     # calculo el digito verificador:
     aux = 0
-    for i in xrange(10):
+    for i in range(10):
         aux += int(cuit[i])* base[i]
 
     aux = 11 - (aux - (int(aux / 11)* 11))
@@ -205,4 +237,33 @@ def Normaliza(valor):
     return valor.replace('Ñ','N').replace('ñ','n').replace('º','')
 
 def DeCodifica(dato):
+    # return "{}".format(bytearray(dato, 'latin-1', errors='ignore').decode('utf-8','ignore'))
+    # return '{}'.format(bytearray(str(dato))).decode('utf-8').encode('latin-1')
     return "{}".format(bytearray(dato, 'latin-1', errors='ignore').decode('utf-8','ignore'))
+
+def initialize_logger(output_dir):
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+    # create console handler and set level to info
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+    # create error file handler and set level to error
+    handler = logging.FileHandler(os.path.join(output_dir, "error.log"), "a", encoding=None, delay="true")
+    handler.setLevel(logging.ERROR)
+    formatter = logging.Formatter("%(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+    # create debug file handler and set level to debug
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    handler = RotatingFileHandler(os.path.join(output_dir, "all.log"), maxBytes=20000)
+    logger.addHandler(handler)
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", datefmt='%m/%d/%Y %I:%M:%S %p')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)

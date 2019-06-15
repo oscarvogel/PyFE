@@ -1,6 +1,7 @@
 # coding=utf-8
-from PyQt4 import QtCore
-from PyQt4.QtGui import QLabel, QFont
+from PyQt5 import QtCore
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QLabel
 
 
 class Etiqueta(QLabel):

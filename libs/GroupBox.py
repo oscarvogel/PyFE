@@ -1,5 +1,5 @@
 # coding=utf-8
-from PyQt4.QtGui import QGroupBox
+from PyQt5.QtWidgets import QGroupBox
 
 
 class Agrupacion(QGroupBox):

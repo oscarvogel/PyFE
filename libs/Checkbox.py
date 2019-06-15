@@ -1,5 +1,6 @@
 # coding=utf-8
-from PyQt4.QtGui import QCheckBox, QFont
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QCheckBox
 
 from libs.Utiles import LeerIni
 

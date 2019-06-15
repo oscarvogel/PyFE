@@ -1,9 +1,9 @@
 # coding=utf-8
 import decimal
 
-from PyQt4 import QtCore
-from PyQt4.QtCore import Qt
-from PyQt4.QtGui import QComboBox, QFont
+from PyQt5 import QtCore
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QComboBox
 
 
 class ComboSQL(QComboBox):
@@ -101,11 +101,11 @@ class Combo(QComboBox):
                 self.addItem(v, k)
 
     def text(self):
-        return self.currentText()
-        # if self.currentData():
-        #     return self.currentData()
-        # else:
-        #     return self.currentText()
+        # return self.currentText()
+        if self.currentData():
+            return self.currentData()
+        else:
+            return self.currentText()
         #return self.itemData(self.currentIndex(), Qt.DisplayRole)
 
     def setText(self, p_str):
