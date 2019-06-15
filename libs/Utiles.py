@@ -32,7 +32,10 @@ import os
 import sys
 import traceback
 import uuid
-import win32api
+try:
+    import win32api
+except:
+    pass
 from functools import wraps
 
 from cryptography.fernet import Fernet
