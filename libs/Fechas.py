@@ -19,6 +19,7 @@ class Fecha(QDateEdit):
         #self.cw = QNCalendarWidget(n=1, columns=1)
         #self.setCalendarWidget(self.cw)
 
+        self.setDisplayFormat('dd/MM/yyyy')
         if 'enabled' in kwargs:
             self.setEnabled(kwargs['enabled'])
         if 'tamanio' in kwargs:

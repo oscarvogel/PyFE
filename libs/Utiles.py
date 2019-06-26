@@ -12,6 +12,7 @@
 
 #Utilidades varias necesarias en el sistema
 import calendar
+import platform
 from configparser import ConfigParser
 from logging.handlers import RotatingFileHandler
 
@@ -54,7 +55,10 @@ def EsVerdadero(valor):
 #tendria que ver como hacerlo en Linux
 def AbrirArchivo(cArchivo=None):
     if cArchivo:
-        win32api.ShellExecute(0, "open", cArchivo, None, ".", 0)
+        if platform.system() == 'Linux':
+            open(cArchivo)
+        else:
+            win32api.ShellExecute(0, "open", cArchivo, None, ".", 0)
 
 #leo el archivo de configuracion del sistema
 #recibe la clave y el key a leer en caso de que tenga mas de una seccion el archivo
