@@ -284,6 +284,7 @@ class ABM(VistaBase):
         pass
 
     def Agrega(self):
+        self.tipo = 'A'
         for x in self.controles:
             if self.autoincremental:
                 if x == self.campoClave.column_name:
