@@ -2,13 +2,17 @@
 import decimal
 
 import peewee
+from PyQt4.QtGui import QInputDialog
 from os.path import join
 
 from PyQt4.QtCore import Qt
 
+from modelos.Emailcliente import EmailCliente
+from pyafipws.pyemail import PyEmail
+
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1
-from libs import Ventanas
+from libs import Ventanas, Constantes
 from libs.Utiles import LeerIni, validar_cuit, FechaMysql, ubicacion_sistema, inicializar_y_capturar_excepciones, \
     DeCodifica
 from modelos import Tipocomprobantes
@@ -427,6 +431,7 @@ class FacturaController(ControladorBase):
             cpbte.numero = self.view.layoutCpbteRelacionado.numero
             cpbte.save()
         self.ImprimeFactura(idcabecera=cabfact.idcabfact)
+        self.EnviarPorCorreo()
 
     @inicializar_y_capturar_excepciones
     def ImprimeFactura(self, idcabecera = None, mostrar = True, *args, **kwargs):
@@ -630,3 +635,35 @@ class FacturaController(ControladorBase):
         self.view.lineEditDocumento.proximoWidget = self.view.cboTipoIVA
         self.view.cboTipoIVA.proximoWidget = self.view.cboComprobante
         self.view.cboComprobante.proximoWidget = self.view.botonAgregaArt
+
+    @inicializar_y_capturar_excepciones
+    def EnviarPorCorreo(self, *args, **kwargs):
+        pyemail = PyEmail()
+        emaicliente = EmailCliente.select().where(EmailCliente.idcliente == self.view.validaCliente.text())
+        items = []
+        for e in emaicliente:
+            items.append(e.email)
+        if items:
+            text, ok = QInputDialog.getItem(self.view, 'Sistema', 'Ingrese el mail destinatario:', items)
+        else:
+            text, ok = QInputDialog.getText(self.view, 'Sistema', 'Ingrese el mail destinatario:')
+        if ok:
+            responder = LeerIni('email_remitente')
+            if not responder:
+                responder = 'fe@servinlgsm.com.ar'
+            print(responder)
+            remitente = 'fe@servinlgsm.com.ar'
+            destinatario = str(text).strip()
+            mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar \n" \
+                      "No responder este email"
+            archivo = self.facturaGenerada
+            motivo = "Se envia comprobante electronico de {}".format(LeerIni(clave='empresa', key='FACTURA'))
+            pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
+                             usuario=Constantes.USUARIO_SMTP,
+                             clave=Constantes.CLAVE_SMTP,
+                             puerto=Constantes.PUERTO_SMTP)
+
+            pyemail.ResponderA = responder
+            ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje, archivo)
+            if not ok:
+                Ventanas.showAlert("Sistema", pyemail.Excepcion)
