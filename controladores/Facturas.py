@@ -1,5 +1,6 @@
 # coding=utf-8
 import decimal
+import os
 
 import peewee
 from PyQt4.QtGui import QInputDialog
@@ -584,8 +585,10 @@ class FacturaController(ControladorBase):
         qty_pos = "izq" #(cantidad a la izquierda de la descripci�n del art�culo)
         #Proceso la plantilla
         ok = pyfpdf.ProcesarPlantilla(num_copias, lineas_max, qty_pos)
+        if not os.path.isdir('facturas'):
+            os.mkdir('facturas')
         #Genero el PDF de salida seg�n la plantilla procesada
-        salida = join('facturas',"factura{}.pdf".format(cabfact.numero))
+        salida = join('facturas',"{}-{}.pdf".format(cabfact.tipocomp.nombre, cabfact.numero))
         ok = pyfpdf.GenerarPDF(salida)
         #Abro el visor de PDF y muestro lo generado
         #(es necesario tener instalado Acrobat Reader o similar)
