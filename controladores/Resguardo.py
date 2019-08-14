@@ -10,6 +10,7 @@ def threaded(fn):
     return wrapper
 
 class ResguardoController(FTP):
+    sizeWritten = 0
 
     @threaded
     def Cargar(self, filename, callback=None):
@@ -22,6 +23,11 @@ class ResguardoController(FTP):
             self.cwd(LeerIni("empresa", key='FACTURA'))
 
             with open(filename, "rb") as f:
-                self.storbinary("STOR " + filename, f, callback=callback)
+                self.storbinary("STOR " + filename, f, callback=self.handle, blocksize=1024)
+            print("Copio el archivo {}".format(filename))
         except Exception as e:
             print("Error no se pudo copiar {}".format(filename))
+
+    def handle(self, block):
+        self.sizeWritten += 1024
+        print("Total de datos escritos {}".format(self.sizeWritten))

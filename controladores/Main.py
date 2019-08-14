@@ -1,4 +1,6 @@
 # coding=utf-8
+from shutil import copyfile
+
 from PyQt4.QtGui import QApplication, QMenu, QCursor
 
 from controladores.ABMGrupos import ABMGruposController
@@ -34,6 +36,7 @@ class Main(ControladorBase):
 
     def __init__(self):
         super(Main, self).__init__()
+        copyfile("sistema.db", "sistema-res.db")
         self.view = MainView()
         self.view.initUi()
         self.conectarWidgets()
@@ -44,7 +47,7 @@ class Main(ControladorBase):
         ult = LeerIni("ultima_copia")
         if ult < FechaMysql():
             resguardo = ResguardoController()
-            resguardo.Cargar("sistema.db")
+            resguardo.Cargar("sistema-res.db")
             resguardo.Cargar("sistema.ini")
             GrabarIni(clave='ultima_copia', key='param', valor=FechaMysql())
 
