@@ -93,7 +93,6 @@ class IVAVentasController(ControladorBase):
                 worksheet.write(fila, 5, d.cliente.cuit)
                 worksheet.write(fila, 6, d.netoa if d.tipocomp.lado == 'D' else d.netoa * -1)
                 worksheet.write(fila, 7, d.netob if d.tipocomp.lado == 'D' else d.netob * -1)
-                worksheet.write(fila, 8, 0)
                 worksheet.write(fila, 9, d.iva if d.tipocomp.lado == 'D' else d.iva * -1)
                 worksheet.write(fila, 10, d.percepciondgr if d.tipocomp.lado == 'D' else d.percepciondgr * -1)
                 worksheet.write(fila, 11, d.cae)
@@ -101,6 +100,7 @@ class IVAVentasController(ControladorBase):
                 deta = Detfact.select().where(Detfact.idcabfact == d.idcabfact)
                 totserv = decimal.Decimal.from_float(0.)
                 totprod = totserv
+                op_exentas = 0
                 for det in deta:
                     art = Articulo.get_by_id(det.idarticulo)
                     if art.concepto.strip():
@@ -113,6 +113,9 @@ class IVAVentasController(ControladorBase):
                     else:
                         totprod += det.precio * det.cantidad if d.tipocomp.lado == 'D' else \
                             det.precio * det.cantidad * -1
+                    if det.montoiva == 0:
+                        op_exentas += det.precio * det.cantidad
+                worksheet.write(fila, 8, op_exentas)
                 worksheet.write(fila, 13, totprod)
                 worksheet.write(fila, 14, totserv)
                 worksheet.write(fila, 15, '=sum(G{}:J{})'.format(fila+1, fila+1))

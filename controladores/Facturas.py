@@ -9,6 +9,7 @@ from os.path import join
 from PyQt4.QtCore import Qt
 
 from modelos.Emailcliente import EmailCliente
+from modelos.Tipoiva import Tipoiva
 from pyafipws.pyemail import PyEmail
 
 from controladores.ControladorBase import ControladorBase
@@ -64,25 +65,28 @@ class FacturaController(ControladorBase):
     def CargaDatosCliente(self):
         if not self.view.validaCliente.text():
             return
-        self.cliente = Cliente.select().where(Cliente.idcliente == self.view.validaCliente.text()).get()
-        cliente = self.cliente
-        self.view.lineEditDomicilio.setText(cliente.domicilio)
-        if cliente.tiporesp.idtiporesp in [1, 2, 4]: #monotributo o resp inscripto
-            self.view.lineEditDocumento.setText(cliente.cuit.replace('-',''))
-            self.view.lineEditDocumento.setInputMask("99-99999999-9")
-        else:
-            self.view.lineEditDocumento.setText(str(cliente.dni))
-            self.view.lineEditDocumento.setInputMask("99999999")
-        if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1: #si es Resp insc el contribuyente veo si teiene que emitira A o B
-            if cliente.tiporesp.idtiporesp == 2: #resp inscripto
-                self.view.cboComprobante.setText('Factura A')
+        try:
+            self.cliente = Cliente.select().where(Cliente.idcliente == self.view.validaCliente.text()).get()
+            cliente = self.cliente
+            self.view.lineEditDomicilio.setText(cliente.domicilio)
+            if cliente.tiporesp.idtiporesp in [1, 2, 4]: #monotributo o resp inscripto
+                self.view.lineEditDocumento.setText(cliente.cuit.replace('-',''))
+                self.view.lineEditDocumento.setInputMask("99-99999999-9")
             else:
-                self.view.cboComprobante.setText('Factura B')
-        else:
-            self.view.cboComprobante.setText('Factura C')
+                self.view.lineEditDocumento.setText(str(cliente.dni))
+                self.view.lineEditDocumento.setInputMask("99999999")
+            if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1: #si es Resp insc el contribuyente veo si teiene que emitira A o B
+                if cliente.tiporesp.idtiporesp == 2: #resp inscripto
+                    self.view.cboComprobante.setText('Factura A')
+                else:
+                    self.view.cboComprobante.setText('Factura B')
+            else:
+                self.view.cboComprobante.setText('Factura C')
 
-        self.view.cboTipoIVA.setText(cliente.tiporesp.nombre)
-        self.ObtieneNumeroFactura()
+            self.view.cboTipoIVA.setText(cliente.tiporesp.nombre)
+            self.ObtieneNumeroFactura()
+        except Cliente.DoesNotExist:
+            Ventanas.showAlert("Sistema", "Cliente no encontrado en el sistema")
 
     def ObtieneNumeroFactura(self):
         self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='pto_vta', key='WSFEv1').zfill(4))
@@ -424,7 +428,11 @@ class FacturaController(ControladorBase):
                         detfact.precio = (importe + importe * iva / 100) / cantidad
                 else:
                     detfact.precio = importe / cantidad
-                detfact.tipoiva = articulo.tipoiva.codigo
+                try:
+                    ti = Tipoiva.get(Tipoiva.iva == iva)
+                    detfact.tipoiva = ti.codigo
+                except Tipoiva.DoesNotExist:
+                    detfact.tipoiva = articulo.tipoiva.codigo
                 if self.tipo_cpte in [6, 7, 8]:
                     detfact.montoiva = importe * iva / 100
                 else:
@@ -548,6 +556,12 @@ class FacturaController(ControladorBase):
             importe = cabfact.netob * 10.5 / 100  # importe liquidado de iva
             ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
 
+        if cabfact.netoa == 0 and cabfact.netob == 0:
+            iva_id = 3  # c�digo para al�cuota del 21 %
+            base_imp = cabfact.netob  # importe neto sujeto a esta al�cuota
+            importe = 0  # importe liquidado de iva
+            ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
+
         if cabfact.percepciondgr != 0:
             #Agregar cada impuesto(por ej.IIBB, retenciones, percepciones, etc.):
             tributo_id = 99 #codigo para 99 - otros tributos
@@ -629,13 +643,9 @@ class FacturaController(ControladorBase):
 
         for x in range(self.view.gridFactura.rowCount()):
             iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
-            if iva == 0:
-                Ventanas.showAlert(LeerIni('nombre_sistema'), "ERROR: El item {} no tiene un IVA asignado".format(x+1))
+            if str(iva) not in FEv1().TASA_IVA:
+                Ventanas.showAlert(LeerIni('nombre_sistema'), "Error el item {} no tiene un IVA valido".format(x+1))
                 retorno = False
-            else:
-                if str(iva) not in FEv1().TASA_IVA:
-                    Ventanas.showAlert(LeerIni('nombre_sistema'), "Error el item {} no tiene un IVA valido".format(x+1))
-                    retorno = False
             codigo = self.view.gridFactura.ObtenerItem(fila=x, col='Codigo')
             try:
                 articulo = Articulo.get_by_id(codigo)
