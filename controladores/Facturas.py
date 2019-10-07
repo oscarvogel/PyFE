@@ -190,15 +190,31 @@ class FacturaController(ControladorBase):
             unitario = float(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
             iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
             total = float(cantidad) * float(unitario)
-            try:
-                self.netos[iva] += total
-            except KeyError:
-                pass
 
             if int(LeerIni(clave='cat_iva',
                            key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
-                ivagral += total * iva / 100
-            totalgral += total
+                if self.tipo_cpte in [6, 7, 8]:
+                    neto = round(total / ((iva / 100) + 1), 3)
+                    try:
+                        self.netos[iva] += neto
+                    except KeyError:
+                        pass
+                    ivagral += (total - neto)
+                    totalgral += neto
+                else:
+                    ivagral += total * iva / 100
+                    totalgral += total
+                    try:
+                        self.netos[iva] += total
+                    except KeyError:
+                        pass
+            else:
+                try:
+                    self.netos[iva] += total
+                except KeyError:
+                    pass
+                totalgral += total
+
             self.view.gridFactura.ModificaItem(valor=total, fila=x, col='SubTotal')
 
 
@@ -349,7 +365,7 @@ class FacturaController(ControladorBase):
             else:
                 self.view.lineditCAE.setText(cae)
                 self.view.lineEditResultado.setText(wsfev1.Resultado)
-            self.view.fechaVencCAE.setFecha(wsfev1.Vencimiento, format="Ymd")
+                self.view.fechaVencCAE.setFecha(wsfev1.Vencimiento, format="Ymd")
         return ok
 
     def onEditingFinishedDocumento(self):
@@ -402,11 +418,18 @@ class FacturaController(ControladorBase):
                 detfact.unidad = articulo.unidad
                 detfact.costo = articulo.costo
                 if LeerIni(clave='cat_iva', key='WSFEv1') == 1:
-                    detfact.precio = (importe + importe * iva / 100) / cantidad
+                    if self.tipo_cpte in [6,7,8]:
+                        detfact.precio = importe / cantidad
+                    else:
+                        detfact.precio = (importe + importe * iva / 100) / cantidad
                 else:
                     detfact.precio = importe / cantidad
                 detfact.tipoiva = articulo.tipoiva.codigo
-                detfact.montoiva = importe * iva / 100
+                if self.tipo_cpte in [6, 7, 8]:
+                    detfact.montoiva = importe * iva / 100
+                else:
+                    neto = round(importe /((iva / 100) + 1),3)
+                    detfact.montoiva = neto * iva / 100
                 if self.view.lineEditTributos.value() > 0:
                     detfact.montodgr = importe * float(self.cliente.percepcion.porcentaje) / 100
                 else:
@@ -628,6 +651,9 @@ class FacturaController(ControladorBase):
 
     def onCurrentIndexChanged(self):
         #self.ObtieneNumeroFactura()
+        tipos = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='cat_iva', key='WSFEv1')))
+        tipo_cpte = [k for (k, v) in tipos.valores.iteritems() if v == self.view.cboComprobante.text()][0]
+        self.tipo_cpte = tipo_cpte
         if str(self.view.cboComprobante.text()).find('credito'):
             self.view.layoutCpbteRelacionado.lineEditNumero.setEnabled(True)
             self.view.layoutCpbteRelacionado.lineEditPtoVta.setEnabled(True)

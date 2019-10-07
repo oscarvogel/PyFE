@@ -175,7 +175,7 @@ class FacturaView(Formulario):
         layoutppal = QVBoxLayout()
         self.gridFactura = Grilla(tamanio=10)
         cabeceras = [
-            'Cant.','Codigo','Detalle','Unitario','IVA','SubTotal'
+            'Cant.','Codigo','Detalle','Unitario','IVA','SubTotal',
         ]
         self.gridFactura.ArmaCabeceras(cabeceras=cabeceras)
         self.gridFactura.enabled = True
