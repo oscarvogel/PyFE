@@ -88,6 +88,7 @@ class InformeVentasPorGrupoController(ControladorBase):
                 worksheet.write(fila, 2, d.precio + d.montoiva, d.montodgr)
             else:
                 worksheet.write(fila, 2, d.precio)
+                fila += 1
         workbook.close()
         self.view.avance.setVisible(False)
         if mostrar:

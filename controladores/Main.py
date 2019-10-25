@@ -1,4 +1,6 @@
 # coding=utf-8
+from shutil import copyfile
+
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QApplication, QMenu
 
@@ -35,6 +37,8 @@ class Main(ControladorBase):
 
     def __init__(self):
         super(Main, self).__init__()
+        if LeerIni("base") == "sqlite":
+            copyfile("sistema.db", "sistema-res.db")
         self.view = MainView()
         self.view.initUi()
         self.conectarWidgets()
@@ -43,11 +47,12 @@ class Main(ControladorBase):
         if not LeerIni("ultima_copia"):
             GrabarIni(clave='ultima_copia', key='param', valor='00000000')
         ult = LeerIni("ultima_copia")
-        if ult < FechaMysql():
-            resguardo = ResguardoController()
-            resguardo.Cargar("sistema.db")
-            resguardo.Cargar("sistema.ini")
-            GrabarIni(clave='ultima_copia', key='param', valor=FechaMysql())
+        if LeerIni("base") == "sqlite":
+            if ult < FechaMysql():
+                resguardo = ResguardoController()
+                resguardo.Cargar("sistema-res.db")
+                resguardo.Cargar("sistema.ini")
+                GrabarIni(clave='ultima_copia', key='param', valor=FechaMysql())
 
     def conectarWidgets(self):
         self.view.btnSalir.clicked.connect(self.SalirSistema)

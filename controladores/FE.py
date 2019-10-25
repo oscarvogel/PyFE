@@ -101,7 +101,6 @@ class FEv1(WSFEv1):
 
             #Llamar al web service para autenticar
             ta = wsaa.LoginCMS(cms)
-
             #Grabo el ticket de acceso para poder reutilizarlo
             file = open(archivo, 'w')
             file.write(ta)

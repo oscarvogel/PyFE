@@ -49,7 +49,7 @@ class IVAVentasController(ControladorBase):
 
     def ExportaExcel(self, mostrar=True):
         self.view.avance.setVisible(True)
-        cArchivo = str(QFileDialog.getSaveFileName(caption="Guardar archivo", directory="", filter="*.XLSX"))
+        cArchivo = QFileDialog.getSaveFileName(caption="Guardar archivo", directory="", filter="*.XLSX")[0]
         if not cArchivo:
             return
         self.cArchivoGenerado = cArchivo
@@ -93,7 +93,6 @@ class IVAVentasController(ControladorBase):
                 worksheet.write(fila, 5, d.cliente.cuit)
                 worksheet.write(fila, 6, d.netoa if d.tipocomp.lado == 'D' else d.netoa * -1)
                 worksheet.write(fila, 7, d.netob if d.tipocomp.lado == 'D' else d.netob * -1)
-                worksheet.write(fila, 8, 0)
                 worksheet.write(fila, 9, d.iva if d.tipocomp.lado == 'D' else d.iva * -1)
                 worksheet.write(fila, 10, d.percepciondgr if d.tipocomp.lado == 'D' else d.percepciondgr * -1)
                 worksheet.write(fila, 11, d.cae)
@@ -101,6 +100,7 @@ class IVAVentasController(ControladorBase):
                 deta = Detfact.select().where(Detfact.idcabfact == d.idcabfact)
                 totserv = decimal.Decimal.from_float(0.)
                 totprod = totserv
+                op_exentas = 0
                 for det in deta:
                     art = Articulo.get_by_id(det.idarticulo)
                     if art.concepto.strip():
@@ -113,18 +113,21 @@ class IVAVentasController(ControladorBase):
                     else:
                         totprod += det.precio * det.cantidad if d.tipocomp.lado == 'D' else \
                             det.precio * det.cantidad * -1
+                    if det.montoiva == 0:
+                        op_exentas += det.precio * det.cantidad
+                worksheet.write(fila, 8, op_exentas)
                 worksheet.write(fila, 13, totprod)
                 worksheet.write(fila, 14, totserv)
                 worksheet.write(fila, 15, '=sum(G{}:J{})'.format(fila+1, fila+1))
                 fila += 1
-        worksheet.write(fila, 6, '=sum(G{}:G{})'.format(1, fila-1))
-        worksheet.write(fila, 7, '=sum(H{}:H{})'.format(1, fila - 1))
-        worksheet.write(fila, 8, '=sum(I{}:I{})'.format(1, fila-1))
-        worksheet.write(fila, 9, '=sum(J{}:J{})'.format(1, fila - 1))
-        worksheet.write(fila, 10, '=sum(K{}:K{})'.format(1, fila-1))
-        worksheet.write(fila, 13, '=sum(N{}:N{})'.format(1, fila - 1))
-        worksheet.write(fila, 14, '=sum(O{}:O{})'.format(1, fila-1))
-        worksheet.write(fila, 15, '=sum(P{}:P{})'.format(1, fila - 1))
+        worksheet.write(fila, 6, '=sum(G{}:G{})'.format(2, fila))
+        worksheet.write(fila, 7, '=sum(H{}:H{})'.format(2, fila))
+        worksheet.write(fila, 8, '=sum(I{}:I{})'.format(2, fila))
+        worksheet.write(fila, 9, '=sum(J{}:J{})'.format(2, fila))
+        worksheet.write(fila, 10, '=sum(K{}:K{})'.format(2, fila))
+        worksheet.write(fila, 13, '=sum(N{}:N{})'.format(2, fila))
+        worksheet.write(fila, 14, '=sum(O{}:O{})'.format(2, fila))
+        worksheet.write(fila, 15, '=sum(P{}:P{})'.format(2, fila))
         workbook.close()
         self.view.avance.setVisible(False)
         if mostrar:

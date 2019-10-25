@@ -18,6 +18,7 @@ from modelos.Clientes import Cliente
 from modelos.CpbteRelacionado import CpbteRel
 from modelos.Detfact import Detfact
 from modelos.Impuestos import Impuesto
+from modelos.Tipoiva import Tipoiva
 from pyafipws.pyfepdf import FEPDF
 from vistas.Busqueda import UiBusqueda
 
@@ -59,25 +60,28 @@ class FacturaController(ControladorBase):
     def CargaDatosCliente(self):
         if not self.view.validaCliente.text():
             return
-        self.cliente = Cliente.select().where(Cliente.idcliente == self.view.validaCliente.text()).get()
-        cliente = self.cliente
-        self.view.lineEditDomicilio.setText(cliente.domicilio)
-        if cliente.tiporesp.idtiporesp in [1, 2, 4]: #monotributo o resp inscripto
-            self.view.lineEditDocumento.setText(cliente.cuit.replace('-',''))
-            self.view.lineEditDocumento.setInputMask("99-99999999-9")
-        else:
-            self.view.lineEditDocumento.setText(str(cliente.dni))
-            self.view.lineEditDocumento.setInputMask("99999999")
-        if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1: #si es Resp insc el contribuyente veo si teiene que emitira A o B
-            if cliente.tiporesp.idtiporesp == 2: #resp inscripto
-                self.view.cboComprobante.setText('Factura A')
+        try:
+            self.cliente = Cliente.select().where(Cliente.idcliente == self.view.validaCliente.text()).get()
+            cliente = self.cliente
+            self.view.lineEditDomicilio.setText(cliente.domicilio)
+            if cliente.tiporesp.idtiporesp in [1, 2, 4]: #monotributo o resp inscripto
+                self.view.lineEditDocumento.setText(cliente.cuit.replace('-',''))
+                self.view.lineEditDocumento.setInputMask("99-99999999-9")
             else:
-                self.view.cboComprobante.setText('Factura B')
-        else:
-            self.view.cboComprobante.setText('Factura C')
+                self.view.lineEditDocumento.setText(str(cliente.dni))
+                self.view.lineEditDocumento.setInputMask("99999999")
+            if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1: #si es Resp insc el contribuyente veo si teiene que emitira A o B
+                if cliente.tiporesp.idtiporesp == 2: #resp inscripto
+                    self.view.cboComprobante.setText('Factura A')
+                else:
+                    self.view.cboComprobante.setText('Factura B')
+            else:
+                self.view.cboComprobante.setText('Factura C')
 
-        self.view.cboTipoIVA.setText(cliente.tiporesp.nombre)
-        self.ObtieneNumeroFactura()
+            self.view.cboTipoIVA.setText(cliente.tiporesp.nombre)
+            self.ObtieneNumeroFactura()
+        except Cliente.DoesNotExist:
+            Ventanas.showAlert("Sistema", "Cliente no encontrado en el sistema")
 
     def ObtieneNumeroFactura(self):
         self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='pto_vta', key='WSFEv1').zfill(4))
@@ -186,15 +190,34 @@ class FacturaController(ControladorBase):
             unitario = float(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
             iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
             total = float(cantidad) * float(unitario)
-            try:
-                self.netos[iva] += total
-            except KeyError:
-                pass
-
             if int(LeerIni(clave='cat_iva',
                            key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
-                ivagral += total * iva / 100
-            totalgral += total
+                if self.tipo_cpte in [6, 7, 8]:
+                    neto = round(total / ((iva / 100) + 1), 3)
+                    try:
+                        self.netos[iva] += neto
+                    except KeyError:
+                        pass
+                    ivagral += (total - neto)
+                    totalgral += neto
+                else:
+                    ivagral += total * iva / 100
+                    totalgral += total
+                    try:
+                        self.netos[iva] += total
+                    except KeyError:
+                        pass
+            else:
+                try:
+                    self.netos[iva] += total
+                except KeyError:
+                    pass
+                totalgral += total
+
+            # if int(LeerIni(clave='cat_iva',
+            #                key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
+            #     ivagral += total * iva / 100
+            # totalgral += total
             self.view.gridFactura.ModificaItem(valor=total, fila=x, col='SubTotal')
 
 
@@ -397,12 +420,24 @@ class FacturaController(ControladorBase):
                 detfact.cantidad = cantidad
                 detfact.unidad = articulo.unidad
                 detfact.costo = articulo.costo
+
                 if LeerIni(clave='cat_iva', key='WSFEv1') == 1:
-                    detfact.precio = (importe + importe * iva / 100) / cantidad
+                    if self.tipo_cpte in [6,7,8]:
+                        detfact.precio = importe / cantidad
+                    else:
+                        detfact.precio = (importe + importe * iva / 100) / cantidad
                 else:
                     detfact.precio = importe / cantidad
-                detfact.tipoiva = articulo.tipoiva.codigo
-                detfact.montoiva = importe * iva / 100
+                try:
+                    ti = Tipoiva.get(Tipoiva.iva == iva)
+                    detfact.tipoiva = ti.codigo
+                except Tipoiva.DoesNotExist:
+                    detfact.tipoiva = articulo.tipoiva.codigo
+                if self.tipo_cpte in [6, 7, 8]:
+                    detfact.montoiva = importe * iva / 100
+                else:
+                    neto = round(importe / ((iva / 100) + 1), 3)
+                    detfact.montoiva = neto * iva / 100
                 if self.view.lineEditTributos.value() > 0:
                     detfact.montodgr = importe * float(self.cliente.percepcion.porcentaje) / 100
                 else:
@@ -515,9 +550,15 @@ class FacturaController(ControladorBase):
             ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
 
         if cabfact.netob != 0:
-            iva_id = 4  # c�digo para al�cuota del 21 %
+            iva_id = 4  # c�digo para al�cuota del 10.5 %
             base_imp = cabfact.netob  # importe neto sujeto a esta al�cuota
             importe = cabfact.netob * 10.5 / 100  # importe liquidado de iva
+            ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
+
+        if cabfact.netoa == 0 and cabfact.netob == 0:
+            iva_id = 3  # c�digo para al�cuota del 21 %
+            base_imp = cabfact.netob  # importe neto sujeto a esta al�cuota
+            importe = 0  # importe liquidado de iva
             ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
 
         if cabfact.percepciondgr != 0:
@@ -602,13 +643,9 @@ class FacturaController(ControladorBase):
 
         for x in range(self.view.gridFactura.rowCount()):
             iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
-            if iva == 0:
-                Ventanas.showAlert(LeerIni('nombre_sistema'), "ERROR: El item {} no tiene un IVA asignado".format(x+1))
+            if str(iva) not in FEv1().TASA_IVA:
+                Ventanas.showAlert(LeerIni('nombre_sistema'), "Error el item {} no tiene un IVA valido".format(x+1))
                 retorno = False
-            else:
-                if str(iva) not in FEv1().TASA_IVA:
-                    Ventanas.showAlert(LeerIni('nombre_sistema'), "Error el item {} no tiene un IVA valido".format(x+1))
-                    retorno = False
             codigo = self.view.gridFactura.ObtenerItem(fila=x, col='Codigo')
             try:
                 articulo = Articulo.get_by_id(codigo)
@@ -624,6 +661,7 @@ class FacturaController(ControladorBase):
 
     def onCurrentIndexChanged(self):
         #self.ObtieneNumeroFactura()
+        self.tipo_cpte = self.view.cboComprobante.text()
         if str(self.view.cboComprobante.text()).find('credito'):
             self.view.layoutCpbteRelacionado.lineEditNumero.setEnabled(True)
             self.view.layoutCpbteRelacionado.lineEditPtoVta.setEnabled(True)
