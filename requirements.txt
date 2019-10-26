@@ -16,7 +16,7 @@ macholib==1.9
 MySQL-python==1.2.5
 peewee==3.9.5
 pefile==2017.11.5
-Pillow==6.0.0
+Pillow==6.2.0
 PyAfipWs==2.7.0
 pycparser==2.18
 pycrypto==2.6.1
