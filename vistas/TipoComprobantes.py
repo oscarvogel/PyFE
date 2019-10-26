@@ -12,6 +12,7 @@ class TipoComprobantesView(ABM):
     camposAMostrar = [TipoComprobante.codigo, TipoComprobante.nombre]
     ordenBusqueda = TipoComprobante.nombre
     campoClave = TipoComprobante.codigo
+    autoincremental = False
 
     def __init__(self, *args, **kwargs):
         ABM.__init__(self, *args, **kwargs)
@@ -31,13 +32,19 @@ class TipoComprobantesView(ABM):
     def btnAceptarClicked(self, *args, **kwargs):
         if self.tipo == 'M':
             tc = TipoComprobante.get_by_id(self.controles[TipoComprobante.codigo.column_name].text())
-            tc.codigo = self.controles['codigo'].text()
+            # tc.codigo = self.controles['codigo'].text()
         else:
             tc = TipoComprobante()
+            tc.codigo = self.controles['codigo'].text()
         tc.nombre = self.controles['nombre'].text()
         tc.exporta = self.controles['exporta'].text()
         tc.letra = self.controles['letra'].text()
         tc.lado = self.controles['lado'].text()
-        tc.save()
+        tc.abreviatura = self.controles['abreviatura'].text()
+        if self.tipo == 'A':
+            tc.save(force_insert=True)
+        else:
+            print("Entra a grabar modificacion")
+            tc.save()
         ABM.btnAceptarClicked(self)
 

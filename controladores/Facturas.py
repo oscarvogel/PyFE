@@ -8,6 +8,7 @@ from os.path import join
 
 from PyQt4.QtCore import Qt
 
+from controladores.FCE import WsFECred
 from modelos.Emailcliente import EmailCliente
 from modelos.Tipoiva import Tipoiva
 from pyafipws.pyemail import PyEmail
@@ -42,6 +43,10 @@ class FacturaController(ControladorBase):
     concepto = '1' #concepto de factura electronica (productos, servicios o ambos)
     facturaGenerada = ''
 
+    informo = False #indica si ya informo monto obligado de FCE
+
+    decimales = 3  # indica la cantidad de decimales para el redondeo
+
     def __init__(self):
         super(FacturaController, self).__init__()
         self.view = FacturaView()
@@ -72,6 +77,11 @@ class FacturaController(ControladorBase):
             if cliente.tiporesp.idtiporesp in [1, 2, 4]: #monotributo o resp inscripto
                 self.view.lineEditDocumento.setText(cliente.cuit.replace('-',''))
                 self.view.lineEditDocumento.setInputMask("99-99999999-9")
+                wsfecred = WsFECred()
+                obligado, minimo = wsfecred.ConsultarMontoObligado(cliente.cuit.replace('-',''), LeerIni('cuit', key='WSFEv1'))
+                if obligado and not self.informo:
+                    Ventanas.showAlert("Sistema", "Se debe emitir FCE al cliente desde un monto de {}".format(minimo))
+                self.informo = True
             else:
                 self.view.lineEditDocumento.setText(str(cliente.dni))
                 self.view.lineEditDocumento.setInputMask("99999999")
@@ -158,6 +168,7 @@ class FacturaController(ControladorBase):
         totalgral = 0.
         ivagral = 0.
         dgrgral = 0.
+        subtotal = 0.
         self.netos = {
             0: 0,
             10.5: 0,
@@ -219,6 +230,7 @@ class FacturaController(ControladorBase):
                     pass
                 totalgral += total
 
+            subtotal += total
             self.view.gridFactura.ModificaItem(valor=total, fila=x, col='SubTotal')
 
 
@@ -241,8 +253,9 @@ class FacturaController(ControladorBase):
         else:
             self.view.gridAlicuotasTributos.setRowCount(0)
 
-        self.view.lineEditTributos.setText(str(round(dgrgral, 3)))
-        self.view.lineEditTotalIVA.setText(str(round(ivagral, 3)))
+        self.view.textSubTotal.setText(str(round(subtotal, self.decimales)))
+        self.view.lineEditTributos.setText(str(round(dgrgral, self.decimales)))
+        self.view.lineEditTotalIVA.setText(str(round(ivagral, self.decimales)))
         self.view.lineEditTotal.setText(str(round(totalgral + ivagral + dgrgral, 2)))
 
     def GrabaFactura(self):
@@ -318,6 +331,10 @@ class FacturaController(ControladorBase):
             fecha_serv_desde = ""
             fecha_serv_hasta = ""
             fecha_venc_pago = ""
+
+        if self.tipo_cpte in Constantes.COMPROBANTES_FCE: #FCE
+            fecha_venc_pago = self.view.lineEditFecha.getFechaSql()
+
         moneda_id = "PES"
         moneda_ctz = "1.000"
 
@@ -335,6 +352,19 @@ class FacturaController(ControladorBase):
             pto_vta = self.view.layoutCpbteRelacionado.lineEditPtoVta.text()
             nro = self.view.layoutCpbteRelacionado.lineEditNumero.text()
             wsfev1.AgregarCmpAsoc(tipo, pto_vta, nro)
+
+        if self.tipo_cpte in Constantes.COMPROBANTES_FCE:
+            #homologacion
+            wsfev1.AgregarOpcional(2101, LeerIni("CBUFCE", key='FACTURA')) #CBU
+            wsfev1.AgregarOpcional(2102, LeerIni("ALIASFCE", key='FACTURA')) # alias
+
+            #cargo los remitos relacionados, por ahora cargo la fecha actual
+            #habria q ver de hacer una tabla de remitos
+            tipo_cbte_rem = 91
+            pto_vta_rem = self.view.layoutCpbteRelacionado.lineEditPtoVta.text()
+            nro_comp_rem = self.view.layoutCpbteRelacionado.lineEditNumero.text()
+            wsfev1.AgregarCmpAsoc(tipo_cbte_rem, pto_vta_rem, nro_comp_rem,
+                                  LeerIni(clave='cat_iva', key='cuit'), FechaMysql())
 
         if round(float(self.view.lineEditTributos.text()), 3) != 0:
             idimp = wsfev1.ID_IMP_PCIAL
@@ -364,7 +394,7 @@ class FacturaController(ControladorBase):
             ok = False
         else:
             if wsfev1.Resultado == 'R':
-                Ventanas.showAlert("Sistema", "Motivo de rechazo {}".format(DeCodifica(wsfev1.Obs)))
+                Ventanas.showAlert("Sistema", "Motivo de rechazo {}".format((wsfev1.Obs)))
                 ok = False
             else:
                 self.view.lineditCAE.setText(cae)
@@ -606,9 +636,15 @@ class FacturaController(ControladorBase):
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))
         ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='inicio', key='FACTURA')))
 
-        #Cargo el formato desde el archivo CSV(opcional)
-        #(carga todos los campos a utilizar desde la planilla)
-        ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura.csv")
+        if int(cabfact.tipocomp.codigo) in Constantes.COMPROBANTES_FCE: #si es una FCE
+            pyfpdf.AgregarDato('CBUFCE', LeerIni('CBUFCE', key='FACTURA'))
+            pyfpdf.AgregarDato('ALIASFCE', LeerIni('ALIASFCE', key='FACTURA'))
+            pyfpdf.AgregarDato('nombre_condvta', Constantes.COND_VTA['T'])
+            ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura-fce.csv")
+        else:
+            #Cargo el formato desde el archivo CSV(opcional)
+            #(carga todos los campos a utilizar desde la planilla)
+            ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura.csv")
         #Creo plantilla para esta factura(papel A4vertical):
 
         if LeerIni(clave='homo') == 'S':

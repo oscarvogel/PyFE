@@ -148,6 +148,9 @@ class FacturaView(Formulario):
         self.agrupaAfip.setLayout(self.layoutAfip)
         self.layoutTotales.addWidget(self.agrupaAfip)
 
+        lblSubTotal = Etiqueta(texto="Sub Total: ", tamanio=10)
+        self.textSubTotal = EntradaTexto(tamanio=10, enabled=False)
+
         self.lblTributos = Etiqueta(texto="Otros Tributos", tamanio=10)
         self.lineEditTributos = EntradaTexto(tamanio=10, enabled=False)
         self.lblTotalIVA = Etiqueta(texto="IVA", tamanio=10)
@@ -155,12 +158,14 @@ class FacturaView(Formulario):
         self.lblTotalFactura = Etiqueta(texto='Total', tamanio=10)
         self.lineEditTotal = EntradaTexto(tamanio=10, enabled=False)
         self.gridLayoutTotales = QGridLayout()
-        self.gridLayoutTotales.addWidget(self.lblTributos, 0, 0)
-        self.gridLayoutTotales.addWidget(self.lineEditTributos, 0, 1)
+        self.gridLayoutTotales.addWidget(lblSubTotal, 0, 0)
+        self.gridLayoutTotales.addWidget(self.textSubTotal, 0, 1)
+        self.gridLayoutTotales.addWidget(self.lblTributos, 0, 2)
+        self.gridLayoutTotales.addWidget(self.lineEditTributos, 0, 3)
         self.gridLayoutTotales.addWidget(self.lblTotalIVA, 1, 0)
-        self.gridLayoutTotales.addWidget(self.lineEditTotalIVA, 1, 1)
+        self.gridLayoutTotales.addWidget(self.lineEditTotalIVA, 1, 1, 1, 3)
         self.gridLayoutTotales.addWidget(self.lblTotalFactura, 2, 0)
-        self.gridLayoutTotales.addWidget(self.lineEditTotal, 2, 1)
+        self.gridLayoutTotales.addWidget(self.lineEditTotal, 2, 1, 1, 3)
         self.layoutTotales.addLayout(self.gridLayoutTotales)
         self.layoutPpal.addLayout(self.layoutTotales)
 
