@@ -131,8 +131,10 @@ def encriptar(password):
 
 def desencriptar(encrypted_data, key):
     cipher_suite = Fernet(key)
+    if not isinstance(encrypted_data, bytes):
+        encrypted_data = encrypted_data.encode()
     plain_text = cipher_suite.decrypt(encrypted_data)
-    return plain_text
+    return plain_text.decode('utf-8')
 
 
 def inicializar_y_capturar_excepciones(func):
@@ -233,9 +235,10 @@ def GuardarArchivo(caption="Guardar archivo", directory="", filter="", filename=
     #dialog.setFileMode(filter)
     cArchivo = QFileDialog.getSaveFileName(caption=caption,
                                            directory=join(directory, filename),
-                                           filter=filter)
+                                           filter=filter)[0]
     #dialog.exec_()
     #cArchivo = dialog.selectedFiles()[0]
+    print(cArchivo)
     return cArchivo if cArchivo else ''
 
 
