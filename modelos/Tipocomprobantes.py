@@ -40,7 +40,8 @@ class ComboTipoComp(Combo):
             self.valores = {
                 11:'Factura C',
                 12:'Nota de debito C',
-                13:'Nota de credito C'
+                13:'Nota de credito C',
+                211: 'Factura de Crédito Electrónica MiPyMEs (FCE) C',
             }
             self.CargaDatosValores(self.valores)
         else:
@@ -48,9 +49,11 @@ class ComboTipoComp(Combo):
                 1: 'Factura A',
                 2: 'Nota de debito A',
                 3: 'Nota de credito A',
+                201: 'Factura de Credito Electronica MiPyMEs(FCE) A',
                 6: 'Factura B',
                 7: 'Nota de debito B',
-                8: 'Nota de credito B'
+                8: 'Nota de credito B',
+                206: 'Factura de Credito Electronica MiPyMEs(FCE) B',
             }
             self.CargaDatosValores(self.valores)
 

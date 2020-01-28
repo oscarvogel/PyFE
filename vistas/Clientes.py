@@ -58,7 +58,7 @@ class ClientesView(ABM):
                 )
             else:
                 doc = Cliente.select().where(
-                    Cliente.cuit == self.controles['cuit'].text()
+                    Cliente.cuit == self.controles['cuit'].text() or '0'
                 )
             if doc.count() > 0:
                 Ventanas.showAlert("Sistema", "Cliente con el numero documento de documento cargado, ya dado de alta")
@@ -66,14 +66,14 @@ class ClientesView(ABM):
             cliente = Cliente()
         cliente.nombre = self.controles['nombre'].text()
         cliente.telefono = self.controles['telefono'].text()
-        cliente.localidad = self.controles['localidad'].text()
+        cliente.localidad = self.controles['localidad'].text() or 1
         cliente.domicilio = self.controles['domicilio'].text()
-        cliente.tipodocu = self.controles['tipodocu'].text()
+        cliente.tipodocu = self.controles['tipodocu'].text() or 0
         cliente.dni = self.controles['dni'].text() if self.controles['dni'].text() else '0'
         cliente.cuit = self.controles['cuit'].text() if str(self.controles['cuit'].text()).replace('-', '') else '0'
-        cliente.tiporesp = self.controles['tiporesp'].text()
+        cliente.tiporesp = self.controles['tiporesp'].text() or 3
         cliente.formapago = '1'
-        cliente.percepcion = self.controles['percepcion'].text()
+        cliente.percepcion = self.controles['percepcion'].text() or 1
         #if self.tipo == 'M': #actualizacion
         cliente.save()
         ABM.btnAceptarClicked(self)

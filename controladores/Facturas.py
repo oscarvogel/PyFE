@@ -7,17 +7,18 @@ from PyQt5.QtCore import Qt
 from os.path import join
 
 from controladores.ControladorBase import ControladorBase
+from controladores.FCE import WsFECred
 from controladores.FE import FEv1
-from libs import Ventanas
+from libs import Ventanas, Constantes
 from libs.Utiles import LeerIni, validar_cuit, FechaMysql, ubicacion_sistema, inicializar_y_capturar_excepciones, \
-    DeCodifica
-from modelos import Tipocomprobantes
+    DeCodifica, imagen
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Clientes import Cliente
 from modelos.CpbteRelacionado import CpbteRel
 from modelos.Detfact import Detfact
 from modelos.Impuestos import Impuesto
+from modelos.ParametrosSistema import ParamSist
 from modelos.Tipoiva import Tipoiva
 from pyafipws.pyfepdf import FEPDF
 from vistas.Busqueda import UiBusqueda
@@ -36,6 +37,8 @@ class FacturaController(ControladorBase):
     }
     concepto = '1' #concepto de factura electronica (productos, servicios o ambos)
     facturaGenerada = ''
+    informo = False  # indica si ya informo monto obligado de FCE
+    decimales = 3  # indica la cantidad de decimales para el redondeo
 
     def __init__(self):
         super(FacturaController, self).__init__()
@@ -57,7 +60,8 @@ class FacturaController(ControladorBase):
         self.view.botonBorrarArt.clicked.connect(self.onClickbotonBorraArt)
         self.view.cboComprobante.currentIndexChanged.connect(self.onCurrentIndexChanged)
 
-    def CargaDatosCliente(self):
+    @inicializar_y_capturar_excepciones
+    def CargaDatosCliente(self, *args, **kwargs):
         if not self.view.validaCliente.text():
             return
         try:
@@ -67,6 +71,12 @@ class FacturaController(ControladorBase):
             if cliente.tiporesp.idtiporesp in [1, 2, 4]: #monotributo o resp inscripto
                 self.view.lineEditDocumento.setText(cliente.cuit.replace('-',''))
                 self.view.lineEditDocumento.setInputMask("99-99999999-9")
+                if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1:
+                    wsfecred = WsFECred()
+                    obligado, minimo = wsfecred.ConsultarMontoObligado(cliente.cuit.replace('-',''), LeerIni('cuit', key='WSFEv1'))
+                    if obligado and not self.informo:
+                        Ventanas.showAlert("Sistema", "Se debe emitir FCE al cliente desde un monto de {}".format(minimo))
+                self.informo = True
             else:
                 self.view.lineEditDocumento.setText(str(cliente.dni))
                 self.view.lineEditDocumento.setInputMask("99999999")
@@ -154,6 +164,7 @@ class FacturaController(ControladorBase):
         totalgral = 0.
         ivagral = 0.
         dgrgral = 0.
+        subtotal = 0.
         self.netos = {
             0: 0,
             10.5: 0,
@@ -218,6 +229,8 @@ class FacturaController(ControladorBase):
             #                key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
             #     ivagral += total * iva / 100
             # totalgral += total
+            subtotal += total
+
             self.view.gridFactura.ModificaItem(valor=total, fila=x, col='SubTotal')
 
 
@@ -240,8 +253,10 @@ class FacturaController(ControladorBase):
         else:
             self.view.gridAlicuotasTributos.setRowCount(0)
 
-        self.view.lineEditTributos.setText(str(round(dgrgral, 3)))
-        self.view.lineEditTotalIVA.setText(str(round(ivagral, 3)))
+
+        self.view.textSubTotal.setText(str(round(subtotal, self.decimales)))
+        self.view.lineEditTributos.setText(str(round(dgrgral, self.decimales)))
+        self.view.lineEditTotalIVA.setText(str(round(ivagral, self.decimales)))
         self.view.lineEditTotal.setText(str(round(totalgral + ivagral + dgrgral, 2)))
 
     def GrabaFactura(self):
@@ -320,6 +335,8 @@ class FacturaController(ControladorBase):
         moneda_id = "PES"
         moneda_ctz = "1.000"
 
+        if self.tipo_cpte in Constantes.COMPROBANTES_FCE: #FCE
+            fecha_venc_pago = self.view.lineEditFecha.getFechaSql()
         #Llamo al WebService de Autorizacion para obtener el CAE
         ok = wsfev1.CrearFactura(concepto, tipo_doc, nro_doc, tipo_cbte, punto_vta,
                 cbt_desde, cbt_hasta, imp_total, imp_tot_conc, imp_neto,
@@ -334,6 +351,20 @@ class FacturaController(ControladorBase):
             pto_vta = self.view.layoutCpbteRelacionado.lineEditPtoVta.text()
             nro = self.view.layoutCpbteRelacionado.lineEditNumero.text()
             wsfev1.AgregarCmpAsoc(tipo, pto_vta, nro)
+
+        if self.tipo_cpte in Constantes.COMPROBANTES_FCE:
+            #homologacion
+            wsfev1.AgregarOpcional(2101, LeerIni("CBUFCE", key='FACTURA')) #CBU
+            wsfev1.AgregarOpcional(2102, LeerIni("ALIASFCE", key='FACTURA')) # alias
+
+            #cargo los remitos relacionados, por ahora cargo la fecha actual
+            #habria q ver de hacer una tabla de remitos
+            if self.view.layoutCpbteRelacionado.numero:
+                tipo_cbte_rem = 91
+                pto_vta_rem = self.view.layoutCpbteRelacionado.lineEditPtoVta.text()
+                nro_comp_rem = self.view.layoutCpbteRelacionado.lineEditNumero.text()
+                wsfev1.AgregarCmpAsoc(tipo_cbte_rem, pto_vta_rem, nro_comp_rem,
+                                      LeerIni(clave='cat_iva', key='cuit'), FechaMysql())
 
         if round(float(self.view.lineEditTributos.text()), 3) != 0:
             idimp = wsfev1.ID_IMP_PCIAL
@@ -368,7 +399,7 @@ class FacturaController(ControladorBase):
             else:
                 self.view.lineditCAE.setText(cae)
                 self.view.lineEditResultado.setText(wsfev1.Resultado)
-            self.view.fechaVencCAE.setFecha(wsfev1.Vencimiento, format="Ymd")
+                self.view.fechaVencCAE.setFecha(wsfev1.Vencimiento, format="Ymd")
         return ok
 
     def onEditingFinishedDocumento(self):
@@ -596,6 +627,14 @@ class FacturaController(ControladorBase):
 
         #Agrego datos adicionales fijos:
         ok = pyfpdf.AgregarDato("logo", ubicacion_sistema() + "plantillas/logo.png")
+        fondo = ParamSist.ObtenerParametro("FONDO_FACTURA")
+        if fondo:
+            x1 = ParamSist.ObtenerParametro("FONDO_FACTURA_X1") or 50
+            y1 = ParamSist.ObtenerParametro("FONDO_FACTURA_Y1") or 117.1
+            x2 = ParamSist.ObtenerParametro("FONDO_FACTURA_X2") or 150
+            y2 = ParamSist.ObtenerParametro("FONDO_FACTURA_Y2") or 232.9
+            pyfpdf.AgregarCampo("fondo_factura", 'I', x1, y1, x2, y2,
+                              foreground=0x808080, priority=-1, text=imagen(fondo))
         ok = pyfpdf.AgregarDato("EMPRESA", "Razon social: {}".format(DeCodifica(LeerIni(clave='empresa', key='FACTURA'))))
         ok = pyfpdf.AgregarDato("MEMBRETE1", "Domicilio Comercial: {}".format(
             DeCodifica(LeerIni(clave='membrete1', key='FACTURA'))))
@@ -605,9 +644,15 @@ class FacturaController(ControladorBase):
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))
         ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='inicio', key='FACTURA')))
 
-        #Cargo el formato desde el archivo CSV(opcional)
-        #(carga todos los campos a utilizar desde la planilla)
-        ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura.csv")
+        if int(cabfact.tipocomp.codigo) in Constantes.COMPROBANTES_FCE: #si es una FCE
+            pyfpdf.AgregarDato('CBUFCE', LeerIni('CBUFCE', key='FACTURA'))
+            pyfpdf.AgregarDato('ALIASFCE', LeerIni('ALIASFCE', key='FACTURA'))
+            pyfpdf.AgregarDato('nombre_condvta', Constantes.COND_VTA['T'])
+            ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura-fce.csv")
+        else:
+            #Cargo el formato desde el archivo CSV(opcional)
+            #(carga todos los campos a utilizar desde la planilla)
+            ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura.csv")
         #Creo plantilla para esta factura(papel A4vertical):
 
         if LeerIni(clave='homo') == 'S':

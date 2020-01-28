@@ -54,12 +54,12 @@ class EmiteReciboController(ControladorBase):
         self.view.gridPagos.setRowCount(self.view.gridPagos.rowCount() + 1)
 
     def onKeyPressedGridDeuda(self, key):
-        modifiers = QtGui.QApplication.keyboardModifiers()
-        if modifiers == Qt.ControlModifier:
-            if key in [Qt.Key_Enter, Qt.Key_Return]:
-                fila = self.view.gridDeuda.currentRow()
-                saldar = self.view.gridDeuda.ObtenerItem(fila=fila, col='Saldo')
-                self.view.gridDeuda.ModificaItem(valor=saldar, fila=fila, col='a Saldar')
+        # modifiers = QtGui.QApplication.keyboardModifiers()
+        # if modifiers == Qt.ControlModifier:
+        #     if key in [Qt.Key_Enter, Qt.Key_Return]:
+        #         fila = self.view.gridDeuda.currentRow()
+        #         saldar = self.view.gridDeuda.ObtenerItem(fila=fila, col='Saldo')
+        #         self.view.gridDeuda.ModificaItem(valor=saldar, fila=fila, col='a Saldar')
         self.SumaDeuda()
 
     def SumaDeuda(self):
@@ -118,8 +118,8 @@ class EmiteReciboController(ControladorBase):
         recibo.save()
 
         for x in range(self.view.gridDeuda.rowCount()):
-            id = self.view.gridDeuda.ObtenerItem(fila=x, col='id')
-            importe = float(self.view.gridDeuda.ObtenerItem(fila=x, col='Importe'))
+            id = self.view.gridDeuda.ObtenerItem(fila=x, col='id') or 0
+            importe = float(self.view.gridDeuda.ObtenerItem(fila=x, col='a Saldar') or 0)
             cabecera = Cabfact.get_by_id(int(id))
             cabecera.saldo = cabecera.saldo - abs(importe)
             cabecera.desde = "0000-00-00"

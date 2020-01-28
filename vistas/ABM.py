@@ -203,7 +203,7 @@ class ABM(VistaBase):
             self.campoFoco.setFocus()
 
     def CargaDatos(self, data=None):
-        self.tipo = 'A'
+        # self.tipo = 'A'
         if not data:
             return
         for d in data:
@@ -284,6 +284,7 @@ class ABM(VistaBase):
         pass
 
     def Agrega(self):
+        self.tipo = 'A'
         for x in self.controles:
             if self.autoincremental:
                 if x == self.campoClave.column_name:

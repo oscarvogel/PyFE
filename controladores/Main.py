@@ -5,6 +5,7 @@ from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QApplication, QMenu
 
 from controladores.ABMGrupos import ABMGruposController
+from controladores.ABMParametrosSistema import ABMParamSistController
 from controladores.Articulos import ArticulosController
 from controladores.CargaFacturasProveedor import CargaFacturaProveedorController
 from controladores.CentroCostos import CentroCostoController
@@ -30,6 +31,7 @@ from controladores.TipoComprobantes import TipoComprobantesController
 from controladores.Resguardo import ResguardoController
 from libs.Utiles import LeerIni, GrabarIni, FechaMysql
 from modelos.ModeloBase import ModeloBase
+from modelos.ParametrosSistema import ParamSist
 from vistas.Main import MainView
 
 
@@ -53,6 +55,7 @@ class Main(ControladorBase):
                 resguardo.Cargar("sistema-res.db")
                 resguardo.Cargar("sistema.ini")
                 GrabarIni(clave='ultima_copia', key='param', valor=FechaMysql())
+        self.CreaTablas()
 
     def conectarWidgets(self):
         self.view.btnSalir.clicked.connect(self.SalirSistema)
@@ -136,8 +139,19 @@ class Main(ControladorBase):
             ventana.view.exec_()
 
     def onClickBtnSeteo(self):
-        config = ConfiguracionController()
-        config.view.exec_()
+        menu = QMenu(self.view)
+        emisionConfig = menu.addAction(u"Configuracion de inicio")
+        paramAction = menu.addAction(u"Parametros de sistema")
+        menu.addAction(emisionConfig)
+        menu.addAction(paramAction)
+        menu.addAction(u"Volver")
+        action = menu.exec_(QCursor.pos())
+        if action == emisionConfig:
+            config = ConfiguracionController()
+            config.view.exec_()
+        elif action == paramAction:
+            _ventana = ABMParamSistController()
+            _ventana.exec_()
 
 
     def onClickBtnAFIP(self):
@@ -183,3 +197,6 @@ class Main(ControladorBase):
         elif action == rg3685:
             ventana = RG3685ComprasController()
             ventana.view.exec_()
+
+    def CreaTablas(self):
+        ParamSist.create_table(safe=True)
