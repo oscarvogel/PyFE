@@ -17,7 +17,8 @@ class ConsultaCAEController(ControladorBase):
 
     def ConsultaCAE(self):
         fe = FEv1()
-        tipocbte = [k for (k, v) in self.view.cboTipoComp.valores.iteritems() if v == self.view.cboTipoComp.text()][0]
+        # tipocbte = [k for (k, v) in self.view.cboTipoComp.valores.iteritems() if v == self.view.cboTipoComp.text()][0]
+        tipocbte = self.view.cboTipoComp.text()
         fe.ConsultarCAE(tipocbte=tipocbte,
                         puntoventa=self.view.layoutFactura.lineEditPtoVta.text(),
                         numero=self.view.layoutFactura.lineEditNumero.text())

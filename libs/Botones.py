@@ -1,6 +1,7 @@
 # coding=utf-8
-from PyQt4.QtCore import QSize
-from PyQt4.QtGui import QPushButton, QIcon
+from PyQt5.QtCore import QSize
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QPushButton
 
 from libs.Utiles import LeerIni
 

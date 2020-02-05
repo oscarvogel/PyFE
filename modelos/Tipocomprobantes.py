@@ -41,7 +41,7 @@ class ComboTipoComp(Combo):
                 11:'Factura C',
                 12:'Nota de debito C',
                 13:'Nota de credito C',
-                211:'Factura de Crédito Electrónica MiPyMEs (FCE) C'
+                211: 'Factura de Crédito Electrónica MiPyMEs (FCE) C',
             }
             self.CargaDatosValores(self.valores)
         else:

@@ -1,6 +1,6 @@
 # coding=utf-8
-from PyQt4.QtCore import QSize
-from PyQt4.QtGui import QVBoxLayout, QGridLayout, QHBoxLayout
+from PyQt5.QtCore import QSize
+from PyQt5.QtWidgets import QVBoxLayout, QGridLayout, QHBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario
 from libs.Checkbox import CheckBox
@@ -166,6 +166,7 @@ class FacturaView(Formulario):
         self.gridLayoutTotales.addWidget(self.lineEditTotalIVA, 1, 1, 1, 3)
         self.gridLayoutTotales.addWidget(self.lblTotalFactura, 2, 0)
         self.gridLayoutTotales.addWidget(self.lineEditTotal, 2, 1, 1, 3)
+
         self.layoutTotales.addLayout(self.gridLayoutTotales)
         self.layoutPpal.addLayout(self.layoutTotales)
 

@@ -12,10 +12,13 @@
 
 #Utilidades varias necesarias en el sistema
 import calendar
-import codecs
+import platform
+from configparser import ConfigParser
 from logging.handlers import RotatingFileHandler
 
-from PyQt4.QtGui import QFileDialog
+from PyQt5 import QtGui
+from PyQt5.QtWidgets import QFileDialog
+
 from pyafipws.pyemail import PyEmail
 
 __author__ = "Jose Oscar Vogel <oscarvogel@gmail.com>"
@@ -30,18 +33,19 @@ import os
 import sys
 import traceback
 import uuid
-import win32api
-from ConfigParser import ConfigParser, SafeConfigParser
+try:
+    import win32api
+except:
+    pass
 from functools import wraps
 
 from cryptography.fernet import Fernet
 from os.path import join
 from sys import argv
 
-from PyQt4 import QtGui
-
 from libs import Ventanas, Constantes
 
+from libs import Ventanas, Constantes
 
 #necesario porque en mysql tengo definido el campo boolean como bit
 def EsVerdadero(valor):
@@ -52,7 +56,10 @@ def EsVerdadero(valor):
 #tendria que ver como hacerlo en Linux
 def AbrirArchivo(cArchivo=None):
     if cArchivo:
-        win32api.ShellExecute(0, "open", cArchivo, None, ".", 0)
+        if platform.system() == 'Linux':
+            open(cArchivo)
+        else:
+            win32api.ShellExecute(0, "open", cArchivo, None, ".", 0)
 
 #leo el archivo de configuracion del sistema
 #recibe la clave y el key a leer en caso de que tenga mas de una seccion el archivo
@@ -84,7 +91,7 @@ def GrabarIni(clave=None, key=None, valor=''):
         return
     Config = ConfigParser()
     Config.read('sistema.ini')
-    cfgfile = open("sistema.ini",'wb')
+    cfgfile = open("sistema.ini",'w')
     Config.set(key, clave, valor)
     Config.write(cfgfile)
     cfgfile.close()
@@ -125,8 +132,10 @@ def encriptar(password):
 
 def desencriptar(encrypted_data, key):
     cipher_suite = Fernet(key)
+    if not isinstance(encrypted_data, bytes):
+        encrypted_data = encrypted_data.encode()
     plain_text = cipher_suite.decrypt(encrypted_data)
-    return plain_text
+    return plain_text.decode('utf-8')
 
 
 def inicializar_y_capturar_excepciones(func):
@@ -177,7 +186,7 @@ def validar_cuit(cuit):
 
     # calculo el digito verificador:
     aux = 0
-    for i in xrange(10):
+    for i in range(10):
         aux += int(cuit[i])* base[i]
 
     aux = 11 - (aux - (int(aux / 11)* 11))
@@ -227,9 +236,10 @@ def GuardarArchivo(caption="Guardar archivo", directory="", filter="", filename=
     #dialog.setFileMode(filter)
     cArchivo = QFileDialog.getSaveFileName(caption=caption,
                                            directory=join(directory, filename),
-                                           filter=filter)
+                                           filter=filter)[0]
     #dialog.exec_()
     #cArchivo = dialog.selectedFiles()[0]
+    print(cArchivo)
     return cArchivo if cArchivo else ''
 
 
@@ -239,7 +249,7 @@ def Normaliza(valor):
 
 def DeCodifica(dato):
     # return "{}".format(bytearray(dato, 'latin-1', errors='ignore').decode('utf-8','ignore'))
-    return '{}'.format(bytearray(str(dato))).decode('utf-8').encode('latin-1')
+    return "{}".format(bytearray(dato, 'latin-1', errors='ignore').decode('utf-8','ignore'))
 
 def initialize_logger(output_dir):
     logger = logging.getLogger()

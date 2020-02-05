@@ -1,7 +1,8 @@
 import datetime
 
-from PyQt4 import QtCore
-from PyQt4.QtGui import QHBoxLayout, QDoubleSpinBox, QFont
+from PyQt5 import QtCore
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QDoubleSpinBox, QHBoxLayout
 
 from libs.Etiquetas import Etiqueta
 from libs.Utiles import InicioMes, FinMes

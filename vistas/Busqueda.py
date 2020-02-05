@@ -2,8 +2,9 @@
 import decimal
 import logging
 
-from PyQt4 import QtCore
-from PyQt4.QtGui import QVBoxLayout, QTableWidget, QFont, QHBoxLayout, QApplication, QMainWindow, QTableWidgetItem
+from PyQt5 import QtCore
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QVBoxLayout, QTableWidget, QHBoxLayout, QTableWidgetItem, QMainWindow, QApplication
 
 from libs import Ventanas
 from libs.Botones import BotonAceptar, BotonCerrarFormulario

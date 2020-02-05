@@ -3,28 +3,23 @@ import decimal
 import os
 
 import peewee
-from PyQt4.QtGui import QInputDialog
+from PyQt5.QtCore import Qt
 from os.path import join
 
-from PyQt4.QtCore import Qt
-
-from controladores.FCE import WsFECred
-from modelos.Emailcliente import EmailCliente
-from modelos.Tipoiva import Tipoiva
-from pyafipws.pyemail import PyEmail
-
 from controladores.ControladorBase import ControladorBase
+from controladores.FCE import WsFECred
 from controladores.FE import FEv1
 from libs import Ventanas, Constantes
 from libs.Utiles import LeerIni, validar_cuit, FechaMysql, ubicacion_sistema, inicializar_y_capturar_excepciones, \
-    DeCodifica
-from modelos import Tipocomprobantes
+    DeCodifica, imagen
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Clientes import Cliente
 from modelos.CpbteRelacionado import CpbteRel
 from modelos.Detfact import Detfact
 from modelos.Impuestos import Impuesto
+from modelos.ParametrosSistema import ParamSist
+from modelos.Tipoiva import Tipoiva
 from pyafipws.pyfepdf import FEPDF
 from vistas.Busqueda import UiBusqueda
 
@@ -42,6 +37,8 @@ class FacturaController(ControladorBase):
     }
     concepto = '1' #concepto de factura electronica (productos, servicios o ambos)
     facturaGenerada = ''
+    informo = False  # indica si ya informo monto obligado de FCE
+    decimales = 3  # indica la cantidad de decimales para el redondeo
 
     informo = False #indica si ya informo monto obligado de FCE
 
@@ -67,7 +64,8 @@ class FacturaController(ControladorBase):
         self.view.botonBorrarArt.clicked.connect(self.onClickbotonBorraArt)
         self.view.cboComprobante.currentIndexChanged.connect(self.onCurrentIndexChanged)
 
-    def CargaDatosCliente(self):
+    @inicializar_y_capturar_excepciones
+    def CargaDatosCliente(self, *args, **kwargs):
         if not self.view.validaCliente.text():
             return
         try:
@@ -77,10 +75,11 @@ class FacturaController(ControladorBase):
             if cliente.tiporesp.idtiporesp in [1, 2, 4]: #monotributo o resp inscripto
                 self.view.lineEditDocumento.setText(cliente.cuit.replace('-',''))
                 self.view.lineEditDocumento.setInputMask("99-99999999-9")
-                wsfecred = WsFECred()
-                obligado, minimo = wsfecred.ConsultarMontoObligado(cliente.cuit.replace('-',''), LeerIni('cuit', key='WSFEv1'))
-                if obligado and not self.informo:
-                    Ventanas.showAlert("Sistema", "Se debe emitir FCE al cliente desde un monto de {}".format(minimo))
+                if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1:
+                    wsfecred = WsFECred()
+                    obligado, minimo = wsfecred.ConsultarMontoObligado(cliente.cuit.replace('-',''), LeerIni('cuit', key='WSFEv1'))
+                    if obligado and not self.informo:
+                        Ventanas.showAlert("Sistema", "Se debe emitir FCE al cliente desde un monto de {}".format(minimo))
                 self.informo = True
             else:
                 self.view.lineEditDocumento.setText(str(cliente.dni))
@@ -100,8 +99,9 @@ class FacturaController(ControladorBase):
 
     def ObtieneNumeroFactura(self):
         self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='pto_vta', key='WSFEv1').zfill(4))
-        tipos = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='cat_iva', key='WSFEv1')))
-        tipo_cpte = [k for (k, v) in tipos.valores.iteritems() if v == self.view.cboComprobante.text()][0]
+        # tipos = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='cat_iva', key='WSFEv1')))
+        # tipo_cpte = [k for (k, v) in tipos.valores.iteritems() if v == self.view.cboComprobante.text()][0]
+        tipo_cpte = self.view.cboComprobante.text()
         nro = FEv1().UltimoComprobante(tipo=tipo_cpte,
                                        ptovta=self.view.layoutFactura.lineEditPtoVta.text())
         self.tipo_cpte = tipo_cpte
@@ -230,7 +230,13 @@ class FacturaController(ControladorBase):
                     pass
                 totalgral += total
 
+            # if int(LeerIni(clave='cat_iva',
+            #                key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
+            #     ivagral += total * iva / 100
+            # totalgral += total
             subtotal += total
+
+
             self.view.gridFactura.ModificaItem(valor=total, fila=x, col='SubTotal')
 
 
@@ -252,6 +258,7 @@ class FacturaController(ControladorBase):
                                                             fila=row, col='Importe')
         else:
             self.view.gridAlicuotasTributos.setRowCount(0)
+
 
         self.view.textSubTotal.setText(str(round(subtotal, self.decimales)))
         self.view.lineEditTributos.setText(str(round(dgrgral, self.decimales)))
@@ -338,6 +345,8 @@ class FacturaController(ControladorBase):
         moneda_id = "PES"
         moneda_ctz = "1.000"
 
+        if self.tipo_cpte in Constantes.COMPROBANTES_FCE: #FCE
+            fecha_venc_pago = self.view.lineEditFecha.getFechaSql()
         #Llamo al WebService de Autorizacion para obtener el CAE
         ok = wsfev1.CrearFactura(concepto, tipo_doc, nro_doc, tipo_cbte, punto_vta,
                 cbt_desde, cbt_hasta, imp_total, imp_tot_conc, imp_neto,
@@ -360,11 +369,12 @@ class FacturaController(ControladorBase):
 
             #cargo los remitos relacionados, por ahora cargo la fecha actual
             #habria q ver de hacer una tabla de remitos
-            tipo_cbte_rem = 91
-            pto_vta_rem = self.view.layoutCpbteRelacionado.lineEditPtoVta.text()
-            nro_comp_rem = self.view.layoutCpbteRelacionado.lineEditNumero.text()
-            wsfev1.AgregarCmpAsoc(tipo_cbte_rem, pto_vta_rem, nro_comp_rem,
-                                  LeerIni(clave='cat_iva', key='cuit'), FechaMysql())
+            if self.view.layoutCpbteRelacionado.numero:
+                tipo_cbte_rem = 91
+                pto_vta_rem = self.view.layoutCpbteRelacionado.lineEditPtoVta.text()
+                nro_comp_rem = self.view.layoutCpbteRelacionado.lineEditNumero.text()
+                wsfev1.AgregarCmpAsoc(tipo_cbte_rem, pto_vta_rem, nro_comp_rem,
+                                      LeerIni(clave='cat_iva', key='cuit'), FechaMysql())
 
         if round(float(self.view.lineEditTributos.text()), 3) != 0:
             idimp = wsfev1.ID_IMP_PCIAL
@@ -451,6 +461,7 @@ class FacturaController(ControladorBase):
                 detfact.cantidad = cantidad
                 detfact.unidad = articulo.unidad
                 detfact.costo = articulo.costo
+
                 if LeerIni(clave='cat_iva', key='WSFEv1') == 1:
                     if self.tipo_cpte in [6,7,8]:
                         detfact.precio = importe / cantidad
@@ -466,7 +477,7 @@ class FacturaController(ControladorBase):
                 if self.tipo_cpte in [6, 7, 8]:
                     detfact.montoiva = importe * iva / 100
                 else:
-                    neto = round(importe /((iva / 100) + 1),3)
+                    neto = round(importe / ((iva / 100) + 1), 3)
                     detfact.montoiva = neto * iva / 100
                 if self.view.lineEditTributos.value() > 0:
                     detfact.montodgr = importe * float(self.cliente.percepcion.porcentaje) / 100
@@ -581,7 +592,7 @@ class FacturaController(ControladorBase):
             ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
 
         if cabfact.netob != 0:
-            iva_id = 4  # c�digo para al�cuota del 21 %
+            iva_id = 4  # c�digo para al�cuota del 10.5 %
             base_imp = cabfact.netob  # importe neto sujeto a esta al�cuota
             importe = cabfact.netob * 10.5 / 100  # importe liquidado de iva
             ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
@@ -627,6 +638,14 @@ class FacturaController(ControladorBase):
 
         #Agrego datos adicionales fijos:
         ok = pyfpdf.AgregarDato("logo", ubicacion_sistema() + "plantillas/logo.png")
+        fondo = ParamSist.ObtenerParametro("FONDO_FACTURA")
+        if fondo:
+            x1 = ParamSist.ObtenerParametro("FONDO_FACTURA_X1") or 50
+            y1 = ParamSist.ObtenerParametro("FONDO_FACTURA_Y1") or 117.1
+            x2 = ParamSist.ObtenerParametro("FONDO_FACTURA_X2") or 150
+            y2 = ParamSist.ObtenerParametro("FONDO_FACTURA_Y2") or 232.9
+            pyfpdf.AgregarCampo("fondo_factura", 'I', x1, y1, x2, y2,
+                              foreground=0x808080, priority=-1, text=imagen(fondo))
         ok = pyfpdf.AgregarDato("EMPRESA", "Razon social: {}".format(DeCodifica(LeerIni(clave='empresa', key='FACTURA'))))
         ok = pyfpdf.AgregarDato("MEMBRETE1", "Domicilio Comercial: {}".format(
             DeCodifica(LeerIni(clave='membrete1', key='FACTURA'))))
@@ -658,6 +677,7 @@ class FacturaController(ControladorBase):
         qty_pos = "izq" #(cantidad a la izquierda de la descripci�n del art�culo)
         #Proceso la plantilla
         ok = pyfpdf.ProcesarPlantilla(num_copias, lineas_max, qty_pos)
+
         if not os.path.isdir('facturas'):
             os.mkdir('facturas')
         #Genero el PDF de salida seg�n la plantilla procesada
@@ -697,9 +717,8 @@ class FacturaController(ControladorBase):
 
     def onCurrentIndexChanged(self):
         #self.ObtieneNumeroFactura()
-        tipos = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='cat_iva', key='WSFEv1')))
-        tipo_cpte = [k for (k, v) in tipos.valores.iteritems() if v == self.view.cboComprobante.text()][0]
-        self.tipo_cpte = tipo_cpte
+        self.tipo_cpte = self.view.cboComprobante.text()
+
         if str(self.view.cboComprobante.text()).find('credito'):
             self.view.layoutCpbteRelacionado.lineEditNumero.setEnabled(True)
             self.view.layoutCpbteRelacionado.lineEditPtoVta.setEnabled(True)

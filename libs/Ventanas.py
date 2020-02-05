@@ -1,7 +1,7 @@
 # coding=utf-8
 import sys
 
-from PyQt4.QtGui import QMessageBox, QApplication, QWidget, QPushButton
+from PyQt5.QtWidgets import QMessageBox, QApplication, QWidget, QPushButton
 
 
 def showAlert(titulo, mensaje):

@@ -1,5 +1,5 @@
 # coding=utf-8
-from PyQt4.QtCore import QSize
+from PyQt5.QtCore import QSize
 
 from libs import Ventanas
 from libs.Botones import Boton

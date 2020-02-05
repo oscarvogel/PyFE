@@ -1,8 +1,8 @@
 # coding=utf-8
 import decimal
 
-from PyQt4.QtCore import QSize
-from PyQt4.QtGui import QVBoxLayout, QTabWidget, QWidget, QGridLayout, QHBoxLayout, QLineEdit, QCheckBox, QComboBox
+from PyQt5.QtCore import QSize
+from PyQt5.QtWidgets import QVBoxLayout, QTabWidget, QWidget, QGridLayout, QHBoxLayout, QLineEdit, QCheckBox, QComboBox
 
 from libs import Ventanas
 from libs.Botones import Boton

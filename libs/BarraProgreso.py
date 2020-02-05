@@ -8,7 +8,7 @@
 # WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTIBILITY
 # or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 # for more details.
-from PyQt4.QtGui import QProgressBar
+from PyQt5.QtWidgets import QProgressBar
 
 
 class Avance(QProgressBar):

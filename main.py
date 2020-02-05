@@ -1,9 +1,10 @@
 # coding=utf-8
 import logging
 import sys
+
+from PyQt5.QtWidgets import QApplication
 from os.path import join
 
-from PyQt4.QtGui import QApplication
 
 from controladores.Main import Main
 from libs.Utiles import LeerIni, initialize_logger

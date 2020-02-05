@@ -1,5 +1,5 @@
 # coding=utf-8
-from PyQt4.QtGui import QVBoxLayout, QHBoxLayout, QFormLayout
+from PyQt5.QtWidgets import QVBoxLayout, QFormLayout, QHBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario
 from libs.ComboBox import ComboConstComp

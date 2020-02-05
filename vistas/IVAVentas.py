@@ -10,11 +10,10 @@
 # for more details.
 
 #Vista para Exporta libro iva ventas en formato excel
-from PyQt4.QtGui import QVBoxLayout, QHBoxLayout
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
 
 from libs.BarraProgreso import Avance
 from libs.Botones import Boton, BotonCerrarFormulario
-from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Fechas import Fecha
 from libs.Formulario import Formulario

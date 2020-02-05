@@ -1,5 +1,5 @@
 # coding=utf-8
-from PyQt4.QtGui import QVBoxLayout, QHBoxLayout
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
@@ -32,7 +32,7 @@ class EmiteReciboView(VistaBase):
         self.gridDeuda = Grilla()
         self.gridDeuda.enabled = True
         cabecera = [
-            'Tipo Comprobante', 'Comprobante', 'Fecha', 'Saldo', 'a Saldar'
+            'Tipo Comprobante', 'Comprobante', 'Fecha', 'Saldo', 'a Saldar', 'id'
         ]
         self.gridDeuda.columnasHabilitadas = [4,]
         self.gridDeuda.ArmaCabeceras(cabeceras=cabecera)

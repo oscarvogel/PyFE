@@ -1,8 +1,9 @@
 # coding=utf-8
 import datetime
 
-from PyQt4 import QtCore
-from PyQt4.QtGui import QLineEdit, QFont, QHBoxLayout, QTextEdit
+from PyQt5 import QtCore
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QLineEdit, QHBoxLayout, QTextEdit
 
 from libs import Ventanas
 from libs.Etiquetas import Etiqueta

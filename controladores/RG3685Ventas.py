@@ -1,7 +1,7 @@
 # coding=utf-8
 import os
 
-from PyQt4.QtGui import QApplication
+from PyQt5.QtWidgets import QApplication
 
 from controladores.ControladorBase import ControladorBase
 from libs import Ventanas, Constantes

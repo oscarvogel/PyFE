@@ -3,8 +3,9 @@ import datetime
 import decimal
 
 import xlsxwriter
-from PyQt4 import QtCore
-from PyQt4.QtGui import QTableWidget, QFont, QTableWidgetItem, QColor, QFileDialog
+from PyQt5 import QtCore
+from PyQt5.QtGui import QFont, QColor
+from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QFileDialog
 
 from libs.Utiles import EsVerdadero, AbrirArchivo
 

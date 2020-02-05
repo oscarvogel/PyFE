@@ -1,5 +1,5 @@
 # coding=utf-8
-from PyQt4.QtGui import QTabWidget, QWidget
+from PyQt5.QtWidgets import QTabWidget, QWidget
 
 
 class Pagina(QTabWidget):
