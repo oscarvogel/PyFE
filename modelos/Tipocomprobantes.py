@@ -15,7 +15,7 @@ FORMA_PAGO = {
 class TipoComprobante(ModeloBase):
     codigo = IntegerField(primary_key=True, db_column='codigo')
     nombre = CharField(max_length=30)
-    abreviatura = CharField(max_length=3, db_column='abr')
+    abreviatura = CharField(max_length=3, db_column='abr', default='')
     lado = CharField(max_length=1, default='')
     exporta = BitBooleanField(default=0)
     ultcomp = IntegerField(default=0)
