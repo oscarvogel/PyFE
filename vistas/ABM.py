@@ -10,6 +10,7 @@ from libs.Checkbox import CheckBox
 from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import Etiqueta
 from libs.Grillas import Grilla
+from libs.Spinner import Spinner
 from libs.Utiles import EsVerdadero, inicializar_y_capturar_excepciones
 from vistas.VistaBase import VistaBase
 
@@ -203,6 +204,7 @@ class ABM(VistaBase):
             self.campoFoco.setFocus()
 
     def CargaDatos(self, data=None):
+        # self.tipo = 'A'
         if not data:
             return
         for d in data:
@@ -216,6 +218,8 @@ class ABM(VistaBase):
                             self.controles[k].setText(str(d[k]))
                         else:
                             self.controles[k].setText(d[k])
+                    elif isinstance(self.controles[k], Spinner):
+                        self.controles[k].setText(d[k])
                     elif isinstance(self.controles[k], (QCheckBox, CheckBox)):
                         if EsVerdadero(d[k]) or d[k]:
                             self.controles[k].setChecked(True)

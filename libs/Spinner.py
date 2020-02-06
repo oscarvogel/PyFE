@@ -49,6 +49,12 @@ class Spinner(QDoubleSpinBox):
         self.setStyleSheet("background-color: Dodgerblue")
         QDoubleSpinBox.focusOutEvent(self, *args, **kwargs)
 
+    def text(self):
+        return self.value()
+
+    def setText(self, p_val):
+        p_val = float(p_val or 0)
+        self.setValue(p_val)
 
 class Periodo(QHBoxLayout):
 
