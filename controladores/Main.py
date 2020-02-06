@@ -5,6 +5,7 @@ from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QApplication, QMenu
 
 from controladores.ABMGrupos import ABMGruposController
+from controladores.ABMImpuestos import ABMImpuestoController
 from controladores.ABMParametrosSistema import ABMParamSistController
 from controladores.Articulos import ArticulosController
 from controladores.CargaFacturasProveedor import CargaFacturaProveedorController
@@ -78,24 +79,28 @@ class Main(ControladorBase):
         localidadAction = menu.addAction(u"ABM Localidades")
         tipoCompAction = menu.addAction(u"ABM Tipo Comprobantes")
         gruposAction  = menu.addAction(u"ABM Grupos de articulos")
+        impuestoAction = menu.addAction(u"ABM de impuestos")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
         if action == altaAction:
             clientes = ClientesController()
-            clientes.view.exec_()
+            clientes.exec_()
         elif action == ctacteAction:
             consulta = ConsultaCtaCteController()
-            consulta.view.exec_()
+            consulta.exec_()
         elif action == localidadAction:
             localidad = LocalidadesController()
-            localidad.view.exec_()
+            localidad.exec_()
         elif action == tipoCompAction:
             tipocomp = TipoComprobantesController()
             tipocomp.view.exec_()
         elif action == gruposAction:
             controlador = ABMGruposController()
-            controlador.view.exec_()
+            controlador.exec_()
+        elif action == impuestoAction:
+            controlador = ABMImpuestoController()
+            controlador.exec_()
 
     def onClickBtnArticulo(self):
         menu = QMenu(self.view)
