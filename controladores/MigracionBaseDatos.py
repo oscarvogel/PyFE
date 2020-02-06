@@ -32,15 +32,14 @@ class MigracionBaseDatos(ControladorBase):
 
         self.RealizaMigraciones()
 
-        if not self.error:
-            ParamSist.GuardarParametro("VERSION_DB", "1")
+        ParamSist.GuardarParametro("VERSION_DB", "1")
 
     def MigrarVersion1(self):
         migrator = self.migrator
         colentero = IntegerField(default=1)
         self.migraciones.append(migrator.add_column('grupos', 'impuesto', colentero))
         self.migraciones.append(migrator.add_foreign_key_constraint('grupos', 'impuesto', 'impuestos', 'idimpuesto',
-                                   on_delete=None, on_update='CASCADE'))
+                                            on_delete=None, on_update='CASCADE'))
 
     def RealizaMigraciones(self):
         for m in self.migraciones:

@@ -1,6 +1,7 @@
 # coding=utf-8
 from peewee import IntegerField, CharField, DecimalField, AutoField
 
+from libs.ComboBox import ComboSQL
 from libs.Validaciones import Validaciones
 from modelos.ModeloBase import ModeloBase
 
@@ -20,3 +21,9 @@ class Valida(Validaciones):
     campoRetorno = Impuesto.idimpuesto
     campoNombre = Impuesto.detalle
     campos = ['idimpuesto', 'detalle']
+
+class ComboImpuesto(ComboSQL):
+    model = Impuesto
+    cOrden = Impuesto.detalle
+    campovalor = Impuesto.idimpuesto.column_name
+    campo1 = Impuesto.detalle.column_name

@@ -1,12 +1,14 @@
 # coding=utf-8
-from peewee import CharField, AutoField
+from peewee import CharField, AutoField, ForeignKeyField
 
 from libs.Validaciones import Validaciones
+from modelos.Impuestos import Impuesto
 from modelos.ModeloBase import ModeloBase
 
 class Grupo(ModeloBase):
     idgrupo = AutoField(primary_key=True)
     nombre = CharField(max_length=30)
+    impuesto = ForeignKeyField(Impuesto, default=1, db_column='impuesto')
 
     class Meta:
         table_name = 'grupos'

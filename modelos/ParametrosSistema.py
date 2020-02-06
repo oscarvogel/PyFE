@@ -26,3 +26,15 @@ class ParamSist(ModeloBase):
             valor = ''
 
         return valor
+
+    @classmethod
+    def GuardarParametro(cls, parametro='', valor=''):
+
+        try:
+            param = ParamSist.select().where(ParamSist.parametro == parametro).get()
+        except ParamSist.DoesNotExist:
+            param = ParamSist()
+
+        param.parametro = parametro
+        param.valor = valor
+        param.save()
