@@ -23,6 +23,7 @@ from controladores.IVACompras import IVAComprasController
 from controladores.IVAVentas import IVAVentasController
 from controladores.InformeVentasPorGrupo import InformeVentasPorGrupoController
 from controladores.Localidades import LocalidadesController
+from controladores.MigracionBaseDatos import MigracionBaseDatos
 from controladores.Proveedores import ProveedoresController
 from controladores.RG3685Compras import RG3685ComprasController
 from controladores.RG3685Ventas import RG3685VentasController
@@ -56,6 +57,7 @@ class Main(ControladorBase):
                 resguardo.Cargar("sistema.ini")
                 GrabarIni(clave='ultima_copia', key='param', valor=FechaMysql())
         self.CreaTablas()
+        self.Migraciones()
 
     def conectarWidgets(self):
         self.view.btnSalir.clicked.connect(self.SalirSistema)
@@ -200,3 +202,7 @@ class Main(ControladorBase):
 
     def CreaTablas(self):
         ParamSist.create_table(safe=True)
+
+    def Migraciones(self):
+        migracion = MigracionBaseDatos()
+        migracion.Migrar()
