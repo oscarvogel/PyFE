@@ -1,9 +1,12 @@
 # coding=utf-8
 from shutil import copyfile
 
-from PyQt4.QtGui import QApplication, QMenu, QCursor
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import QApplication, QMenu
 
 from controladores.ABMGrupos import ABMGruposController
+from controladores.ABMImpuestos import ABMImpuestoController
+from controladores.ABMParametrosSistema import ABMParamSistController
 from controladores.Articulos import ArticulosController
 from controladores.CargaFacturasProveedor import CargaFacturaProveedorController
 from controladores.CentroCostos import CentroCostoController
@@ -17,10 +20,12 @@ from controladores.ControladorBase import ControladorBase
 from controladores.EmiteRecibo import EmiteReciboController
 from controladores.Facturas import FacturaController
 from controladores.FacturasCodBarra import FacturaCodBarraController
+from controladores.GeneraCertificados import GeneraCertificadosController
 from controladores.IVACompras import IVAComprasController
 from controladores.IVAVentas import IVAVentasController
 from controladores.InformeVentasPorGrupo import InformeVentasPorGrupoController
 from controladores.Localidades import LocalidadesController
+from controladores.MigracionBaseDatos import MigracionBaseDatos
 from controladores.Proveedores import ProveedoresController
 from controladores.RG3685Compras import RG3685ComprasController
 from controladores.RG3685Ventas import RG3685VentasController
@@ -29,6 +34,7 @@ from controladores.TipoComprobantes import TipoComprobantesController
 from controladores.Resguardo import ResguardoController
 from libs.Utiles import LeerIni, GrabarIni, FechaMysql
 from modelos.ModeloBase import ModeloBase
+from modelos.ParametrosSistema import ParamSist
 from vistas.Main import MainView
 
 
@@ -36,7 +42,7 @@ class Main(ControladorBase):
 
     def __init__(self):
         super(Main, self).__init__()
-        if LeerIni('base') == 'sqlite':
+        if LeerIni("base") == "sqlite":
             copyfile("sistema.db", "sistema-res.db")
         self.view = MainView()
         self.view.initUi()
@@ -46,12 +52,14 @@ class Main(ControladorBase):
         if not LeerIni("ultima_copia"):
             GrabarIni(clave='ultima_copia', key='param', valor='00000000')
         ult = LeerIni("ultima_copia")
-        if LeerIni('base') == 'sqlite':
+        if LeerIni("base") == "sqlite":
             if ult < FechaMysql():
                 resguardo = ResguardoController()
                 resguardo.Cargar("sistema-res.db")
                 resguardo.Cargar("sistema.ini")
                 GrabarIni(clave='ultima_copia', key='param', valor=FechaMysql())
+        self.CreaTablas()
+        self.Migraciones()
 
     def conectarWidgets(self):
         self.view.btnSalir.clicked.connect(self.SalirSistema)
@@ -72,24 +80,28 @@ class Main(ControladorBase):
         localidadAction = menu.addAction(u"ABM Localidades")
         tipoCompAction = menu.addAction(u"ABM Tipo Comprobantes")
         gruposAction  = menu.addAction(u"ABM Grupos de articulos")
+        impuestoAction = menu.addAction(u"ABM de impuestos")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
         if action == altaAction:
             clientes = ClientesController()
-            clientes.view.exec_()
+            clientes.exec_()
         elif action == ctacteAction:
             consulta = ConsultaCtaCteController()
-            consulta.view.exec_()
+            consulta.exec_()
         elif action == localidadAction:
             localidad = LocalidadesController()
-            localidad.view.exec_()
+            localidad.exec_()
         elif action == tipoCompAction:
             tipocomp = TipoComprobantesController()
             tipocomp.view.exec_()
         elif action == gruposAction:
             controlador = ABMGruposController()
-            controlador.view.exec_()
+            controlador.exec_()
+        elif action == impuestoAction:
+            controlador = ABMImpuestoController()
+            controlador.exec_()
 
     def onClickBtnArticulo(self):
         menu = QMenu(self.view)
@@ -135,8 +147,24 @@ class Main(ControladorBase):
             ventana.view.exec_()
 
     def onClickBtnSeteo(self):
-        config = ConfiguracionController()
-        config.view.exec_()
+        menu = QMenu(self.view)
+        emisionConfig = menu.addAction(u"Configuracion de inicio")
+        paramAction = menu.addAction(u"Parametros de sistema")
+        generaAction = menu.addAction(u"Genera certificados digitales")
+        menu.addAction(emisionConfig)
+        menu.addAction(paramAction)
+        menu.addAction(generaAction)
+        menu.addAction(u"Volver")
+        action = menu.exec_(QCursor.pos())
+        if action == emisionConfig:
+            config = ConfiguracionController()
+            config.view.exec_()
+        elif action == paramAction:
+            _ventana = ABMParamSistController()
+            _ventana.exec_()
+        elif action == generaAction:
+            _ventana_genera = GeneraCertificadosController()
+            _ventana_genera.exec_()
 
 
     def onClickBtnAFIP(self):
@@ -182,3 +210,10 @@ class Main(ControladorBase):
         elif action == rg3685:
             ventana = RG3685ComprasController()
             ventana.view.exec_()
+
+    def CreaTablas(self):
+        ParamSist.create_table(safe=True)
+
+    def Migraciones(self):
+        migracion = MigracionBaseDatos()
+        migracion.Migrar()

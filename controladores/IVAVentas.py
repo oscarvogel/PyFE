@@ -13,7 +13,7 @@
 import decimal
 
 import xlsxwriter
-from PyQt4.QtGui import QFileDialog, QApplication, QInputDialog
+from PyQt5.QtWidgets import QFileDialog, QApplication, QInputDialog
 
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1
@@ -49,7 +49,7 @@ class IVAVentasController(ControladorBase):
 
     def ExportaExcel(self, mostrar=True):
         self.view.avance.setVisible(True)
-        cArchivo = str(QFileDialog.getSaveFileName(caption="Guardar archivo", directory="", filter="*.XLSX"))
+        cArchivo = QFileDialog.getSaveFileName(caption="Guardar archivo", directory="", filter="*.XLSX")[0]
         if not cArchivo:
             return
         self.cArchivoGenerado = cArchivo
