@@ -14,8 +14,8 @@ class ArticulosController(ControladorBase):
         self.conectarWidgets()
         #self.view.exec_()
 
-    def conectarWidgets(self):
-        self.view.controles['concepto'].editingFinished.connect(self.SeleccionaConcepto)
+    # def conectarWidgets(self):
+    #     self.view.controles['concepto'].editingFinished.connect(self.SeleccionaConcepto)
 
     def SeleccionaConcepto(self):
         if self.view.controles['concepto'].text() not in [str(FEv1.SERVICIOS),

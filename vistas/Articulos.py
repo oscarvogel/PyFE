@@ -1,9 +1,12 @@
 # coding=utf-8
 from libs.Checkbox import CheckBox
+from libs.ComboBox import CoimboConceptoFacturacion
 from libs.Etiquetas import Etiqueta
+from libs.Spinner import Spinner
 from libs.Utiles import inicializar_y_capturar_excepciones
 from modelos import Unidades, Grupos, Proveedores, Tipoiva
 from modelos.Articulos import Articulo
+from modelos.Tipoiva import ComboIVA
 from vistas.ABM import ABM
 
 
@@ -32,14 +35,14 @@ class ArticulosView(ABM):
         self.lblNombreProveedor = Etiqueta()
         self.layoutProvedor.addWidget(self.lblNombreProveedor)
         self.controles['provppal'].widgetNombre = self.lblNombreProveedor
-        self.ArmaEntrada('tipoiva', boxlayout=self.layoutProvedor, control=Tipoiva.Valida())
+        self.ArmaEntrada('tipoiva', boxlayout=self.layoutProvedor, control=ComboIVA())
         self.lblNombreTipoiva = Etiqueta()
         self.layoutProvedor.addWidget(self.lblNombreTipoiva)
         self.controles['tipoiva'].widgetNombre = self.lblNombreTipoiva
         self.ArmaEntrada('modificaprecios', boxlayout=self.layoutProvedor, control=CheckBox())
-        self.layoutCosto = self.ArmaEntrada('costo', texto='Costo')
-        self.ArmaEntrada('preciopub', boxlayout=self.layoutCosto)
-        self.ArmaEntrada('concepto', boxlayout=self.layoutCosto)
+        self.layoutCosto = self.ArmaEntrada('costo', texto='Costo', control=Spinner())
+        self.ArmaEntrada('preciopub', boxlayout=self.layoutCosto, control=Spinner())
+        self.ArmaEntrada('concepto', boxlayout=self.layoutCosto, control=CoimboConceptoFacturacion())
 
     @inicializar_y_capturar_excepciones
     def btnAceptarClicked(self, *args, **kwargs):
