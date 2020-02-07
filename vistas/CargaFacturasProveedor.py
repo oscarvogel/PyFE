@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QGridLayout, QHBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario
 from libs.ComboBox import ComboConstComp
-from libs.EntradaTexto import Factura, EntradaTexto, EntradaFecha
+from libs.EntradaTexto import Factura, EntradaTexto
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Fechas import Fecha
 from libs.Formulario import Formulario

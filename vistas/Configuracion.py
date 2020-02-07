@@ -33,14 +33,21 @@ class ConfiguracionView(Formulario):
         self.lblTituloParametros = EtiquetaTitulo(texto='Parametros')
         self.verticalLayoutDatos.addWidget(self.lblTituloParametros)
         self.ArmaEntrada('nombre_sistema', texto='Nombre del sistema')
-        self.ArmaEntrada('BaseDatos', texto='Base de datos')
-        self.ArmaEntrada('Usuario', texto='Usuario de base de datos')
-        self.ArmaEntrada('Host')
+        layoutBaseDatos = self.ArmaEntrada('BaseDatos', texto='Base de datos')
+        self.ArmaEntrada('Host', boxlayout=layoutBaseDatos)
+        layoutUsuario = self.ArmaEntrada('Usuario', texto='Usuario de base de datos')
+        self.ArmaEntrada('password', boxlayout=layoutUsuario)
+        self.controles['password'].setEchoMode(QLineEdit.Password)
+
         self.layoutHOMO = self.ArmaEntrada('HOMO', texto='Homologacion (S) Produccion (N)', control=ComboSINO())
         self.ArmaEntrada('Base', boxlayout=self.layoutHOMO, texto='Tipo base (mysql/sqlite)',
                          control=ComboTipoBaseDatos())
-        self.ArmaEntrada('password')
-        self.controles['password'].setEchoMode(QLineEdit.Password)
+
+        layoutFCE = self.ArmaEntrada('cbufce', texto="CBU FCE")
+        self.ArmaEntrada('aliasfce', boxlayout=layoutFCE, texto="Alias FCE")
+
+        layoutCertificadoCRT = self.ArmaEntrada('crt', texto="Certificado CRT")
+        layoutCertificadoKEY = self.ArmaEntrada('key', texto="Certificado KEY")
 
         self.layoutBotones = QHBoxLayout()
         self.btnGrabar = Boton(texto="Grabar", imagen=imagen('guardar.png'))

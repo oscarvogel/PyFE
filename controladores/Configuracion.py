@@ -34,6 +34,8 @@ class ConfiguracionController(ControladorBase):
             desencriptar(LeerIni(clave='password', key='param'), LeerIni(clave='key', key='param')))
         self.view.controles['num_copias'].setText(LeerIni(clave='num_copias', key='FACTURA'))
         self.view.controles['cat_iva'].setIndex(LeerIni(clave='cat_iva', key='WSFEv1'))
+        self.view.controles['cbufce'].setText(LeerIni(clave='cbufce', key='FACTURA'))
+        self.view.controles['aliasfce'].setText(LeerIni(clave='aliasfce', key='FACTURA'))
 
     def GrabaParametros(self):
         GrabarIni(clave='EMPRESA', key='FACTURA', valor=self.view.controles['empresa'].text())
@@ -53,5 +55,7 @@ class ConfiguracionController(ControladorBase):
         GrabarIni(clave='password', key='param', valor=password.decode('utf-8'))
         GrabarIni(clave='key', key='param', valor=key.decode('utf-8'))
         GrabarIni(clave='cat_iva', key='WSFEv1', valor=self.view.controles['cat_iva'].text())
+        GrabarIni(clave='cbufce', key='FACTURA', valor=self.view.controles['cbufce'].text())
+        GrabarIni(clave='aliasfce', key='FACTURA', valor=self.view.controles['aliasfce'].text())
 
         Ventanas.showAlert(LeerIni('nombre_sistema'), 'Configuracion guardada con exito')
