@@ -156,8 +156,26 @@ class ComboConstComp(Combo):
 
         return retorno
 
-class CoimboConceptoFacturacion(Combo):
+class ComboConceptoFacturacion(Combo):
 
     def __init__(self, parent=None, *args, **kwargs):
         Combo.__init__(self, parent, *args, **kwargs)
         self.CargaDatosValores(data={'1':'Productos','2':'Servicios'})
+
+class ComboTipoBaseDatos(Combo):
+
+    def __init__(self, parent=None, *args, **kwargs):
+        Combo.__init__(self, parent, *args, **kwargs)
+        self.CargaDatos(data=[
+            'sqlite','mysql','postgresql'
+        ])
+
+class ComboTipoRespIVA(Combo):
+
+    def __init__(self, parent=None, *args, **kwargs):
+        Combo.__init__(self, parent, *args, **kwargs)
+        self.CargaDatosValores(data={
+            '1': 'Responsable Inscripto',
+            '4': 'Exento',
+            '6': 'Monotributo'
+        })

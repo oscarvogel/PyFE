@@ -28,12 +28,12 @@ class ConfiguracionController(ControladorBase):
         self.view.controles['BaseDatos'].setText(LeerIni(clave='basedatos', key='param'))
         self.view.controles['Usuario'].setText(LeerIni(clave='usuario', key='param'))
         self.view.controles['Host'].setText(LeerIni(clave='host', key='param'))
-        self.view.controles['HOMO'].setText(LeerIni(clave='homo', key='param'))
+        self.view.controles['HOMO'].setIndex(LeerIni(clave='homo', key='param'))
         self.view.controles['Base'].setText(LeerIni(clave='base', key='param'))
         self.view.controles['password'].setText(
             desencriptar(LeerIni(clave='password', key='param'), LeerIni(clave='key', key='param')))
         self.view.controles['num_copias'].setText(LeerIni(clave='num_copias', key='FACTURA'))
-        self.view.controles['cat_iva'].setText(LeerIni(clave='cat_iva', key='WSFEv1'))
+        self.view.controles['cat_iva'].setIndex(LeerIni(clave='cat_iva', key='WSFEv1'))
 
     def GrabaParametros(self):
         GrabarIni(clave='EMPRESA', key='FACTURA', valor=self.view.controles['empresa'].text())
@@ -49,9 +49,9 @@ class ConfiguracionController(ControladorBase):
         GrabarIni(clave='Host', key='param', valor=self.view.controles['Host'].text())
         GrabarIni(clave='HOMO', key='param', valor=self.view.controles['HOMO'].text())
         GrabarIni(clave='Base', key='param', valor=self.view.controles['Base'].text())
-        password, key = encriptar(bytes(self.view.controles['password'].text()))
-        GrabarIni(clave='password', key='param', valor=password)
-        GrabarIni(clave='key', key='param', valor=key)
+        password, key = encriptar(bytes(self.view.controles['password'].text(), encoding='utf8'))
+        GrabarIni(clave='password', key='param', valor=password.decode('utf-8'))
+        GrabarIni(clave='key', key='param', valor=key.decode('utf-8'))
         GrabarIni(clave='cat_iva', key='WSFEv1', valor=self.view.controles['cat_iva'].text())
 
         Ventanas.showAlert(LeerIni('nombre_sistema'), 'Configuracion guardada con exito')
