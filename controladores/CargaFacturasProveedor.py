@@ -1,7 +1,7 @@
 # coding=utf-8
 import os
 
-from PyQt5.QtCore import Qt
+from PyQt4.QtCore import Qt
 
 from controladores.ConstatacionComprobantes import PDFConstatatacion
 from controladores.ControladorBase import ControladorBase

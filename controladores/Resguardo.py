@@ -24,6 +24,7 @@ class ResguardoController(FTP):
 
             with open(filename, "rb") as f:
                 self.storbinary("STOR " + filename, f, callback=self.handle, blocksize=1024)
+            print("Copio el archivo {}".format(filename))
         except Exception as e:
             print("Error no se pudo copiar {}".format(filename))
 

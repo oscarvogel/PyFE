@@ -23,7 +23,6 @@ class ConsultaPadronAfipController(ControladorBase):
         self.view.btnAgregaCliente.clicked.connect(self.onClickAgregaCliente)
 
     def onClickConsulta(self):
-
         padron = PadronAfip()
         ok = padron.ConsultarPersona(cuit=str(self.view.textCUIT.text()).replace("-", ""))
         self.view.gridDatos.setRowCount(0)

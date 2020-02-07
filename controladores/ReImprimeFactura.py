@@ -1,9 +1,9 @@
 # coding=utf-8
-from PyQt5.QtWidgets import QInputDialog
+from PyQt4.QtGui import QInputDialog
 
 from controladores.ControladorBase import ControladorBase
 from controladores.Facturas import FacturaController
-from libs import Constantes
+from libs import Constantes, Ventanas
 from libs.Utiles import inicializar_y_capturar_excepciones, LeerIni
 from modelos.Cabfact import Cabfact
 from modelos.Emailcliente import EmailCliente
@@ -58,9 +58,14 @@ class ReImprimeFacturaController(ControladorBase):
             else:
                 text, ok = QInputDialog.getText(self.view, 'Sistema', 'Ingrese el mail destinatario:')
             if ok:
+                responder = LeerIni('email_remitente')
+                if not responder:
+                    responder = 'fe@servinlgsm.com.ar'
+                print(responder)
                 remitente = 'fe@servinlgsm.com.ar'
                 destinatario = str(text).strip()
-                mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar"
+                mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar \n" \
+                          "No responder este email"
                 archivo = factura.facturaGenerada
                 motivo = "Se envia comprobante electronico de {}".format(LeerIni(clave='empresa', key='FACTURA'))
                 pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
@@ -68,4 +73,7 @@ class ReImprimeFacturaController(ControladorBase):
                                  clave=Constantes.CLAVE_SMTP,
                                  puerto=Constantes.PUERTO_SMTP)
 
+                pyemail.ResponderA = responder
                 ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje, archivo)
+                if not ok:
+                    Ventanas.showAlert("Sistema", pyemail.Excepcion)

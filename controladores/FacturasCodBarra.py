@@ -1,5 +1,5 @@
 # coding=utf-8
-from PyQt5.QtCore import Qt
+from PyQt4.QtCore import Qt
 
 from controladores.ControladorBase import ControladorBase
 from libs import Ventanas

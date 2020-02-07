@@ -1,7 +1,6 @@
 # coding=utf-8
 import logging
 import platform
-from os.path import abspath
 
 from libs import Ventanas
 from libs.Utiles import LeerIni, ubicacion_sistema, inicializar_y_capturar_excepciones
@@ -90,8 +89,8 @@ class FEv1(WSFEv1):
             logging.debug("Ticket de acceso {}".format(tra))
             #Generar el mensaje firmado(CMS)
             if LeerIni(clave='homo') == 'S':#homologacion
-                cms = wsaa.SignTRA(tra, abspath(LeerIni(clave="cert_homo", key="WSAA")),
-                               abspath(LeerIni(clave="privatekey_homo", key="WSAA")))
+                cms = wsaa.SignTRA(tra, LeerIni(clave="cert_homo", key="WSAA"),
+                               LeerIni(clave="privatekey_homo", key="WSAA"))
                 ok = wsaa.Conectar("", LeerIni(clave='url_homo', key='WSAA'))  # Homologación
             else:
                 cacert = LeerIni('iniciosistema') + LeerIni(clave='cacert', key='WSFEv1')
@@ -101,6 +100,7 @@ class FEv1(WSFEv1):
 
             #Llamar al web service para autenticar
             ta = wsaa.LoginCMS(cms)
+
             #Grabo el ticket de acceso para poder reutilizarlo
             file = open(archivo, 'w')
             file.write(ta)

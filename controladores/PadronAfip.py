@@ -13,7 +13,7 @@
 from controladores.FE import FEv1
 from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, AbrirArchivo
 from pyafipws.padron import PadronAFIP
-from pyafipws.ws_sr_padron import WSSrPadronA5
+from pyafipws.ws_sr_padron import WSSrPadronA5, WSSrPadronA4
 
 __author__ = "Jose Oscar Vogel <oscarvogel@gmail.com>"
 __copyright__ = "Copyright (C) 2018 Jose Oscar Vogel"
@@ -28,18 +28,16 @@ class PadronAfip(WSSrPadronA5):
 
         wsfev1 = FEv1()
         ta = wsfev1.Autenticar(service='ws_sr_padron_a5')
-        # ta = wsfev1.Autenticar(service='ws_sr_padron_a13')
         self.SetTicketAcceso(ta_string=ta)
         self.Cuit = LeerIni(clave='cuit', key='WSFEv1') #cuit de la empresa/persona
 
         if LeerIni(clave='homo') == 'N':
             self.WSDL = "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5?wsdl"
-            # self.WSDL = "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA13?wsdl"
             self.Conectar("", self.WSDL)
         else:
             self.Conectar()
         ok = self.Consultar(id_persona=cuit)
-        # ok = self.Consultar(id_persona=23347203)
+
         return ok
 
     @inicializar_y_capturar_excepciones
@@ -50,4 +48,3 @@ class PadronAfip(WSSrPadronA5):
         ok = padron.DescargarConstancia(cuit, filename)
         filename = LeerIni("iniciosistema") + filename
         AbrirArchivo(filename)
-
