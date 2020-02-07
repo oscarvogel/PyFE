@@ -36,6 +36,12 @@ class ConfiguracionController(ControladorBase):
         self.view.controles['cat_iva'].setIndex(LeerIni(clave='cat_iva', key='WSFEv1'))
         self.view.controles['cbufce'].setText(LeerIni(clave='cbufce', key='FACTURA'))
         self.view.controles['aliasfce'].setText(LeerIni(clave='aliasfce', key='FACTURA'))
+        if LeerIni('homo') == 'N':
+            self.view.controles['crt'].setText(LeerIni(clave='cert_prod', key='WSAA'))
+            self.view.controles['key'].setText(LeerIni(clave='privatekey_prod', key='WSAA'))
+        else:
+            self.view.controles['crt'].setText(LeerIni(clave='cert_homo', key='WSAA'))
+            self.view.controles['key'].setText(LeerIni(clave='privatekey_homo', key='WSAA'))
 
     def GrabaParametros(self):
         GrabarIni(clave='EMPRESA', key='FACTURA', valor=self.view.controles['empresa'].text())
@@ -57,5 +63,11 @@ class ConfiguracionController(ControladorBase):
         GrabarIni(clave='cat_iva', key='WSFEv1', valor=self.view.controles['cat_iva'].text())
         GrabarIni(clave='cbufce', key='FACTURA', valor=self.view.controles['cbufce'].text())
         GrabarIni(clave='aliasfce', key='FACTURA', valor=self.view.controles['aliasfce'].text())
+        if LeerIni('homo') == 'N':
+            GrabarIni(clave='cert_prod', key='WSAA', valor=self.view.controles['crt'].text())
+            GrabarIni(clave='privatekey_prod', key='WSAA', valor=self.view.controles['key'].text())
+        else:
+            GrabarIni(clave='cert_homo', key='WSAA', valor=self.view.controles['crt'].text())
+            GrabarIni(clave='privatekey_homo', key='WSAA', valor=self.view.controles['key'].text())
 
         Ventanas.showAlert(LeerIni('nombre_sistema'), 'Configuracion guardada con exito')

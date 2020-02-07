@@ -1,9 +1,9 @@
 # coding=utf-8
-from PyQt5.QtCore import QSize
+from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QPushButton
 
-from libs.Utiles import LeerIni
+from libs.Utiles import LeerIni, openFileNameDialog
 
 
 class Boton(QPushButton):
@@ -62,3 +62,21 @@ class BotonCerrarFormulario(Boton):
         kwargs['tamanio'] = QSize(32,32)
         Boton.__init__(self, *args, **kwargs)
         self.setDefault(False)
+
+class BotonArchivo(Boton):
+
+    widgetArchivo = None
+    files = None
+
+    def __init__(self, *args, **kwargs):
+        kwargs['texto'] = kwargs['textoBoton'] if 'textoBoton' in kwargs else '...'
+        if 'archivos' in kwargs:
+            self.files = kwargs['archivos']
+
+        super().__init__(*args, **kwargs)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.archivo = openFileNameDialog(files=self.files)
+            if self.widgetArchivo and self.archivo:
+                self.widgetArchivo.setText(self.archivo)

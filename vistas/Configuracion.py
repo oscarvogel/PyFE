@@ -1,7 +1,7 @@
 # coding=utf-8
 from PyQt5.QtWidgets import QVBoxLayout, QLineEdit, QHBoxLayout
 
-from libs.Botones import Boton, BotonCerrarFormulario
+from libs.Botones import Boton, BotonCerrarFormulario, BotonArchivo
 from libs.ComboBox import ComboSINO, ComboTipoBaseDatos, ComboTipoRespIVA, ComboCopiasFE
 from libs.Etiquetas import EtiquetaTitulo
 from libs.Formulario import Formulario
@@ -47,7 +47,14 @@ class ConfiguracionView(Formulario):
         self.ArmaEntrada('aliasfce', boxlayout=layoutFCE, texto="Alias FCE")
 
         layoutCertificadoCRT = self.ArmaEntrada('crt', texto="Certificado CRT")
+        self.btnArchivoCRT = BotonArchivo(archivos="CRT (*.crt)")
+        self.btnArchivoCRT.widgetArchivo = self.controles['crt']
+        layoutCertificadoCRT.addWidget(self.btnArchivoCRT)
+
         layoutCertificadoKEY = self.ArmaEntrada('key', texto="Certificado KEY")
+        self.btnArchivoKEY = BotonArchivo(archivos="KEY (*.key)")
+        self.btnArchivoKEY.widgetArchivo = self.controles['key']
+        layoutCertificadoKEY.addWidget(self.btnArchivoKEY)
 
         self.layoutBotones = QHBoxLayout()
         self.btnGrabar = Boton(texto="Grabar", imagen=imagen('guardar.png'))

@@ -277,3 +277,13 @@ def initialize_logger(output_dir):
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", datefmt='%m/%d/%Y %I:%M:%S %p')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
+
+def openFileNameDialog(form=None, files=None, title='Abrir', filename=''):
+    options = QFileDialog.Options()
+    # options |= QFileDialog.DontUseNativeDialog
+    fileName, _ = QFileDialog.getOpenFileName(form, title, filename,
+                                              files, options=options)
+    if fileName:
+        return fileName
+    else:
+        return ''
