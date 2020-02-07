@@ -1,6 +1,6 @@
 # coding=utf-8
 from libs.Checkbox import CheckBox
-from libs.ComboBox import CoimboConceptoFacturacion
+from libs.ComboBox import ComboConceptoFacturacion
 from libs.Etiquetas import Etiqueta
 from libs.Spinner import Spinner
 from libs.Utiles import inicializar_y_capturar_excepciones
@@ -42,7 +42,7 @@ class ArticulosView(ABM):
         self.ArmaEntrada('modificaprecios', boxlayout=self.layoutProvedor, control=CheckBox())
         self.layoutCosto = self.ArmaEntrada('costo', texto='Costo', control=Spinner())
         self.ArmaEntrada('preciopub', boxlayout=self.layoutCosto, control=Spinner())
-        self.ArmaEntrada('concepto', boxlayout=self.layoutCosto, control=CoimboConceptoFacturacion())
+        self.ArmaEntrada('concepto', boxlayout=self.layoutCosto, control=ComboConceptoFacturacion())
 
     @inicializar_y_capturar_excepciones
     def btnAceptarClicked(self, *args, **kwargs):

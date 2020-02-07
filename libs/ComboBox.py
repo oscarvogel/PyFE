@@ -179,3 +179,11 @@ class ComboTipoRespIVA(Combo):
             '4': 'Exento',
             '6': 'Monotributo'
         })
+
+class ComboCopiasFE(Combo):
+
+    def __init__(self, parent=None, *args, **kwargs):
+        Combo.__init__(self, parent, *args, **kwargs)
+        self.CargaDatos(data=[
+            '1','2','3','4'
+        ])

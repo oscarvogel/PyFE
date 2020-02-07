@@ -40,10 +40,6 @@ class FacturaController(ControladorBase):
     informo = False  # indica si ya informo monto obligado de FCE
     decimales = 3  # indica la cantidad de decimales para el redondeo
 
-    informo = False #indica si ya informo monto obligado de FCE
-
-    decimales = 3  # indica la cantidad de decimales para el redondeo
-
     def __init__(self):
         super(FacturaController, self).__init__()
         self.view = FacturaView()
@@ -205,7 +201,6 @@ class FacturaController(ControladorBase):
             unitario = float(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
             iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
             total = float(cantidad) * float(unitario)
-
             if int(LeerIni(clave='cat_iva',
                            key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
                 if self.tipo_cpte in [6, 7, 8]:
@@ -235,7 +230,6 @@ class FacturaController(ControladorBase):
             #     ivagral += total * iva / 100
             # totalgral += total
             subtotal += total
-
 
             self.view.gridFactura.ModificaItem(valor=total, fila=x, col='SubTotal')
 
@@ -338,10 +332,6 @@ class FacturaController(ControladorBase):
             fecha_serv_desde = ""
             fecha_serv_hasta = ""
             fecha_venc_pago = ""
-
-        if self.tipo_cpte in Constantes.COMPROBANTES_FCE: #FCE
-            fecha_venc_pago = self.view.lineEditFecha.getFechaSql()
-
         moneda_id = "PES"
         moneda_ctz = "1.000"
 
@@ -404,7 +394,7 @@ class FacturaController(ControladorBase):
             ok = False
         else:
             if wsfev1.Resultado == 'R':
-                Ventanas.showAlert("Sistema", "Motivo de rechazo {}".format((wsfev1.Obs)))
+                Ventanas.showAlert("Sistema", "Motivo de rechazo {}".format(DeCodifica(wsfev1.Obs)))
                 ok = False
             else:
                 self.view.lineditCAE.setText(cae)
@@ -504,7 +494,6 @@ class FacturaController(ControladorBase):
             cpbte.numero = self.view.layoutCpbteRelacionado.numero
             cpbte.save()
         self.ImprimeFactura(idcabecera=cabfact.idcabfact)
-        self.EnviarPorCorreo()
 
     @inicializar_y_capturar_excepciones
     def ImprimeFactura(self, idcabecera = None, mostrar = True, *args, **kwargs):
@@ -718,7 +707,6 @@ class FacturaController(ControladorBase):
     def onCurrentIndexChanged(self):
         #self.ObtieneNumeroFactura()
         self.tipo_cpte = self.view.cboComprobante.text()
-
         if str(self.view.cboComprobante.text()).find('credito'):
             self.view.layoutCpbteRelacionado.lineEditNumero.setEnabled(True)
             self.view.layoutCpbteRelacionado.lineEditPtoVta.setEnabled(True)
@@ -729,35 +717,3 @@ class FacturaController(ControladorBase):
         self.view.lineEditDocumento.proximoWidget = self.view.cboTipoIVA
         self.view.cboTipoIVA.proximoWidget = self.view.cboComprobante
         self.view.cboComprobante.proximoWidget = self.view.botonAgregaArt
-
-    @inicializar_y_capturar_excepciones
-    def EnviarPorCorreo(self, *args, **kwargs):
-        pyemail = PyEmail()
-        emaicliente = EmailCliente.select().where(EmailCliente.idcliente == self.view.validaCliente.text())
-        items = []
-        for e in emaicliente:
-            items.append(e.email)
-        if items:
-            text, ok = QInputDialog.getItem(self.view, 'Sistema', 'Ingrese el mail destinatario:', items)
-        else:
-            text, ok = QInputDialog.getText(self.view, 'Sistema', 'Ingrese el mail destinatario:')
-        if ok:
-            responder = LeerIni('email_remitente')
-            if not responder:
-                responder = 'fe@servinlgsm.com.ar'
-            print(responder)
-            remitente = 'fe@servinlgsm.com.ar'
-            destinatario = str(text).strip()
-            mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar \n" \
-                      "No responder este email"
-            archivo = self.facturaGenerada
-            motivo = "Se envia comprobante electronico de {}".format(LeerIni(clave='empresa', key='FACTURA'))
-            pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
-                             usuario=Constantes.USUARIO_SMTP,
-                             clave=Constantes.CLAVE_SMTP,
-                             puerto=Constantes.PUERTO_SMTP)
-
-            pyemail.ResponderA = responder
-            ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje, archivo)
-            if not ok:
-                Ventanas.showAlert("Sistema", pyemail.Excepcion)

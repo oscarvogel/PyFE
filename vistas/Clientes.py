@@ -52,11 +52,6 @@ class ClientesView(ABM):
             cliente = Cliente.get_by_id(self.controles[Cliente.idcliente.column_name].text())
             cliente.idcliente = self.controles['idcliente'].text()
         else:
-            if not self.controles['dni'].text():
-                self.controles['dni'].setText('0')
-            if not self.controles['cuit'].text():
-                self.controles['cuit'].setText('0')
-
             if self.controles['dni'].text() != '0':
                 doc = Cliente.select().where(
                     Cliente.dni == self.controles['dni'].text()

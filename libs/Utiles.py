@@ -45,7 +45,6 @@ from sys import argv
 
 from libs import Ventanas, Constantes
 
-from libs import Ventanas, Constantes
 
 #necesario porque en mysql tengo definido el campo boolean como bit
 def EsVerdadero(valor):
@@ -249,6 +248,7 @@ def Normaliza(valor):
 
 def DeCodifica(dato):
     # return "{}".format(bytearray(dato, 'latin-1', errors='ignore').decode('utf-8','ignore'))
+    # return '{}'.format(bytearray(str(dato))).decode('utf-8').encode('latin-1')
     return "{}".format(bytearray(dato, 'latin-1', errors='ignore').decode('utf-8','ignore'))
 
 def initialize_logger(output_dir):
