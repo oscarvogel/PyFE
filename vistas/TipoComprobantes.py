@@ -1,6 +1,5 @@
 # coding=utf-8
 from libs.Checkbox import CheckBox
-from libs.Etiquetas import Etiqueta
 from libs.Utiles import inicializar_y_capturar_excepciones
 from modelos.Tipocomprobantes import TipoComprobante, ComboTipoIngreso
 from vistas.ABM import ABM
@@ -22,7 +21,7 @@ class TipoComprobantesView(ABM):
         self.layoutID = self.ArmaEntrada('codigo', texto='Codigo')
         self.ArmaEntrada('nombre', boxlayout=self.layoutID)
         self.linea1 = self.ArmaEntrada('abreviatura')
-        self.ArmaEntrada('lado', texto="Tipo ingreso (D/H)", boxlayout=self.linea1)
+        self.ArmaEntrada('lado', texto="Tipo ingreso (D/H)", boxlayout=self.linea1, control=ComboTipoIngreso())
         chkExporta = CheckBox(texto="Exporta")
         self.linea1.addWidget(chkExporta)
         self.controles['exporta'] = chkExporta
