@@ -155,3 +155,9 @@ class ComboConstComp(Combo):
             retorno = 'CF'
 
         return retorno
+
+class CoimboConceptoFacturacion(Combo):
+
+    def __init__(self, parent=None, *args, **kwargs):
+        Combo.__init__(self, parent, *args, **kwargs)
+        self.CargaDatosValores(data={'1':'Productos','2':'Servicios'})
