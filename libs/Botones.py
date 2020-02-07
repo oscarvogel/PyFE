@@ -3,7 +3,7 @@ from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QPushButton
 
-from libs.Utiles import LeerIni, openFileNameDialog
+from libs.Utiles import LeerIni, openFileNameDialog, GuardarArchivo
 
 
 class Boton(QPushButton):
@@ -67,6 +67,9 @@ class BotonArchivo(Boton):
 
     widgetArchivo = None
     files = None
+    guardar = False
+    directorio = ""
+    nombre_archivo = ""
 
     def __init__(self, *args, **kwargs):
         kwargs['texto'] = kwargs['textoBoton'] if 'textoBoton' in kwargs else '...'
@@ -77,6 +80,11 @@ class BotonArchivo(Boton):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.archivo = openFileNameDialog(files=self.files)
+            if not self.guardar:
+                self.archivo = openFileNameDialog(files=self.files)
+            else:
+                self.archivo = GuardarArchivo(caption="Guardar archivo", directory=self.directorio,
+                                                             filter=self.files,
+                                                             filename=self.nombre_archivo)
             if self.widgetArchivo and self.archivo:
                 self.widgetArchivo.setText(self.archivo)
