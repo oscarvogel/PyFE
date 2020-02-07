@@ -36,11 +36,11 @@ class ComboSQL(QComboBox):
             data = data.order_by(self.cOrden)
 
         for r in data:
-            if isinstance(r[self.campovalor], (decimal.Decimal,)):
+            if isinstance(r[self.campovalor], (decimal.Decimal, int, float)):
                 valor = str(r[self.campovalor])
             else:
                 valor = r[self.campovalor]
-            if isinstance(r[self.campo1], (decimal.Decimal,)):
+            if isinstance(r[self.campo1], (decimal.Decimal, int, float)):
                 campo1 = str(r[self.campo1])
             else:
                 campo1 = r[self.campo1]

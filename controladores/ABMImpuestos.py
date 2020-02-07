@@ -23,7 +23,7 @@ class ABMImpuestoController(ControladorBase):
             impuesto = Impuesto()
 
         impuesto.detalle = self.view.controles[Impuesto.detalle.column_name].text()[:30]
-        impuesto.porcentaje = self.view.controles[Impuesto.porcentaje.column_name].text()
-        impuesto.minimo = self.view.controles[Impuesto.minimo.column_name].text()
+        impuesto.porcentaje = self.view.controles[Impuesto.porcentaje.column_name].value()
+        impuesto.minimo = self.view.controles[Impuesto.minimo.column_name].value()
         impuesto.save()
         self.view.btnAceptarClicked()
