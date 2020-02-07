@@ -2,7 +2,7 @@
 from PyQt5.QtWidgets import QVBoxLayout, QLineEdit, QHBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario
-from libs.ComboBox import ComboSINO, ComboTipoBaseDatos, ComboTipoRespIVA
+from libs.ComboBox import ComboSINO, ComboTipoBaseDatos, ComboTipoRespIVA, ComboCopiasFE
 from libs.Etiquetas import EtiquetaTitulo
 from libs.Formulario import Formulario
 from libs.Utiles import imagen
@@ -25,7 +25,8 @@ class ConfiguracionView(Formulario):
         self.ArmaEntrada('membrete2')
         self.layoutCUIT = self.ArmaEntrada('cuit')
         self.ArmaEntrada('iibb', boxlayout=self.layoutCUIT)
-        self.layoutCopias = self.ArmaEntrada('num_copias', texto=u'Nº de copias de factura')
+        self.layoutCopias = self.ArmaEntrada('num_copias', texto=u'Nº de copias de factura',
+                                             control=ComboCopiasFE())
         self.ArmaEntrada('cat_iva', texto='Categoria IVA (1: Resp. Inscripto, 4 Exento, 6: Monotributo)',
                          boxlayout=self.layoutCopias, control=ComboTipoRespIVA())
 
