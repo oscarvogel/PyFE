@@ -3,11 +3,11 @@ from PyQt5.QtWidgets import QInputDialog
 
 from controladores.ControladorBase import ControladorBase
 from controladores.Facturas import FacturaController
-from libs import Constantes
-from libs.Utiles import inicializar_y_capturar_excepciones, LeerIni
+from libs import Ventanas
+from libs.Utiles import inicializar_y_capturar_excepciones, LeerIni, envia_correo
 from modelos.Cabfact import Cabfact
 from modelos.Emailcliente import EmailCliente
-from pyafipws.pyemail import PyEmail
+from modelos.ParametrosSistema import ParamSist
 from vistas.ReImprimeFactura import ReImprimeFacturaView
 
 
@@ -48,7 +48,6 @@ class ReImprimeFacturaController(ControladorBase):
             factura.ImprimeFactura(self.view.gridDatos.ObtenerItem(
                 fila=self.view.gridDatos.currentRow(), col='idcabecera'),
             mostrar=False)
-            pyemail = PyEmail()
             emaicliente = EmailCliente.select().where(EmailCliente.idcliente == self.view.controles['cliente'].text())
             items = []
             for e in emaicliente:
@@ -58,14 +57,33 @@ class ReImprimeFacturaController(ControladorBase):
             else:
                 text, ok = QInputDialog.getText(self.view, 'Sistema', 'Ingrese el mail destinatario:')
             if ok:
-                remitente = 'fe@servinlgsm.com.ar'
                 destinatario = str(text).strip()
-                mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar"
+                # destinatario = 'oscar@ferreteriaavenida.com.ar'
+                mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar \n" \
+                          "No responder este email"
                 archivo = factura.facturaGenerada
                 motivo = "Se envia comprobante electronico de {}".format(LeerIni(clave='empresa', key='FACTURA'))
-                pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
-                                 usuario=Constantes.USUARIO_SMTP,
-                                 clave=Constantes.CLAVE_SMTP,
-                                 puerto=Constantes.PUERTO_SMTP)
+                servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
+                clave = ParamSist.ObtenerParametro("CLAVE_SMTP")
+                usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
+                puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
+                responder=ParamSist.ObtenerParametro("RESPONDER")
+                # envia_correo(from_address='', to_address='', message='', subject='', password_email='', to_cc='',
+                #              smtp='', smtp_port=587, files=''):
+                ok = envia_correo(from_address=responder, to_address=destinatario, message=mensaje, subject=motivo,
+                             password_email=clave, smtp_port=puerto, smtp_server=servidor, files=archivo)
+                if not ok:
+                    Ventanas.showAlert("Sistema", "Ha ocurrido un error al enviar el correo")
 
-                ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje, archivo)
+                # pyemail = PyEmail()
+                # pyemail.Conectar(servidor=servidor,
+                #                  usuario=usuario,
+                #                  clave=clave,
+                #                  puerto=puerto)
+                #
+                # pyemail.ResponderA = responder
+                # # Enviar(self, remitente="", motivo="", destinatario="", mensaje="", archivo=None)
+                # ok = pyemail.Enviar(remitente=usuario, motivo=motivo, destinatario=destinatario,
+                #                     mensaje=mensaje, archivo=archivo)
+                # if not ok:
+                #     Ventanas.showAlert("Sistema", pyemail.Excepcion)

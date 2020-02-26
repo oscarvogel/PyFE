@@ -14,7 +14,13 @@
 import calendar
 import platform
 from configparser import ConfigParser
+from email import encoders
+from email.mime.application import MIMEApplication
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from logging.handlers import RotatingFileHandler
+from smtplib import SMTP
 
 from PyQt5 import QtGui
 from PyQt5.QtWidgets import QFileDialog
@@ -287,3 +293,35 @@ def openFileNameDialog(form=None, files=None, title='Abrir', filename=''):
         return fileName
     else:
         return ''
+
+def envia_correo(from_address = '', to_address = '', message = '', subject = '', password_email = '', to_cc='',
+                 smtp_server='', smtp_port=587, files=''):
+    smtp_email = smtp_server
+    ok = True
+    mime_message = MIMEMultipart('related')
+    mime_message["From"] = from_address
+    mime_message["To"] = to_address
+    mime_message["Subject"] = subject
+    if to_cc:
+        mime_message["Cc"] = to_cc
+    mime_message.attach(MIMEText(message, "plain"))
+    if files:
+        if not isinstance(files, list):
+            files = [files,]
+        for archivo in files:
+            part = MIMEApplication(open(archivo, "rb").read())
+            part.add_header('Content-Disposition', 'attachment',
+                            filename=os.path.basename(archivo))
+            mime_message.attach(part)
+
+    try:
+        smtp = SMTP(smtp_email, smtp_port)
+        smtp.ehlo()
+
+        smtp.login(from_address, password_email)
+        smtp.sendmail(from_address, [to_address, to_cc], mime_message.as_string())
+        smtp.quit()
+    except:
+        ok = False
+
+    return ok
