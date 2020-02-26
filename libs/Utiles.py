@@ -25,6 +25,7 @@ from smtplib import SMTP
 from PyQt5 import QtGui
 from PyQt5.QtWidgets import QFileDialog
 
+from modelos.ParametrosSistema import ParamSist
 from pyafipws.pyemail import PyEmail
 
 __author__ = "Jose Oscar Vogel <oscarvogel@gmail.com>"
@@ -164,10 +165,15 @@ def inicializar_y_capturar_excepciones(func):
                 self.Traceback, self.Excepcion
             )
             motivo = "Se envia informe de errores de {}".format(LeerIni(clave='empresa', key='FACTURA'))
-            pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
-                             usuario=Constantes.USUARIO_SMTP,
-                             clave=Constantes.CLAVE_SMTP,
-                             puerto=Constantes.PUERTO_SMTP)
+            servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
+            clave = ParamSist.ObtenerParametro("CLAVE_SMTP")
+            usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
+            puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
+
+            pyemail.Conectar(servidor=servidor,
+                             usuario=usuario,
+                             clave=clave,
+                             puerto=puerto)
 
             ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje)
             if not ok:
