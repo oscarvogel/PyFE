@@ -14,9 +14,7 @@
 import calendar
 import platform
 from configparser import ConfigParser
-from email import encoders
 from email.mime.application import MIMEApplication
-from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from logging.handlers import RotatingFileHandler
@@ -25,7 +23,6 @@ from smtplib import SMTP
 from PyQt5 import QtGui
 from PyQt5.QtWidgets import QFileDialog
 
-from modelos.ParametrosSistema import ParamSist
 from pyafipws.pyemail import PyEmail
 
 __author__ = "Jose Oscar Vogel <oscarvogel@gmail.com>"
@@ -165,21 +162,23 @@ def inicializar_y_capturar_excepciones(func):
                 self.Traceback, self.Excepcion
             )
             motivo = "Se envia informe de errores de {}".format(LeerIni(clave='empresa', key='FACTURA'))
-            servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
-            clave = ParamSist.ObtenerParametro("CLAVE_SMTP")
-            usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
-            puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
-
-            pyemail.Conectar(servidor=servidor,
-                             usuario=usuario,
-                             clave=clave,
-                             puerto=puerto)
+            # servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
+            # clave = ParamSist.ObtenerParametro("CLAVE_SMTP")
+            # usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
+            # puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
+            #
+            pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
+                             usuario=Constantes.USUARIO_SMTP,
+                             clave=Constantes.CLAVE_SMTP,
+                             puerto=Constantes.PUERTO_SMTP)
 
             ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje)
             if not ok:
                 Ventanas.showAlert("Error", "{} {}".format(
                     pyemail.Excepcion, pyemail.Traceback
                 ))
+            # envia_correo(from_address=remitente, to_address=destinatario,
+            #              message=mensaje, subject=motivo)
             if self.LanzarExcepciones:
                 raise
         finally:
@@ -240,16 +239,9 @@ def FinMes(hFecha=None):
 
 def GuardarArchivo(caption="Guardar archivo", directory="", filter="", filename=""):
 
-    #dialog = QFileDialog()
-    #dialog.selectFile(filename)
-    #dialog.setDirectory(directory)
-    #dialog.setAcceptMode(QFileDialog.AcceptSave)
-    #dialog.setFileMode(filter)
     cArchivo = QFileDialog.getSaveFileName(caption=caption,
                                            directory=join(directory, filename),
                                            filter=filter)[0]
-    #dialog.exec_()
-    #cArchivo = dialog.selectedFiles()[0]
     print(cArchivo)
     return cArchivo if cArchivo else ''
 

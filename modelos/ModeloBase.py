@@ -16,7 +16,7 @@ __copyright__ = "Copyright (C) 2018 Jose Oscar Vogel"
 __license__ = "GPL 3.0"
 __version__ = "0.1"
 
-from peewee import MySQLDatabase, Model, Field, BooleanField, SqliteDatabase
+from peewee import MySQLDatabase, Model, BooleanField, SqliteDatabase
 
 from libs.Utiles import LeerIni, desencriptar
 
