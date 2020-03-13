@@ -30,6 +30,7 @@ from controladores.Proveedores import ProveedoresController
 from controladores.RG3685Compras import RG3685ComprasController
 from controladores.RG3685Ventas import RG3685VentasController
 from controladores.ReImprimeFactura import ReImprimeFacturaController
+from controladores.RindeCAEAIndividual import RindeCAEAIndividualController
 from controladores.TipoComprobantes import TipoComprobantesController
 from controladores.Resguardo import ResguardoController
 from libs.Utiles import LeerIni, GrabarIni, FechaMysql
@@ -172,6 +173,7 @@ class Main(ControladorBase):
         consultaAction = menu.addAction(u"Consulta de CUIT")
         constatacionAction = menu.addAction(u"Constatacion de comprobantes")
         consultaCAE = menu.addAction(u"Consulta de CAE")
+        rindeCaeIndividual = menu.addAction(u"Rinde CAEA Individual")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -184,6 +186,9 @@ class Main(ControladorBase):
         elif action == consultaCAE:
             ventana = ConsultaCAEController()
             ventana.view.exec_()
+        elif action == rindeCaeIndividual:
+            ventana = RindeCAEAIndividualController()
+            ventana.exec_()
 
     def onClickBtnCompras(self):
         menu = QMenu(self.view)
