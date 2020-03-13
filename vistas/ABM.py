@@ -11,7 +11,7 @@ from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import Etiqueta
 from libs.Grillas import Grilla
 from libs.Spinner import Spinner
-from libs.Utiles import EsVerdadero, inicializar_y_capturar_excepciones
+from libs.Utiles import EsVerdadero, inicializar_y_capturar_excepciones, imagen
 from vistas.VistaBase import VistaBase
 
 
@@ -82,23 +82,24 @@ class ABM(VistaBase):
 
         self.BotonesAdicionales()
 
-        self.btnAgregar = Boton(self.tabLista, imagen="imagenes/nuevo.png", tamanio=QSize(32,32),
+        self.btnAgregar = Boton(self.tabLista, texto='Nuevo', imagen=imagen('new.png'), tamanio=QSize(32,32),
                                 tooltip='Agrega nuevo registro')
         self.btnAgregar.setObjectName("btnAgregar")
         self.horizontalLayout.addWidget(self.btnAgregar)
 
-        self.btnEditar = Boton(self.tabLista, imagen="imagenes/modificar.png", tamanio=QSize(32,32),
-                               tooltip='Modifica registro')
+        self.btnEditar = Boton(self.tabLista, imagen=imagen('edit.png'), tamanio=QSize(32,32),
+                               tooltip='Modifica registro', texto='Editar')
         self.btnEditar.setObjectName("btnEditar")
         self.horizontalLayout.addWidget(self.btnEditar)
 
-        self.btnBorrar = Boton(self.tabLista, imagen="imagenes/delete.png", tamanio=QSize(32,32),
-                               tooltip='Borrar registro')
+        self.btnBorrar = Boton(self.tabLista, imagen=imagen('delete.png'), tamanio=QSize(32,32),
+                               tooltip='Borrar registro', texto='Borrar')
         self.btnBorrar.setObjectName("btnBorrar")
         self.horizontalLayout.addWidget(self.btnBorrar)
 
-        self.btnCerrar = Boton(self.tabLista, imagen="imagenes/log-out.png", tamanio=QSize(32,32),
-                               tooltip='Cerrar ABM')
+        self.btnCerrar = Boton(self.tabLista, imagen=imagen('close.png'), tamanio=QSize(32,32),
+                               tooltip='Cerrar ABM', texto='Cerrar')
+
         self.btnCerrar.setObjectName("btnCerrar")
         self.horizontalLayout.addWidget(self.btnCerrar)
         self.gridLayout.addLayout(self.horizontalLayout, 2, 0, 1, 1)
@@ -149,11 +150,13 @@ class ABM(VistaBase):
 
         self.grdBotones = QGridLayout()
         self.grdBotones.setObjectName("grdBotones")
-        self.btnAceptar = Boton(self.tabDetalle, imagen="imagenes/guardar.png", tamanio=QSize(32,32))
+        self.btnAceptar = Boton(self.tabDetalle, texto='Guardar', imagen=imagen('save.png'), tamanio=QSize(32, 32),
+                                tooltip="Guardar cambios")
         self.btnAceptar.setObjectName("btnAceptar")
         self.grdBotones.addWidget(self.btnAceptar, 0, 0, 1, 1)
 
-        self.btnCancelar = Boton(self.tabDetalle, imagen="imagenes/log-out.png", tamanio=QSize(32,32))
+        self.btnCancelar = Boton(self.tabDetalle, texto='Cerrar', imagen=imagen('close.png'), tamanio=QSize(32, 32),
+                                 tooltip="Cerrar sin guardar")
         self.btnCancelar.setObjectName("btnCancelar")
         self.grdBotones.addWidget(self.btnCancelar, 0, 1, 1, 1)
         self.verticalLayoutDatos.addLayout(self.grdBotones)

@@ -4,7 +4,7 @@ from PyQt5.QtCore import QSize
 from libs import Ventanas
 from libs.Botones import Boton
 from libs.Etiquetas import Etiqueta
-from libs.Utiles import inicializar_y_capturar_excepciones
+from libs.Utiles import inicializar_y_capturar_excepciones, imagen
 from modelos import Localidades, Tipodoc, Tiporesp, Impuestos
 from modelos.Clientes import Cliente
 from vistas.ABM import ABM
@@ -79,7 +79,7 @@ class ClientesView(ABM):
         ABM.btnAceptarClicked(self)
 
     def BotonesAdicionales(self):
-        self.btnEmail = Boton(self.tabLista, imagen="imagenes/email.png", tamanio=QSize(32,32),
+        self.btnEmail = Boton(self.tabLista, texto="Email Cliente", imagen=imagen("email.png"), tamanio=QSize(32,32),
                                 tooltip='Agrega email del cliente')
         self.btnEmail.setObjectName("btnEmail")
         self.horizontalLayout.addWidget(self.btnEmail)
