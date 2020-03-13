@@ -172,3 +172,5 @@ class IVAVentasController(ControladorBase):
                          password_email=clave, smtp_port=puerto, smtp_server=servidor, files=archivo)
             if not ok:
                 Ventanas.showAlert("Sistema", "Ha ocurrido un error al enviar el correo")
+            else:
+                Ventanas.showAlert("Sistema", "Archivo de ventas enviado correctamente")

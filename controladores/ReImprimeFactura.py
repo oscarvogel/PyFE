@@ -58,7 +58,6 @@ class ReImprimeFacturaController(ControladorBase):
                 text, ok = QInputDialog.getText(self.view, 'Sistema', 'Ingrese el mail destinatario:')
             if ok:
                 destinatario = str(text).strip()
-                # destinatario = 'oscar@ferreteriaavenida.com.ar'
                 mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar \n" \
                           "No responder este email"
                 archivo = factura.facturaGenerada
@@ -68,22 +67,10 @@ class ReImprimeFacturaController(ControladorBase):
                 usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
                 puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
                 responder=ParamSist.ObtenerParametro("RESPONDER")
-                # envia_correo(from_address='', to_address='', message='', subject='', password_email='', to_cc='',
-                #              smtp='', smtp_port=587, files=''):
                 ok = envia_correo(from_address=responder, to_address=destinatario, message=mensaje, subject=motivo,
                              password_email=clave, smtp_port=puerto, smtp_server=servidor, files=archivo)
                 if not ok:
                     Ventanas.showAlert("Sistema", "Ha ocurrido un error al enviar el correo")
+                else:
+                    Ventanas.showAlert("Sistema", "Comprobante electronico enviado correctamente")
 
-                # pyemail = PyEmail()
-                # pyemail.Conectar(servidor=servidor,
-                #                  usuario=usuario,
-                #                  clave=clave,
-                #                  puerto=puerto)
-                #
-                # pyemail.ResponderA = responder
-                # # Enviar(self, remitente="", motivo="", destinatario="", mensaje="", archivo=None)
-                # ok = pyemail.Enviar(remitente=usuario, motivo=motivo, destinatario=destinatario,
-                #                     mensaje=mensaje, archivo=archivo)
-                # if not ok:
-                #     Ventanas.showAlert("Sistema", pyemail.Excepcion)
