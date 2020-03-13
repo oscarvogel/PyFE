@@ -13,7 +13,7 @@ from vistas.ABM import ABM
 class ArticulosView(ABM):
 
     model = Articulo()
-    camposAMostrar = [Articulo.idarticulo, Articulo.nombre]
+    camposAMostrar = [Articulo.idarticulo, Articulo.nombre, Articulo.preciopub]
     ordenBusqueda = Articulo.nombre
     campoClave = Articulo.idarticulo
 
@@ -53,15 +53,15 @@ class ArticulosView(ABM):
             articulo.idarticulo = int(self.controles['idarticulo'].text())
         else:
             articulo = Articulo()
-        articulo.nombre = str(self.controles['nombre'].text())
-        articulo.nombreticket = str(self.controles['nombreticket'].text())
-        articulo.unidad = str(self.controles['unidad'].text())
-        articulo.grupo = str(self.controles['grupo'].text())
-        articulo.costo = str(self.controles['costo'].text())
-        articulo.provppal = int(str(self.controles['provppal'].text()))
+        articulo.nombre = self.controles['nombre'].text()[:100]
+        articulo.nombreticket = self.controles['nombreticket'].text()[:30]
+        articulo.unidad = self.controles['unidad'].text() or 'UN'
+        articulo.grupo = self.controles['grupo'].text() or 1
+        articulo.costo = self.controles['costo'].value()
+        articulo.provppal = int(str(self.controles['provppal'].text()) or 0)
         articulo.tipoiva = str(self.controles['tipoiva'].text()).zfill(2)
         articulo.modificaprecios = self.controles['modificaprecios'].text()
-        articulo.preciopub = str(self.controles['preciopub'].text())
+        articulo.preciopub = self.controles['preciopub'].value()
         articulo.concepto = self.controles['concepto'].text()
         articulo.codbarra = self.controles['codbarra'].text()
         articulo.save()
