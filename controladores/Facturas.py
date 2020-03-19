@@ -530,7 +530,7 @@ class FacturaController(ControladorBase):
         fecha_cbte = fecha
         fecha_venc_pago = fecha
         #Fechas del período del servicio facturado
-        if int(cabfact.concepto) in [FEv1().SERVICIOS, FEv1().PRODUCTOYSERVICIOS]:
+        if int(cabfact.concepto or 1) in [FEv1().SERVICIOS, FEv1().PRODUCTOYSERVICIOS]:
             fecha_serv_desde = FechaMysql(cabfact.desde)
             fecha_serv_hasta = FechaMysql(cabfact.hasta)
         else:

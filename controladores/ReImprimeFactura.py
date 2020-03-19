@@ -31,10 +31,11 @@ class ReImprimeFacturaController(ControladorBase):
         cab = Cabfact().select().where(Cabfact.fecha >= self.view.controles['fecha'].date().toPyDate(),
                                        Cabfact.cliente == self.view.controles['cliente'].text())
         for c in cab:
-            item = [
-                c.fecha, c.numero, c.total, c.idcabfact
-            ]
-            self.view.gridDatos.AgregaItem(items=item)
+            if c.tipocomp.exporta:
+                item = [
+                    c.fecha, c.numero, c.total, c.idcabfact
+                ]
+                self.view.gridDatos.AgregaItem(items=item)
 
     def ImprimirFactura(self):
         if self.view.gridDatos.currentRow() != -1:
@@ -67,10 +68,10 @@ class ReImprimeFacturaController(ControladorBase):
                 usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
                 puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
                 responder=ParamSist.ObtenerParametro("RESPONDER")
-                ok = envia_correo(from_address=responder, to_address=destinatario, message=mensaje, subject=motivo,
+                ok, err_msg = envia_correo(from_address=responder, to_address=destinatario, message=mensaje, subject=motivo,
                              password_email=clave, smtp_port=puerto, smtp_server=servidor, files=archivo)
                 if not ok:
-                    Ventanas.showAlert("Sistema", "Ha ocurrido un error al enviar el correo")
+                    Ventanas.showAlert("Sistema", "Ha ocurrido un error al enviar el correo\n{}".format(err_msg))
                 else:
                     Ventanas.showAlert("Sistema", "Comprobante electronico enviado correctamente")
 

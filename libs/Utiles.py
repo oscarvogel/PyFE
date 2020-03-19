@@ -315,11 +315,15 @@ def envia_correo(from_address = '', to_address = '', message = '', subject = '',
     try:
         smtp = SMTP(smtp_email, smtp_port)
         smtp.ehlo()
+        smtp.starttls()
 
         smtp.login(from_address, password_email)
         smtp.sendmail(from_address, [to_address, to_cc], mime_message.as_string())
         smtp.quit()
+        err_msg = ''
     except:
+        err_msg = sys.exc_info()[1]
+        logging.info(err_msg)
         ok = False
 
-    return ok
+    return ok, err_msg
