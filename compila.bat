@@ -1,2 +1,2 @@
 rd /S /Q dist\main
-pyinstaller --clean --win-private-assemblies --version-file=version.txt --windowed -F --icon="imagenes\Logo S-01.ico" main.py -p "C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\Remote Debugger\x86" -p C:\Users\oscar\Envs\qt-env\Lib\site-packages\PyQt5\Qt
+pyinstaller --clean --win-private-assemblies --version-file=version.txt --windowed -F --icon="imagenes\Logo S-01.ico" main.py 

@@ -1,7 +1,7 @@
 # coding=utf-8
 from controladores.ControladorBase import ControladorBase
 from libs import Ventanas
-from libs.Utiles import LeerIni, GrabarIni, desencriptar, encriptar
+from libs.Utiles import LeerIni, GrabarIni, desencriptar, encriptar, inicializar_y_capturar_excepciones
 from vistas.Configuracion import ConfiguracionView
 
 
@@ -17,7 +17,8 @@ class ConfiguracionController(ControladorBase):
         self.view.btnCerrar.clicked.connect(self.view.Cerrar)
         self.view.btnGrabar.clicked.connect(self.GrabaParametros)
 
-    def CargaDatos(self):
+    @inicializar_y_capturar_excepciones
+    def CargaDatos(self, *args, **kwargs):
         self.view.controles['empresa'].setText(LeerIni(clave='empresa', key='FACTURA'))
         self.view.controles['membrete1'].setText(LeerIni(clave='membrete1', key='FACTURA'))
         self.view.controles['membrete2'].setText(LeerIni(clave='membrete2', key='FACTURA'))
@@ -30,8 +31,10 @@ class ConfiguracionController(ControladorBase):
         self.view.controles['Host'].setText(LeerIni(clave='host', key='param'))
         self.view.controles['HOMO'].setIndex(LeerIni(clave='homo', key='param'))
         self.view.controles['Base'].setText(LeerIni(clave='base', key='param'))
-        self.view.controles['password'].setText(
-            desencriptar(LeerIni(clave='password', key='param'), LeerIni(clave='key', key='param')))
+        #unicamente levanto la contraseña cuando tiene algo
+        if LeerIni(clave='password', key='param'):
+            self.view.controles['password'].setText(
+                desencriptar(LeerIni(clave='password', key='param'), LeerIni(clave='key', key='param')))
         self.view.controles['num_copias'].setText(LeerIni(clave='num_copias', key='FACTURA'))
         self.view.controles['cat_iva'].setIndex(LeerIni(clave='cat_iva', key='WSFEv1'))
         self.view.controles['cbufce'].setText(LeerIni(clave='cbufce', key='FACTURA'))
@@ -43,7 +46,8 @@ class ConfiguracionController(ControladorBase):
             self.view.controles['crt'].setText(LeerIni(clave='cert_homo', key='WSAA'))
             self.view.controles['key'].setText(LeerIni(clave='privatekey_homo', key='WSAA'))
 
-    def GrabaParametros(self):
+    @inicializar_y_capturar_excepciones
+    def GrabaParametros(self, *args, **kwargs):
         GrabarIni(clave='EMPRESA', key='FACTURA', valor=self.view.controles['empresa'].text())
         GrabarIni(clave='MEMBRETE1', key='FACTURA', valor=self.view.controles['membrete1'].text())
         GrabarIni(clave='MEMBRETE2', key='FACTURA', valor=self.view.controles['membrete2'].text())
@@ -57,9 +61,11 @@ class ConfiguracionController(ControladorBase):
         GrabarIni(clave='Host', key='param', valor=self.view.controles['Host'].text())
         GrabarIni(clave='HOMO', key='param', valor=self.view.controles['HOMO'].text())
         GrabarIni(clave='Base', key='param', valor=self.view.controles['Base'].text())
-        password, key = encriptar(bytes(self.view.controles['password'].text(), encoding='utf8'))
-        GrabarIni(clave='password', key='param', valor=password.decode('utf-8'))
-        GrabarIni(clave='key', key='param', valor=key.decode('utf-8'))
+        #si tiene una contraseña la guardo de lo contrario no
+        if self.view.controles['password'].text():
+            password, key = encriptar(bytes(self.view.controles['password'].text(), encoding='utf8'))
+            GrabarIni(clave='password', key='param', valor=password.decode('utf-8'))
+            GrabarIni(clave='key', key='param', valor=key.decode('utf-8'))
         GrabarIni(clave='cat_iva', key='WSFEv1', valor=self.view.controles['cat_iva'].text())
         GrabarIni(clave='cbufce', key='FACTURA', valor=self.view.controles['cbufce'].text())
         GrabarIni(clave='aliasfce', key='FACTURA', valor=self.view.controles['aliasfce'].text())

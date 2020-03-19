@@ -121,7 +121,7 @@ class EmiteReciboController(ControladorBase):
             id = self.view.gridDeuda.ObtenerItem(fila=x, col='id') or 0
             importe = float(self.view.gridDeuda.ObtenerItem(fila=x, col='a Saldar') or 0)
             cabecera = Cabfact.get_by_id(int(id))
-            cabecera.saldo = cabecera.saldo - abs(importe)
+            cabecera.saldo = float(cabecera.saldo) - abs(importe)
             cabecera.desde = "0000-00-00"
             cabecera.hasta = "0000-00-00"
             cabecera.venccae = "0000-00-00"
