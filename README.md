@@ -13,7 +13,7 @@ Una vez descargado todo instalar las dependencias con `pip install -r requiremen
 ![Emision de factura](http://www.servinlgsm.com.ar/fe/imagenes/pyfe-pantalla-emision.png)
 
 ## Importante
-En caso de necesitar enviar comprobantes utilizando cuentas de gmail primero ingresar a [Gmail] (https://myaccount.google.com/lesssecureapps?pli=1) y permitir el acceso de aplicaciones poco seguras
+En caso de necesitar enviar comprobantes utilizando cuentas de gmail primero ingresar a [Gmail](https://myaccount.google.com/lesssecureapps?pli=1) y permitir el acceso de aplicaciones poco seguras
 
 ## Demo
 
