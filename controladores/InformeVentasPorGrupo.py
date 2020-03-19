@@ -21,6 +21,7 @@ from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Detfact import Detfact
 from modelos.Grupos import Grupo
+from modelos.Impuestos import Impuesto
 from vistas.InformeVentasPorGrupo import InformeVentasPorGrupoView
 
 
@@ -77,8 +78,8 @@ class InformeVentasPorGrupoController(ControladorBase):
         precio = fn.Sum(Detfact.precio * Detfact.cantidad).alias("precio")
         montoiva = fn.Sum(Detfact.montoiva).alias("montoiva")
         montodgr = fn.Sum(Detfact.montodgr).alias("montodgr")
-        det = Detfact.select(precio, montodgr, montoiva, Grupo.nombre)\
-            .join(Cabfact).switch(Detfact).join(Articulo).join(Grupo).where(
+        det = Detfact.select(precio, montodgr, montoiva, Grupo.nombre, Impuesto.porcentaje)\
+            .join(Cabfact).switch(Detfact).join(Articulo).join(Grupo).join(Impuesto).where(
             Cabfact.fecha.between(self.view.textDesdeFecha.date().toPyDate(), self.view.textHastaFecha.date().toPyDate()))\
             .group_by(Detfact.idarticulo.grupo.idgrupo)
         fila += 2
@@ -86,8 +87,10 @@ class InformeVentasPorGrupoController(ControladorBase):
             worksheet.write(fila, 1, d.idarticulo.grupo.nombre)
             if LeerIni(clave='cat_iva', key='WSFEv1') == Constantes.CODIGO_RI:
                 worksheet.write(fila, 2, d.precio + d.montoiva, d.montodgr)
+                worksheet.write(fila, 3, d.idarticulo.grupo.impuesto.porcentaje)
             else:
                 worksheet.write(fila, 2, d.precio)
+                worksheet.write(fila, 3, d.idarticulo.grupo.impuesto.porcentaje)
                 fila += 1
         workbook.close()
         self.view.avance.setVisible(False)
