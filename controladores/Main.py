@@ -80,8 +80,6 @@ class Main(ControladorBase):
         ctacteAction = menu.addAction(u"Cuenta corriente")
         localidadAction = menu.addAction(u"ABM Localidades")
         tipoCompAction = menu.addAction(u"ABM Tipo Comprobantes")
-        gruposAction  = menu.addAction(u"ABM Grupos de articulos")
-        impuestoAction = menu.addAction(u"ABM de impuestos")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -97,17 +95,13 @@ class Main(ControladorBase):
         elif action == tipoCompAction:
             tipocomp = TipoComprobantesController()
             tipocomp.view.exec_()
-        elif action == gruposAction:
-            controlador = ABMGruposController()
-            controlador.exec_()
-        elif action == impuestoAction:
-            controlador = ABMImpuestoController()
-            controlador.exec_()
 
     def onClickBtnArticulo(self):
         menu = QMenu(self.view)
         altaAction = menu.addAction(u"Alta, bajas y modificaciones")
         informeGrupoAction = menu.addAction(u"Informe de ventas por grupo")
+        gruposAction  = menu.addAction(u"ABM Grupos de articulos")
+        impuestoAction = menu.addAction(u"ABM de impuestos")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -117,6 +111,12 @@ class Main(ControladorBase):
         elif action == informeGrupoAction:
             controlador = InformeVentasPorGrupoController()
             controlador.view.exec_()
+        elif action == gruposAction:
+            controlador = ABMGruposController()
+            controlador.exec_()
+        elif action == impuestoAction:
+            controlador = ABMImpuestoController()
+            controlador.exec_()
 
     def onClickBtnFactura(self):
         menu = QMenu(self.view)
