@@ -25,7 +25,7 @@ class FacturaView(Formulario):
 
     def setupUi(self, Form):
         self.layoutPpal = QVBoxLayout(Form)
-        self.setWindowTitle("Emision de factura")
+        self.setWindowTitle("Emision de comprobante electronico")
         self.resize(850, 650)
         self.lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
         self.layoutPpal.addWidget(self.lblTitulo)
