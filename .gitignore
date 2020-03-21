@@ -107,4 +107,6 @@ venv.bak/
 
 /.idea
 
-/certificados
+/certificados/traid.crt
+/certificados/traid.csr
+/certificados/traid.key
