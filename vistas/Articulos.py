@@ -26,8 +26,8 @@ class ArticulosView(ABM):
         self.ArmaEntrada('nombre', boxlayout=self.layoutID)
         self.layoutNombreTicket = self.ArmaEntrada('nombreticket', texto='Nombre Ticket')
         self.ArmaEntrada('codbarra', texto='Codigo de barra', boxlayout=self.layoutNombreTicket)
-        self.layoutUnidad = self.ArmaEntrada(nombre='unidad', control=Unidades.Valida())
-        self.ArmaEntrada('grupo', boxlayout=self.layoutUnidad, control=Grupos.Valida())
+        self.layoutUnidad = self.ArmaEntrada(nombre='unidad', control=Unidades.ComboUnidad())
+        self.ArmaEntrada('grupo', boxlayout=self.layoutUnidad, control=Grupos.ComboGrupo())
         self.lblNombreGrupo = Etiqueta()
         self.layoutUnidad.addWidget(self.lblNombreGrupo)
         self.controles['grupo'].widgetNombre = self.lblNombreGrupo
@@ -39,9 +39,9 @@ class ArticulosView(ABM):
         self.lblNombreTipoiva = Etiqueta()
         self.layoutProvedor.addWidget(self.lblNombreTipoiva)
         self.controles['tipoiva'].widgetNombre = self.lblNombreTipoiva
-        self.ArmaEntrada('modificaprecios', boxlayout=self.layoutProvedor, control=CheckBox())
+        self.ArmaEntrada('modificaprecios', boxlayout=self.layoutProvedor, control=CheckBox(), texto="Modifica precios?")
         self.layoutCosto = self.ArmaEntrada('costo', texto='Costo', control=Spinner())
-        self.ArmaEntrada('preciopub', boxlayout=self.layoutCosto, control=Spinner())
+        self.ArmaEntrada('preciopub', boxlayout=self.layoutCosto, control=Spinner(), texto="Precio al publico")
         self.ArmaEntrada('concepto', boxlayout=self.layoutCosto, control=ComboConceptoFacturacion())
 
     @inicializar_y_capturar_excepciones

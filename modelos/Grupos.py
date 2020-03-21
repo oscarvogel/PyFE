@@ -1,6 +1,7 @@
 # coding=utf-8
 from peewee import CharField, AutoField, ForeignKeyField
 
+from libs.ComboBox import ComboSQL
 from libs.Validaciones import Validaciones
 from modelos.Impuestos import Impuesto
 from modelos.ModeloBase import ModeloBase
@@ -20,3 +21,9 @@ class Valida(Validaciones):
     campoRetorno = Grupo.idgrupo
     campoNombre = Grupo.nombre
     campos = ['idgrupo', 'nombre']
+
+class ComboGrupo(ComboSQL):
+    model = Grupo
+    cOrden = Grupo.nombre
+    campovalor = Grupo.idgrupo.name
+    campo1 = Grupo.nombre.name

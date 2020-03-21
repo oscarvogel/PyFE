@@ -1,6 +1,7 @@
 # coding=utf-8
 from peewee import CharField
 
+from libs.ComboBox import ComboSQL
 from libs.Validaciones import Validaciones
 from modelos.ModeloBase import ModeloBase
 
@@ -19,3 +20,11 @@ class Valida(Validaciones):
     campoRetorno = Unidad.unidad
     campoNombre = Unidad.descripcion
     campos = ['unidad', 'descripcion']
+
+class ComboUnidad(ComboSQL):
+    model = Unidad
+    cOrden = Unidad.descripcion
+    campovalor = Unidad.unidad.name
+    campo1 = Unidad.descripcion.name
+
+
