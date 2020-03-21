@@ -7,6 +7,7 @@ from PyQt5.QtWidgets import QApplication, QMenu
 from controladores.ABMGrupos import ABMGruposController
 from controladores.ABMImpuestos import ABMImpuestoController
 from controladores.ABMParametrosSistema import ABMParamSistController
+from controladores.ABMTipoDocumentos import ABMTipoDocumentoController
 from controladores.Articulos import ArticulosController
 from controladores.CargaFacturasProveedor import CargaFacturaProveedorController
 from controladores.CentroCostos import CentroCostoController
@@ -80,6 +81,7 @@ class Main(ControladorBase):
         ctacteAction = menu.addAction(u"Cuenta corriente")
         localidadAction = menu.addAction(u"ABM Localidades")
         tipoCompAction = menu.addAction(u"ABM Tipo Comprobantes")
+        tipoDocAction = menu.addAction(u"ABM Tipo de documentos")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -95,6 +97,9 @@ class Main(ControladorBase):
         elif action == tipoCompAction:
             tipocomp = TipoComprobantesController()
             tipocomp.view.exec_()
+        elif action == tipoDocAction:
+            tipodoc = ABMTipoDocumentoController()
+            tipodoc.exec_()
 
     def onClickBtnArticulo(self):
         menu = QMenu(self.view)

@@ -8,7 +8,7 @@ from modelos.ModeloBase import ModeloBase
 
 class Tipodoc(ModeloBase):
     codigo = IntegerField(primary_key=True)
-    tipo = CharField(max_length=1)
+    tipo = CharField(max_length=1, default=0)
     nombre = CharField(max_length=30)
 
     class Meta:
