@@ -42,7 +42,7 @@ class ConsultaPadronAFIPView(VistaBase):
         self.btnConsulta = Boton(texto="Consulta", imagen=imagen("if_SEO_usability_audit_search__969250.png"))
         self.btnImprimir = Boton(texto="Imprimir Constancia", imagen=imagen("print.png"))
         self.btnCerrar = BotonCerrarFormulario()
-        self.btnAgregaCliente = Boton(texto="Agrega Cliente", imagen=imagen('nuevo.png'))
+        self.btnAgregaCliente = Boton(texto="Agrega Cliente", imagen=imagen('new.png'))
         self.layoutBotones.addWidget(self.btnConsulta)
         self.layoutBotones.addWidget(self.btnImprimir)
         self.layoutBotones.addWidget(self.btnAgregaCliente)

@@ -58,7 +58,7 @@ class BotonCerrarFormulario(Boton):
 
     def __init__(self, *args, **kwargs):
         kwargs['texto'] = kwargs['textoBoton'] if 'textoBoton' in kwargs else '&Cerrar'
-        kwargs['imagen'] = LeerIni("iniciosistema") + 'imagenes/log-out.png'
+        kwargs['imagen'] = LeerIni("iniciosistema") + 'imagenes/close.png'
         kwargs['tamanio'] = QSize(32,32)
         Boton.__init__(self, *args, **kwargs)
         self.setDefault(False)
