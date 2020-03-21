@@ -30,17 +30,17 @@ class ClientesView(ABM):
         self.lblNombreLocalidad = Etiqueta()
         self.layoutLocalidad.addWidget(self.lblNombreLocalidad)
         self.controles['localidad'].widgetNombre = self.lblNombreLocalidad
-        self.layoutDocumento = self.ArmaEntrada(nombre='tipodocu', control=Tipodoc.Valida())
+        self.layoutDocumento = self.ArmaEntrada(nombre='tipodocu', control=Tipodoc.ComboTipoDoc())
         self.lblNombreTipodoc = Etiqueta()
         self.layoutDocumento.addWidget(self.lblNombreTipodoc)
         self.controles['tipodocu'].widgetNombre = self.lblNombreTipodoc
         self.ArmaEntrada(nombre='dni', boxlayout=self.layoutDocumento)
         self.ArmaEntrada(nombre='cuit', boxlayout=self.layoutDocumento)
-        self.ArmaEntrada(nombre='tiporesp', boxlayout=self.layoutDocumento, control=Tiporesp.Valida())
+        self.ArmaEntrada(nombre='tiporesp', boxlayout=self.layoutDocumento, control=Tiporesp.Combo())
         self.lblNombreTiporesp = Etiqueta()
         self.layoutDocumento.addWidget(self.lblNombreTiporesp)
         self.controles['tiporesp'].widgetNombre = self.lblNombreTiporesp
-        self.layoutImpuesto = self.ArmaEntrada(nombre='percepcion', control=Impuestos.Valida())
+        self.layoutImpuesto = self.ArmaEntrada(nombre='percepcion', control=Impuestos.ComboImpuesto())
         self.lblNombreImpuesto = Etiqueta()
         self.layoutImpuesto.addWidget(self.lblNombreImpuesto)
         self.controles['percepcion'].widgetNombre = self.lblNombreImpuesto

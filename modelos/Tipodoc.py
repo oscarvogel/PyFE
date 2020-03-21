@@ -1,6 +1,7 @@
 # coding=utf-8
 from peewee import IntegerField, CharField, AutoField
 
+from libs.ComboBox import ComboSQL
 from libs.Validaciones import Validaciones
 from modelos.ModeloBase import ModeloBase
 
@@ -20,5 +21,11 @@ class Valida(Validaciones):
     campoRetorno = Tipodoc.codigo
     campoNombre = Tipodoc.nombre
     campos = ['codigo','nombre']
+
+class ComboTipoDoc(ComboSQL):
+    model = Tipodoc
+    cOrden = Tipodoc.nombre
+    campovalor = Tipodoc.codigo.name
+    campo1 = Tipodoc.nombre.name
 
 
