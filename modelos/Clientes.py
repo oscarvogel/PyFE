@@ -12,9 +12,9 @@ from modelos.Tiporesp import Tiporesp
 
 class Cliente(ModeloBase):
     idcliente = AutoField()
-    nombre = CharField(max_length=30)
-    domicilio = CharField(max_length=30)
-    telefono = CharField(max_length=30, default='')
+    nombre = CharField(max_length=100)
+    domicilio = CharField(max_length=100)
+    telefono = CharField(max_length=100, default='')
     localidad = ForeignKeyField(Localidad, backref="localidad", db_column='idLocalidad')
     cuit = CharField(max_length=13, default='')
     dni = IntegerField(default=0)

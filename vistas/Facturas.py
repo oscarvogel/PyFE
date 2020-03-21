@@ -171,7 +171,7 @@ class FacturaView(Formulario):
         self.layoutPpal.addLayout(self.layoutTotales)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnGrabarFactura = Boton(texto="Emitir", imagen=imagen('guardar.png'), autodefault=False)
+        self.btnGrabarFactura = Boton(texto="Emitir", imagen=imagen('save.png'), autodefault=False)
         self.btnCerrarFormulario = BotonCerrarFormulario(autodefault=False)
         self.layoutBotones.addWidget(self.btnGrabarFactura)
         self.layoutBotones.addWidget(self.btnCerrarFormulario)
@@ -201,7 +201,7 @@ class FacturaView(Formulario):
 
         layoutppal.addWidget(self.gridFactura)
         layoutBotones = QHBoxLayout()
-        self.botonAgregaArt = Boton(texto="Agrega", imagen=imagen("nuevo.png"),
+        self.botonAgregaArt = Boton(texto="Agrega", imagen=imagen("new.png"),
                                     tamanio=QSize(16,16), autodefault=False)
         self.botonBorrarArt = Boton(texto="Borrar", imagen=imagen("delete.png"),
                                     tamanio=QSize(16,16), autodefault=False)

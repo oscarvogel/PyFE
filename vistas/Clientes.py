@@ -37,17 +37,18 @@ class ClientesView(ABM):
         self.controles['tipodocu'].widgetNombre = self.lblNombreTipodoc
         self.ArmaEntrada(nombre='dni', boxlayout=self.layoutDocumento)
         self.ArmaEntrada(nombre='cuit', boxlayout=self.layoutDocumento)
-        self.ArmaEntrada(nombre='tiporesp', boxlayout=self.layoutDocumento, control=Tiporesp.Combo(),
-                         texto="Responsabilidad frente al iva")
-        self.lblNombreTiporesp = Etiqueta()
-        self.layoutDocumento.addWidget(self.lblNombreTiporesp)
-        self.controles['tiporesp'].widgetNombre = self.lblNombreTiporesp
         self.layoutImpuesto = self.ArmaEntrada(nombre='percepcion', control=Impuestos.ComboImpuesto(),
                                                texto="Tipo de impuesto")
         self.lblNombreImpuesto = Etiqueta()
         self.layoutImpuesto.addWidget(self.lblNombreImpuesto)
         self.controles['percepcion'].widgetNombre = self.lblNombreImpuesto
         self.campoFoco = self.controles['nombre']
+
+        self.ArmaEntrada(nombre='tiporesp', boxlayout=self.layoutImpuesto, control=Tiporesp.Combo(),
+                         texto="Responsabilidad frente al iva")
+        self.lblNombreTiporesp = Etiqueta()
+        self.layoutDocumento.addWidget(self.lblNombreTiporesp)
+        self.controles['tiporesp'].widgetNombre = self.lblNombreTiporesp
 
     @inicializar_y_capturar_excepciones
     def btnAceptarClicked(self, *args, **kwargs):

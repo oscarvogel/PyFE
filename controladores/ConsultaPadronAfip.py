@@ -72,8 +72,8 @@ class ConsultaPadronAfipController(ControladorBase):
             Ventanas.showAlert(LeerIni("nombre_sistema"), "Error al leer informacion en la AFIP")
         else:
             cliente = Cliente()
-            cliente.nombre = padron.denominacion[:30]
-            cliente.domicilio = padron.direccion[:30]
+            cliente.nombre = padron.denominacion[:Cliente.nombre.max_length]
+            cliente.domicilio = padron.direccion[:Cliente.nombre.max_length]
             try:
                 localidad = Localidad().select().where(Localidad.nombre.contains(padron.localidad)).get()
             except Localidad.DoesNotExist:
