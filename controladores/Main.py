@@ -21,7 +21,6 @@ from controladores.ConsultaPadronAfip import ConsultaPadronAfipController
 from controladores.ControladorBase import ControladorBase
 from controladores.EmiteRecibo import EmiteReciboController
 from controladores.Facturas import FacturaController
-from controladores.FacturasCodBarra import FacturaCodBarraController
 from controladores.GeneraCertificados import GeneraCertificadosController
 from controladores.IVACompras import IVAComprasController
 from controladores.IVAVentas import IVAVentasController
@@ -47,7 +46,11 @@ class Main(ControladorBase):
     def __init__(self):
         super(Main, self).__init__()
         if LeerIni("base") == "sqlite":
-            copyfile("sistema.db", "sistema-res.db")
+            #pongo todo en un try para que en caso de que no exista aun la base de datos continue de todas formas
+            try:
+                copyfile("sistema.db", "sistema-res.db")
+            except:
+                pass
         self.view = MainView()
         self.view.initUi()
         self.conectarWidgets()
@@ -136,10 +139,7 @@ class Main(ControladorBase):
         action = menu.exec_(QCursor.pos())
 
         if action == emisionAction:
-            if LeerIni(key='FACTURA', clave='venta') == 'grilla':
-                factura = FacturaController()
-            else:
-                factura = FacturaCodBarraController()
+            factura = FacturaController()
             factura.view.exec_()
         elif action == reimprimeAction:
             ventana = ReImprimeFacturaController()

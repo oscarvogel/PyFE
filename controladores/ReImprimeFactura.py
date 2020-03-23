@@ -23,6 +23,7 @@ class ReImprimeFacturaController(ControladorBase):
         self.view.controles['cliente'].editingFinished.connect(self.CargaFacturasCliente)
         self.view.btnImprimir.clicked.connect(self.ImprimirFactura)
         self.view.envioCorreo.clicked.connect(self.EnviarPorCorreo)
+        self.view.btnCargar.clicked.connect(self.CargaFacturasCliente)
 
     def CargaFacturasCliente(self):
         self.view.gridDatos.setRowCount(0)

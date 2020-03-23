@@ -15,6 +15,7 @@ from libs.Paginas import Pagina, TabPagina
 from libs.Utiles import imagen, LeerIni
 from modelos import Clientes, Tiporesp, Tipocomprobantes
 from modelos.Clientes import Cliente
+from modelos.Formaspago import ComboFormapago
 
 
 class FacturaView(Formulario):
@@ -85,7 +86,7 @@ class FacturaView(Formulario):
         self.layoutConceptos.addWidget(self.checkBoxProductos, 0, 0)
         self.layoutConceptos.addWidget(self.checkBoxServicios, 0, 1)
         self.lblFormaPago = Etiqueta(texto="Forma de pago")
-        self.cboFormaPago = FormaPago()
+        self.cboFormaPago = ComboFormapago()
         self.layoutConceptos.addWidget(self.lblFormaPago, 1, 0)
         self.layoutConceptos.addWidget(self.cboFormaPago, 1, 1)
         self.agrupaConceptos.setLayout(self.layoutConceptos)

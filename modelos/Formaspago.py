@@ -1,6 +1,7 @@
 # coding=utf-8
 from peewee import IntegerField, CharField, BitField, AutoField, DecimalField
 
+from libs.ComboBox import ComboSQL
 from modelos.ModeloBase import ModeloBase, BitBooleanField
 
 
@@ -17,3 +18,9 @@ class Formapago(ModeloBase):
 
     class Meta:
         table_name = 'formapago'
+
+class ComboFormapago(ComboSQL):
+    model = Formapago
+    cOrden = Formapago.detalle
+    campovalor = Formapago.idformapago.name
+    campo1 = Formapago.detalle.name

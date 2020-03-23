@@ -17,6 +17,7 @@ from modelos.Cabfact import Cabfact
 from modelos.Clientes import Cliente
 from modelos.CpbteRelacionado import CpbteRel
 from modelos.Detfact import Detfact
+from modelos.Formaspago import Formapago
 from modelos.Impuestos import Impuesto
 from modelos.ParametrosSistema import ParamSist
 from modelos.Tipoiva import Tipoiva
@@ -420,13 +421,19 @@ class FacturaController(ControladorBase):
         cabfact.netob = self.netos[10.5]
         cabfact.iva = self.view.lineEditTotalIVA.value()
         cabfact.total = self.view.lineEditTotal.value()
-        if self.view.cboFormaPago.text() == 'Contado':
-            cabfact.saldo = 0.00
-        else:
+        formpago = Formapago.get_by_id(self.view.cboFormaPago.text())
+        # if self.view.cboFormaPago.text() == 'Contado':
+        #     cabfact.saldo = 0.00
+        # else:
+        #     cabfact.saldo = self.view.lineEditTotal.value()
+        if formpago.ctacte:
             cabfact.saldo = self.view.lineEditTotal.value()
+        else:
+            cabfact.saldo = 0
         cabfact.tipoiva = self.cliente.tiporesp.idtiporesp
         cabfact.cajero = 1 #por defecto cajero
-        cabfact.formapago = 1 if self.view.cboFormaPago.text() == 'Contado' else 2
+        # cabfact.formapago = 1 if self.view.cboFormaPago.text() == 'Contado' else 2
+        cabfact.formapago = formpago.idformapago
         cabfact.percepciondgr = self.view.lineEditTributos.value()
         cabfact.nombre = self.view.lblNombreCliente.text()
         cabfact.domicilio = self.view.lineEditDomicilio.text()
@@ -670,7 +677,7 @@ class FacturaController(ControladorBase):
         if not os.path.isdir('facturas'):
             os.mkdir('facturas')
         #Genero el PDF de salida seg�n la plantilla procesada
-        salida = join('facturas',"{}-{}.pdf".format(cabfact.tipocomp.nombre, cabfact.numero))
+        salida = join('facturas',"{}-{}.pdf".format(cabfact.tipocomp.nombre.replace(" ", "_"), cabfact.numero))
         ok = pyfpdf.GenerarPDF(salida)
         #Abro el visor de PDF y muestro lo generado
         #(es necesario tener instalado Acrobat Reader o similar)
