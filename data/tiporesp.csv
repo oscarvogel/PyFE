@@ -1,0 +1,5 @@
+idtiporesp,nombre,discrimina,tipoiva,obligacuit,factura,notacredito,notadebito,tipoivaepson
+1,MONOTRIBUTO,0,M,0,82,13,12,
+2,RESP. INSCRIPTO,0,I,0,81,13,12,
+3,CONSUMIDOR FINAL,0,F,0,82,13,12,
+4,EXENTO,0,X,0,82,13,12,

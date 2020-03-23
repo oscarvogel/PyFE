@@ -1,6 +1,7 @@
 # coding=utf-8
 from shutil import copyfile
 
+import peewee
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QApplication, QMenu
 
@@ -34,7 +35,8 @@ from controladores.ReImprimeFactura import ReImprimeFacturaController
 from controladores.RindeCAEAIndividual import RindeCAEAIndividualController
 from controladores.TipoComprobantes import TipoComprobantesController
 from controladores.Resguardo import ResguardoController
-from libs.Utiles import LeerIni, GrabarIni, FechaMysql
+from libs import Ventanas
+from libs.Utiles import LeerIni, GrabarIni, FechaMysql, inicializar_y_capturar_excepciones
 from modelos.ModeloBase import ModeloBase
 from modelos.ParametrosSistema import ParamSist
 from vistas.Main import MainView
@@ -221,8 +223,14 @@ class Main(ControladorBase):
             ventana = RG3685ComprasController()
             ventana.view.exec_()
 
-    def CreaTablas(self):
-        ParamSist.create_table(safe=True)
+    @inicializar_y_capturar_excepciones
+    def CreaTablas(self, *args, **kwargs):
+        try:
+            ParamSist.create_table(safe=True)
+        except peewee.InternalError:
+            Ventanas.showAlert("Sistema", "Verifique que la base de datos este creada en {}".format(
+                LeerIni("host")
+            ))
 
     def Migraciones(self):
         migracion = MigracionBaseDatos()
