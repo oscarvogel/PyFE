@@ -112,3 +112,4 @@ venv.bak/
 /certificados/traid.key
 *.db
 *.xml
+/facturas
