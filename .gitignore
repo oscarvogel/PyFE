@@ -111,3 +111,4 @@ venv.bak/
 /certificados/traid.csr
 /certificados/traid.key
 *.db
+*.xml
