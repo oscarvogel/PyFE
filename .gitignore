@@ -110,3 +110,4 @@ venv.bak/
 /certificados/traid.crt
 /certificados/traid.csr
 /certificados/traid.key
+*.db
