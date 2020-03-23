@@ -102,8 +102,6 @@ class MigracionBaseDatos(ControladorBase):
 
     def MigrarVersion0(self):
         try:
-            migrator = self.migrator
-            database = db
             db.create_tables([Tipodoc, Tipoiva, Tiporesp, Unidad, CentroCosto, Grupo, Impuesto, Localidad, Provincia,
                               TipoComprobante, Articulo, Formapago, Cliente, Cajero, Cabfact, Detfact, CpbteRel,
                               Proveedor, CabFactProv, DetFactProv, PercepDGR, CtaCte, EmailCliente])
