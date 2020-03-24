@@ -1,13 +1,13 @@
 # coding=utf-8
-from PyQt5.QtWidgets import QInputDialog
+import os
+
 
 from controladores.ControladorBase import ControladorBase
+from controladores.EnvioEmail import EnvioEmailController
 from controladores.Facturas import FacturaController
-from libs import Ventanas
-from libs.Utiles import inicializar_y_capturar_excepciones, LeerIni, envia_correo
+from libs.Utiles import inicializar_y_capturar_excepciones
 from modelos.Cabfact import Cabfact
 from modelos.Emailcliente import EmailCliente
-from modelos.ParametrosSistema import ParamSist
 from vistas.ReImprimeFactura import ReImprimeFacturaView
 
 
@@ -51,28 +51,41 @@ class ReImprimeFacturaController(ControladorBase):
                 fila=self.view.gridDatos.currentRow(), col='idcabecera'),
             mostrar=False)
             emaicliente = EmailCliente.select().where(EmailCliente.idcliente == self.view.controles['cliente'].text())
-            items = []
-            for e in emaicliente:
-                items.append(e.email)
-            if items:
-                text, ok = QInputDialog.getItem(self.view, 'Sistema', 'Ingrese el mail destinatario:', items)
-            else:
-                text, ok = QInputDialog.getText(self.view, 'Sistema', 'Ingrese el mail destinatario:')
-            if ok:
-                destinatario = str(text).strip()
-                mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar \n" \
-                          "No responder este email"
-                archivo = factura.facturaGenerada
-                motivo = "Se envia comprobante electronico de {}".format(LeerIni(clave='empresa', key='FACTURA'))
-                servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
-                clave = ParamSist.ObtenerParametro("CLAVE_SMTP")
-                usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
-                puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
-                responder=ParamSist.ObtenerParametro("RESPONDER")
-                ok, err_msg = envia_correo(from_address=responder, to_address=destinatario, message=mensaje, subject=motivo,
-                             password_email=clave, smtp_port=puerto, smtp_server=servidor, files=archivo)
-                if not ok:
-                    Ventanas.showAlert("Sistema", "Ha ocurrido un error al enviar el correo\n{}".format(err_msg))
-                else:
-                    Ventanas.showAlert("Sistema", "Comprobante electronico enviado correctamente")
+            controlador = EnvioEmailController()
+            controlador.adjuntos = []
+            # controlador.archivo_firma = "prueba.html"
+            controlador.adjuntos = factura.facturaGenerada
+            controlador.cliente = self.view.controles['cliente'].text()
+            controlador.view.textAsunto.setText(
+                f'Envio comprobante {os.path.basename(factura.facturaGenerada)}'
+            )
+            controlador.view.textPara.setText(
+                ','.join(e.email for e in emaicliente)
+            )
+            controlador.exec_()
+            # emaicliente = EmailCliente.select().where(EmailCliente.idcliente == self.view.controles['cliente'].text())
+            # items = []
+            # for e in emaicliente:
+            #     items.append(e.email)
+            # if items:
+            #     text, ok = QInputDialog.getItem(self.view, 'Sistema', 'Ingrese el mail destinatario:', items)
+            # else:
+            #     text, ok = QInputDialog.getText(self.view, 'Sistema', 'Ingrese el mail destinatario:')
+            # if ok:
+            #     destinatario = str(text).strip()
+            #     mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar \n" \
+            #               "No responder este email"
+            #     archivo = factura.facturaGenerada
+            #     motivo = "Se envia comprobante electronico de {}".format(LeerIni(clave='empresa', key='FACTURA'))
+            #     servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
+            #     clave = ParamSist.ObtenerParametro("CLAVE_SMTP")
+            #     usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
+            #     puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
+            #     responder=ParamSist.ObtenerParametro("RESPONDER")
+            #     ok, err_msg = envia_correo(from_address=responder, to_address=destinatario, message=mensaje, subject=motivo,
+            #                  password_email=clave, smtp_port=puerto, smtp_server=servidor, files=archivo)
+            #     if not ok:
+            #         Ventanas.showAlert("Sistema", "Ha ocurrido un error al enviar el correo\n{}".format(err_msg))
+            #     else:
+            #         Ventanas.showAlert("Sistema", "Comprobante electronico enviado correctamente")
 

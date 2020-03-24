@@ -293,16 +293,19 @@ def openFileNameDialog(form=None, files=None, title='Abrir', filename=''):
         return ''
 
 def envia_correo(from_address = '', to_address = '', message = '', subject = '', password_email = '', to_cc='',
-                 smtp_server='', smtp_port=587, files=''):
+                 smtp_server='', smtp_port=587, files='', to_cco=''):
     smtp_email = smtp_server
     ok = True
-    mime_message = MIMEMultipart('related')
+    mime_message = MIMEMultipart('alternative')
     mime_message["From"] = from_address
     mime_message["To"] = to_address
     mime_message["Subject"] = subject
     if to_cc:
         mime_message["Cc"] = to_cc
+    if to_cco:
+        mime_message["Bcc"] = to_cco
     mime_message.attach(MIMEText(message, "plain"))
+    mime_message.attach(MIMEText(message, "html"))
     if files:
         if not isinstance(files, list):
             files = [files,]
