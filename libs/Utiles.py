@@ -21,6 +21,7 @@ from logging.handlers import RotatingFileHandler
 from smtplib import SMTP
 
 from PyQt5 import QtGui
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QFileDialog
 
 from pyafipws.pyemail import PyEmail
@@ -237,11 +238,18 @@ def FinMes(hFecha=None):
 
     return hFecha.replace(day = calendar.monthrange(hFecha.year, hFecha.month)[1])
 
-def GuardarArchivo(caption="Guardar archivo", directory="", filter="", filename=""):
+def GuardarArchivo(parent=None, caption="Guardar archivo", directory="", filter="", filename=""):
+    options = QFileDialog.Options()
+    if platform.system() == 'Linux':
+        options |= QFileDialog.DontUseNativeDialog
+    if directory:
+        cArchivo = QFileDialog.getSaveFileName(parent, caption=caption,
+                                               directory=join(directory, filename),
+                                               filter=filter, options=options)[0]
+    else:
+        cArchivo = QFileDialog.getSaveFileName(parent, caption=caption,
+                                               filter=filter, options=options)[0]
 
-    cArchivo = QFileDialog.getSaveFileName(caption=caption,
-                                           directory=join(directory, filename),
-                                           filter=filter)[0]
     print(cArchivo)
     return cArchivo if cArchivo else ''
 
@@ -284,7 +292,8 @@ def initialize_logger(output_dir):
 
 def openFileNameDialog(form=None, files=None, title='Abrir', filename=''):
     options = QFileDialog.Options()
-    # options |= QFileDialog.DontUseNativeDialog
+    if platform.system() == 'Linux':
+        options |= QFileDialog.DontUseNativeDialog
     fileName, _ = QFileDialog.getOpenFileName(form, title, filename,
                                               files, options=options)
     if fileName:

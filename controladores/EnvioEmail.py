@@ -19,6 +19,7 @@ class EnvioEmailController(ControladorBase):
         super().__init__()
         self.__adjuntos = []  # lista con los archivos adjuntos a enviar
         self.view = EnvioEmailView()
+        self.archivo_firma = ParamSist.ObtenerParametro("ARCHIVO_FIRMA_EMAIL")
         self.conectarWidgets()
         self.cargaParametros()
 

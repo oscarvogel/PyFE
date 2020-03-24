@@ -21,6 +21,7 @@ from controladores.ConsultaPadronAfip import ConsultaPadronAfipController
 from controladores.ControladorBase import ControladorBase
 from controladores.EmiteRecibo import EmiteReciboController
 from controladores.Facturas import FacturaController
+from controladores.FirmaCorreoElectronico import FirmaCorreoElectronicoController
 from controladores.GeneraCertificados import GeneraCertificadosController
 from controladores.IVACompras import IVAComprasController
 from controladores.IVAVentas import IVAVentasController
@@ -158,9 +159,11 @@ class Main(ControladorBase):
         menu = QMenu(self.view)
         emisionConfig = menu.addAction(u"Configuracion de inicio")
         paramAction = menu.addAction(u"Parametros de sistema")
+        firmaEmailAction = menu.addAction(u"Firma de correo electronico")
         generaAction = menu.addAction(u"Genera certificados digitales")
         menu.addAction(emisionConfig)
         menu.addAction(paramAction)
+        menu.addAction(firmaEmailAction)
         menu.addAction(generaAction)
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
@@ -173,6 +176,9 @@ class Main(ControladorBase):
         elif action == generaAction:
             _ventana_genera = GeneraCertificadosController()
             _ventana_genera.exec_()
+        elif action == firmaEmailAction:
+            _ventana_firma_email = FirmaCorreoElectronicoController()
+            _ventana_firma_email.exec_()
 
 
     def onClickBtnAFIP(self):
