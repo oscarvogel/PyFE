@@ -37,13 +37,14 @@ class Lista(QListWidget):
         super(Lista, self).keyPressEvent(event)
         self.keyPressed.emit(event.key())
 
-    def BorrarItemSeleccionados(self):
-        for item in self.selectedItems():
-            self.takeItem(self.row(item))
+    def BorrarItemSeleccionado(self):
+        # for item in self.selectedItems():
+        #     self.takeItem(self.row(item))
+        self.takeItem(self.currentRow())
 
     def ObtenerItem(self, fila):
         item = self.item(fila)
-        return item.text()
+        return item.text() if item else None
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls:

@@ -301,6 +301,17 @@ def openFileNameDialog(form=None, files=None, title='Abrir', filename=''):
     else:
         return ''
 
+def AbrirMultiplesArchivos(form=None, filter=None, title='Abrir'):
+    options = QFileDialog.Options()
+    if platform.system() == 'Linux':
+        options |= QFileDialog.DontUseNativeDialog
+    fileNames, _ = QFileDialog.getOpenFileNames(form, title,
+                                              filter=filter, options=options)
+    if fileNames:
+        return fileNames
+    else:
+        return ''
+
 def envia_correo(from_address = '', to_address = '', message = '', subject = '', password_email = '', to_cc='',
                  smtp_server='', smtp_port=587, files='', to_cco=''):
     smtp_email = smtp_server

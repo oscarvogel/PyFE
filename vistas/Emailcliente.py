@@ -26,14 +26,16 @@ class EmailClienteView(Formulario):
         cabeceras = [
             'EMail', 'idemailcliente'
         ]
+        self.gridEmail.columnasOcultas = [1,]
+        self.gridEmail.OcultaColumnas()
         self.gridEmail.columnasHabilitadas = [0,]
         self.gridEmail.ArmaCabeceras(cabeceras=cabeceras)
         self.verticalLayoutDatos.addWidget(self.gridEmail)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnGraba = Boton(texto='Graba', imagen=imagen('guardar.png'))
+        self.btnGraba = Boton(texto='Graba', imagen=imagen('save.png'))
         self.btnCerrar = BotonCerrarFormulario()
-        self.btnAgregar = Boton(texto="Agregar", imagen=imagen('nuevo.png'))
+        self.btnAgregar = Boton(texto="Agregar", imagen=imagen('new.png'))
         self.btnBorrar = Boton(texto="Borrar", imagen=imagen('delete.png'))
         self.layoutBotones.addWidget(self.btnAgregar)
         self.layoutBotones.addWidget(self.btnGraba)

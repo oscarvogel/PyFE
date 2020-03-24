@@ -9,6 +9,6 @@ CODIGO_RI = 1
 COMPROBANTES_FCE = [201,202,203,206,207,208,211,212,213]
 
 SERVER_SMTP = 'mail.servinlgsm.com.ar'
-USUARIO_SMTP = ''
+USUARIO_SMTP = 'fe@servinlgsm.com.ar'
 CLAVE_SMTP = ''
 PUERTO_SMTP = ''

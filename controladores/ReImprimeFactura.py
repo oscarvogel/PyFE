@@ -55,6 +55,7 @@ class ReImprimeFacturaController(ControladorBase):
             controlador.adjuntos = []
             # controlador.archivo_firma = "prueba.html"
             controlador.adjuntos = factura.facturaGenerada
+            controlador.ActualizaListaAdjuntos()
             controlador.cliente = self.view.controles['cliente'].text()
             controlador.view.textAsunto.setText(
                 f'Envio comprobante {os.path.basename(factura.facturaGenerada)}'

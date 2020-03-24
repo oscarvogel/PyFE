@@ -2,7 +2,7 @@ from PyQt5.QtCore import Qt
 
 from controladores.ControladorBase import ControladorBase
 from libs import Ventanas
-from libs.Utiles import envia_correo, imagen
+from libs.Utiles import envia_correo, imagen, AbrirMultiplesArchivos
 from modelos.Emailcliente import EmailCliente
 from modelos.ParametrosSistema import ParamSist
 from vistas.EnvioEmail import EnvioEmailView
@@ -29,6 +29,7 @@ class EnvioEmailController(ControladorBase):
         self.view.btnEnviar.clicked.connect(self.onClickBtnEnviar)
         self.view.listaAdjuntos.keyPressed.connect(self.onKeyListaAdjunto)
         self.view.listaAdjuntos.itemDropped.connect(self.onItemDroppedAdjunto)
+        self.view.btnAdjunto.clicked.connect(self.onClickBtnAdjunto)
 
     def onClickBtnEnviar(self):
         ok, err_msg = envia_correo(
@@ -64,14 +65,13 @@ class EnvioEmailController(ControladorBase):
 
     @property
     def adjuntos(self):
-
         return self.__adjuntos
 
     @adjuntos.setter
     def adjuntos(self, valor):
         if not isinstance(valor, list):
             self.__adjuntos.append(valor)
-            self.ActualizaListaAdjuntos()
+            # self.ActualizaListaAdjuntos()
         else:
             self.__adjuntos = valor
 
@@ -87,14 +87,16 @@ class EnvioEmailController(ControladorBase):
 
     def onKeyListaAdjunto(self, key):
         if key in [Qt.Key_Delete]:
-            self.view.listaAdjuntos.BorrarItemSeleccionados()
+            self.view.listaAdjuntos.BorrarItemSeleccionado()
             self.CargaAdjuntos()
 
     def CargaAdjuntos(self):
         self.adjuntos = []
 
-        for row in range(self.view.listaAdjuntos.count()):
-            self.adjuntos = self.view.listaAdjuntos.ObtenerItem(row)
+        for row in range(self.view.listaAdjuntos.count() + 1):
+            item = self.view.listaAdjuntos.ObtenerItem(row)
+            if item:
+                self.adjuntos = item
 
         self.view.textAdjunto.setText(
             ','.join(x for x in self.adjuntos)
@@ -107,3 +109,11 @@ class EnvioEmailController(ControladorBase):
         self.view.textAdjunto.setText(
             ','.join(x for x in self.adjuntos)
         )
+
+    def onClickBtnAdjunto(self):
+        archivos = AbrirMultiplesArchivos(filter="Todos los archivos (*.*)")
+
+        for a in archivos:
+            self.adjuntos = a
+
+        self.ActualizaListaAdjuntos()
