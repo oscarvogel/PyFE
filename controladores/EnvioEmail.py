@@ -1,3 +1,5 @@
+from PyQt5.QtCore import Qt
+
 from controladores.ControladorBase import ControladorBase
 from libs import Ventanas
 from libs.Utiles import envia_correo, imagen
@@ -24,6 +26,8 @@ class EnvioEmailController(ControladorBase):
         # self.view.textPara.cargaDatos()
         self.view.btnCerrar.clicked.connect(self.view.Cerrar)
         self.view.btnEnviar.clicked.connect(self.onClickBtnEnviar)
+        self.view.listaAdjuntos.keyPressed.connect(self.onKeyListaAdjunto)
+        self.view.listaAdjuntos.itemDropped.connect(self.onItemDroppedAdjunto)
 
     def onClickBtnEnviar(self):
         ok, err_msg = envia_correo(
@@ -67,9 +71,38 @@ class EnvioEmailController(ControladorBase):
         if not isinstance(valor, list):
             self.__adjuntos.append(valor)
             self.ActualizaListaAdjuntos()
+        else:
+            self.__adjuntos = valor
 
     def ActualizaListaAdjuntos(self):
         self.view.listaAdjuntos.clear()
         icono = imagen('attach_file.png')
         for item in self.adjuntos:
             self.view.listaAdjuntos.AgregaItem(item, icon=icono)
+
+        self.view.textAdjunto.setText(
+            ','.join(x for x in self.adjuntos)
+        )
+
+    def onKeyListaAdjunto(self, key):
+        if key in [Qt.Key_Delete]:
+            self.view.listaAdjuntos.BorrarItemSeleccionados()
+            self.CargaAdjuntos()
+
+    def CargaAdjuntos(self):
+        self.adjuntos = []
+
+        for row in range(self.view.listaAdjuntos.count()):
+            self.adjuntos = self.view.listaAdjuntos.ObtenerItem(row)
+
+        self.view.textAdjunto.setText(
+            ','.join(x for x in self.adjuntos)
+        )
+
+    def onItemDroppedAdjunto(self, lista):
+        for l in lista:
+            self.adjuntos = l
+
+        self.view.textAdjunto.setText(
+            ','.join(x for x in self.adjuntos)
+        )
