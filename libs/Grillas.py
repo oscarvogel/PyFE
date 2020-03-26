@@ -5,7 +5,7 @@ import decimal
 import xlsxwriter
 from PyQt5 import QtCore
 from PyQt5.QtGui import QFont, QColor
-from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QFileDialog
+from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QFileDialog, QAbstractItemView
 
 from libs.Utiles import EsVerdadero, AbrirArchivo
 
@@ -65,7 +65,13 @@ class Grilla(QTableWidget):
         font = QFont()
         font.setPointSizeF(self.tamanio)
         self.setFont(font)
-        self.setSortingEnabled(True)
+        if 'habilitarorden' in kwargs:
+            self.setSortingEnabled(kwargs['habilitarorden'])
+        else:
+            self.setSortingEnabled(True)
+        # self.itemClicked.connect(self.handleItemClicked)
+        self.setEditTriggers(QAbstractItemView.AllEditTriggers)#para que se pueda editar el contenido con solo un click
+
 
     def ArmaCabeceras(self, cabeceras=None):
 
