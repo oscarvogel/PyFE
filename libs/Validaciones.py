@@ -1,9 +1,10 @@
 # coding=utf-8
 from PyQt5 import QtCore
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QLineEdit
+from PyQt5.QtWidgets import QLineEdit, QHBoxLayout
 
 from libs.EntradaTexto import EntradaTexto
+from libs.Etiquetas import Etiqueta, EtiquetaRoja
 from vistas.Busqueda import UiBusqueda
 
 
@@ -100,3 +101,40 @@ class Validaciones(EntradaTexto):
             self.setStyleSheet("background-color: yellow")
             #Ventanas.showAlert("Error", "Codigo no encontrado en el sistema")
 
+
+class ValidaConNombre(QHBoxLayout):
+
+    textoEtiqueta = 'Nombre'
+    modelo = None
+    campoNombre = None
+    campoRetorno = None
+    camposTabla = []
+    largo = 0
+    maxwidth = 50
+
+    def __init__(self, parent=None, *args, **kwargs):
+        super().__init__(parent)
+
+        if 'texto' in kwargs:
+            self.textoEtiqueta = kwargs['texto']
+
+        self.labelNombre = Etiqueta(parent, texto=self.textoEtiqueta)
+        self.labelNombre.setObjectName("labelNombre")
+        self.addWidget(self.labelNombre)
+
+        self.lineEditCodigo = Validaciones(parent)
+        self.lineEditCodigo.setObjectName("lineEditNombre")
+        self.lineEditCodigo.modelo = self.modelo
+        self.lineEditCodigo.campoNombre = self.campoNombre
+        self.lineEditCodigo.campoRetorno = self.campoRetorno
+        self.lineEditCodigo.cOrden = self.campoNombre
+        self.lineEditCodigo.camposTabla = self.camposTabla
+        self.lineEditCodigo.campos = self.lineEditCodigo.camposTabla
+        self.lineEditCodigo.largo = self.largo
+        self.lineEditCodigo.setMaximumWidth(self.maxwidth)
+        self.addWidget(self.lineEditCodigo)
+
+        self.labelDescripcion = EtiquetaRoja(parent, texto="")
+        self.labelDescripcion.setObjectName("labelDescripcion")
+        self.addWidget(self.labelDescripcion)
+        self.lineEditCodigo.widgetNombre = self.labelDescripcion

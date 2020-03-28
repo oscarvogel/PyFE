@@ -1,6 +1,7 @@
 # coding=utf-8
 import datetime
 import decimal
+import re
 
 import xlsxwriter
 from PyQt5 import QtCore
@@ -195,6 +196,28 @@ class Grilla(QTableWidget):
         # print(model.data(index))
         #return model.data(index).replace(',','.') if model.data(index) else ''
         return item.replace(',','.') if item else 0
+
+    def ObtenerItemNumerico(self, fila, col):
+
+        if isinstance(col, int):
+            numCol = col
+        else:
+            numCol = self.cabeceras.index(col)
+
+        try:
+            item = self.item(fila, numCol)
+            if item.checkState() == QtCore.Qt.Checked:
+                item = True
+            else:
+                item = item.text()
+                item = re.sub("[^0123456789\.]","",item)
+
+            item = float(item)
+        except:
+            item = 0
+
+        # return item.replace(',','.') if item else 0
+        return item
 
     def CargaDatos(self, avance=None):
 
