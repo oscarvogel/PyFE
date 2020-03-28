@@ -19,6 +19,7 @@ class ComboSQL(QComboBox):
     cOrden = None
     model = None
     proximoWidget = None
+    valor_defecto = ''  # valor por defecto, para establecer el indice a ese valor
 
     def __init__(self, *args, **kwargs):
         QComboBox.__init__(self)
@@ -35,6 +36,8 @@ class ComboSQL(QComboBox):
         if self.cOrden:
             data = data.order_by(self.cOrden)
 
+        indice_defecto = 0 #indice por defecto si se encuentra el valor
+        indice = 0 #contador para saber el indice como va avanzando
         for r in data:
             if isinstance(r[self.campovalor], (decimal.Decimal, int, float)):
                 valor = str(r[self.campovalor])
@@ -45,6 +48,12 @@ class ComboSQL(QComboBox):
             else:
                 campo1 = r[self.campo1]
             self.addItem(campo1, valor)
+            if campo1.strip() == self.valor_defecto or valor.strip() == self.valor_defecto:
+                indice_defecto = indice
+            indice += 1
+
+        self.setCurrentIndex(indice_defecto)
+        self.PostCargaDatos()
 
     def GetDato(self):
         return self.currentData()
@@ -70,6 +79,11 @@ class ComboSQL(QComboBox):
             if self.proximoWidget:
                 self.proximoWidget.setFocus()
         QComboBox.keyPressEvent(self, event)
+
+    #en caso de que se quiera agregar un dato extra luego de haber cargados todos los valores de la tabla
+    #por ej para un valor en blanco
+    def PostCargaDatos(self):
+        pass
 
 class Combo(QComboBox):
 

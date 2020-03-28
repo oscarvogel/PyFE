@@ -3,6 +3,7 @@ from PyQt5.QtCore import Qt
 from controladores.ControladorBase import ControladorBase
 from libs import Ventanas
 from libs.Utiles import envia_correo, imagen, AbrirMultiplesArchivos
+from modelos.CorreosEnviados import CorreoEnviado
 from modelos.Emailcliente import EmailCliente
 from modelos.ParametrosSistema import ParamSist
 from vistas.EnvioEmail import EnvioEmailView
@@ -42,7 +43,17 @@ class EnvioEmailController(ControladorBase):
         if not ok:
             Ventanas.showAlert("Sistema", f"Se ha producido un error {err_msg}")
         else:
+            correo = CorreoEnviado()
+            correo.de = self.usuario
+            correo.para = self.view.textPara.text()
+            correo.cc = self.view.textCC.text()
+            correo.cco = self.view.textCCO.text()
+            correo.asunto = self.view.textAsunto.text()
+            correo.adjuntos = self.view.textAdjunto.text()
+            correo.mensaje = self.view.textMensaje.toHtml()
+            correo.save()
             Ventanas.showAlert("Sistema", "Correo enviado satisfactoriamente")
+
             self.view.Cerrar()
 
     def exec_(self):

@@ -14,6 +14,7 @@ from modelos.Cabfact import Cabfact
 from modelos.Cajeros import Cajero
 from modelos.CentroCostos import CentroCosto
 from modelos.Clientes import Cliente
+from modelos.CorreosEnviados import CorreoEnviado
 from modelos.CpbteRelacionado import CpbteRel
 from modelos.Ctacte import CtaCte
 from modelos.DetFactProv import DetFactProv
@@ -60,9 +61,12 @@ class MigracionBaseDatos(ControladorBase):
         if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 2:
             self.MigrarVersion2()
 
+        if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 3:
+            self.MigrarVersion3()
+
         self.RealizaMigraciones()
 
-        ParamSist.GuardarParametro("VERSION_DB", "2")
+        ParamSist.GuardarParametro("VERSION_DB", "3")
 
     def MigrarVersion1(self):
         migrator = self.migrator
@@ -202,3 +206,10 @@ class MigracionBaseDatos(ControladorBase):
                 modelo.insert_many(datos, fields=campos).execute()
             except:
                 logging.error("Error:", sys.exc_info()[0])
+
+    def MigrarVersion3(self):
+        correos = CorreoEnviado()
+        try:
+            correos.create_table()
+        except:
+            pass
