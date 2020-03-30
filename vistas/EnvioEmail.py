@@ -24,8 +24,10 @@ __version__ = "0.10"
 from PyQt5.QtWidgets import QVBoxLayout, QGridLayout, QHBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario
+from libs.Checkbox import CheckBox
 from libs.EntradaTexto import EntradaTexto, TextoEnriquecido, EmailCompleter
 from libs.Etiquetas import Etiqueta
+from libs.Grillas import Grilla
 from libs.Listas import Lista
 from libs.Utiles import imagen
 from vistas.VistaBase import VistaBase
@@ -76,8 +78,44 @@ class EnvioEmailView(VistaBase):
         layoutPpal.addWidget(self.textMensaje)
 
         layoutBotones = QHBoxLayout()
-        self.btnEnviar = Boton(texto="Enviar", imagen=imagen("compras.png"))
+        self.btnEnviar = Boton(texto="Enviar", imagen=imagen("email.png"))
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnEnviar)
+        layoutBotones.addWidget(self.btnCerrar)
+        layoutPpal.addLayout(layoutBotones)
+
+class ListaCorreosView(VistaBase):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setupUi(self)
+
+    def setupUi(self, Form):
+        self.setWindowTitle("Seleccion de correos electronico")
+        self.resize(650, 350)
+        layoutPpal = QVBoxLayout(self)
+
+        layoutBusqueda = QHBoxLayout()
+        lblBusqueda = Etiqueta(texto="Busqueda")
+        self.textBusqueda = EntradaTexto(placeholderText="Busqueda")
+        self.checkTodos = CheckBox(texto="Todos?")
+        layoutBusqueda.addWidget(lblBusqueda)
+        layoutBusqueda.addWidget(self.textBusqueda)
+        layoutBusqueda.addWidget(self.checkTodos)
+        layoutPpal.addLayout(layoutBusqueda)
+
+        self.gridCorreos = Grilla()
+        self.gridCorreos.enabled = True
+        cabeceras = [
+            'Selecciona', 'Nombre', 'Correo'
+        ]
+        self.gridCorreos.columnasHabilitadas = [0,]
+        self.gridCorreos.ArmaCabeceras(cabeceras)
+        layoutPpal.addWidget(self.gridCorreos)
+
+        layoutBotones = QHBoxLayout()
+        self.btnSeleccionar = Boton(texto="&Selecciona", imagen=imagen("check.png"))
+        self.btnCerrar = BotonCerrarFormulario()
+        layoutBotones.addWidget(self.btnSeleccionar)
         layoutBotones.addWidget(self.btnCerrar)
         layoutPpal.addLayout(layoutBotones)

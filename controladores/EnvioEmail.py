@@ -3,10 +3,11 @@ from PyQt5.QtCore import Qt
 from controladores.ControladorBase import ControladorBase
 from libs import Ventanas
 from libs.Utiles import envia_correo, imagen, AbrirMultiplesArchivos
+from modelos.Clientes import Cliente
 from modelos.CorreosEnviados import CorreoEnviado
 from modelos.Emailcliente import EmailCliente
 from modelos.ParametrosSistema import ParamSist
-from vistas.EnvioEmail import EnvioEmailView
+from vistas.EnvioEmail import EnvioEmailView, ListaCorreosView
 
 
 class EnvioEmailController(ControladorBase):
@@ -31,6 +32,7 @@ class EnvioEmailController(ControladorBase):
         self.view.listaAdjuntos.keyPressed.connect(self.onKeyListaAdjunto)
         self.view.listaAdjuntos.itemDropped.connect(self.onItemDroppedAdjunto)
         self.view.btnAdjunto.clicked.connect(self.onClickBtnAdjunto)
+        self.view.btnPara.clicked.connect(self.onClicBtnPara)
 
     def onClickBtnEnviar(self):
         ok, err_msg = envia_correo(
@@ -65,6 +67,8 @@ class EnvioEmailController(ControladorBase):
         self.view.textAdjunto.setText(
             ','.join([x for x in self.adjuntos])
         )
+        if self.cliente:
+            self.view.textPara.condicion = EmailCliente.idcliente == self.cliente
         super().exec_()
 
     def cargaParametros(self):
@@ -128,3 +132,64 @@ class EnvioEmailController(ControladorBase):
             self.adjuntos = a
 
         self.ActualizaListaAdjuntos()
+
+    def onClicBtnPara(self):
+        controlador = ListaCorreosController()
+        controlador.cliente = self.cliente
+        controlador.CargaDatos()
+        controlador.exec_()
+        self.view.textPara.setText(
+            ','.join(x for x in controlador.correos_seleccionados)
+        )
+
+class ListaCorreosController(ControladorBase):
+
+    cliente = None
+    model = None
+    correos_seleccionados = []
+
+    def __init__(self):
+        super().__init__()
+        self.view = ListaCorreosView()
+        self.conectarWidgets()
+
+    def conectarWidgets(self):
+        self.view.btnCerrar.clicked.connect(self.view.Cerrar)
+        self.view.btnSeleccionar.clicked.connect(self.onClickSeleccionar)
+        self.view.checkTodos.clicked.connect(self.CargaDatos)
+        self.view.textBusqueda.textChanged.connect(self.CargaDatos)
+
+    def CargaDatos(self):
+        self.view.gridCorreos.setRowCount(0)
+        correos = None
+        if self.cliente:
+            correos = EmailCliente.select()
+            if not self.view.checkTodos.isChecked():
+                correos = correos.where(EmailCliente.idcliente == self.cliente)
+
+            if self.view.textBusqueda.text():
+                correos = correos.where(
+                    EmailCliente.email.contains(self.view.textBusqueda.text()) |
+                    Cliente.nombre.contains(self.view.textBusqueda.text())
+                ).join(Cliente)
+
+        for c in correos:
+            if self.cliente:
+                nombre = c.idcliente.nombre
+                email = c.email
+            else:
+                nombre = ''
+                email = ''
+            item = [
+                False, nombre, email
+            ]
+            self.view.gridCorreos.AgregaItem(item)
+
+    def onClickSeleccionar(self):
+        self.correos_seleccionados = []
+
+        for row in range(self.view.gridCorreos.rowCount()):
+            correo = self.view.gridCorreos.ObtenerItem(fila=row, col="Correo")
+            self.correos_seleccionados.append(correo)
+
+        self.view.Cerrar()

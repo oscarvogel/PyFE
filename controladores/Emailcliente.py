@@ -36,13 +36,15 @@ class EmailClienteController(ControladorBase):
     def GrabaEmailCliente(self):
         for x in range(self.view.gridEmail.rowCount()):
             email = self.view.gridEmail.ObtenerItem(fila=x, col='EMail')
-            id = self.view.gridEmail.ObtenerItem(fila=x, col='idemailcliente')
-            emailcliente, creado = self.model.get_or_create(idemailcliente = id,
-                                                    defaults={'email':email,
-                                                              'idcliente':self.idcliente})
-            if not creado:
-                emailcliente.email = email
-                emailcliente.save()
+            id = self.view.gridEmail.ObtenerItemNumerico(fila=x, col='idemailcliente')
+
+            if id:
+                emailcliente = EmailCliente.get_by_id(id)
+            else:
+                emailcliente = EmailCliente()
+                emailcliente.idcliente = self.idcliente
+            emailcliente.email = email
+            emailcliente.save()
         self.view.Cerrar()
 
     def BorraEmailCliente(self):

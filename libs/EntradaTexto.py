@@ -510,11 +510,14 @@ class AutoCompleter(EntradaTexto):
 class EmailCompleter(AutoCompleter):
 
     modelo = None #modelo a consultar
+    condicion = None #condicion de filtro de los correos
 
     def cargaDatos(self):
         datos = []
         if self.modelo:
             correos = self.modelo.select()
+        if self.condicion:
+            correos = correos.where(self.condicion)
 
         for c in correos:
             datos.append(c.email)

@@ -38,7 +38,7 @@ class ReImprimeFacturaView(Formulario):
         self.layoutBotones = QHBoxLayout()
         self.btnImprimir = Boton(texto="Imprimir", imagen=imagen('print.png'))
         self.btnCargar = Boton(texto="Cargar", imagen=imagen("if_SEO_usability_audit_search__969250.png"))
-        self.envioCorreo = Boton(texto="Enviar por correo", imagen=imagen('compras.png'))
+        self.envioCorreo = Boton(texto="Enviar por correo", imagen=imagen('email.png'))
         self.btnCerrar = BotonCerrarFormulario()
         self.layoutBotones.addWidget(self.btnCargar)
         self.layoutBotones.addWidget(self.btnImprimir)
