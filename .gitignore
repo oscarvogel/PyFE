@@ -113,4 +113,3 @@ venv.bak/
 *.db
 *.xml
 /facturas
-/certificados
