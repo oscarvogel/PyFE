@@ -12,6 +12,7 @@ from modelos.Articulos import Articulo
 from modelos.CabFacProv import CabFactProv
 from modelos.Cabfact import Cabfact
 from modelos.Cajeros import Cajero
+from modelos.CategoriasMonotributo import CategoriaMono
 from modelos.CentroCostos import CentroCosto
 from modelos.Clientes import Cliente
 from modelos.CorreosEnviados import CorreoEnviado
@@ -64,9 +65,12 @@ class MigracionBaseDatos(ControladorBase):
         if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 3:
             self.MigrarVersion3()
 
+        if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 4:
+            self.MigrarVersion4()
+
         self.RealizaMigraciones()
 
-        ParamSist.GuardarParametro("VERSION_DB", "3")
+        ParamSist.GuardarParametro("VERSION_DB", "4")
 
     def MigrarVersion1(self):
         migrator = self.migrator
@@ -211,5 +215,12 @@ class MigracionBaseDatos(ControladorBase):
         correos = CorreoEnviado()
         try:
             correos.create_table()
+        except:
+            pass
+
+    def MigrarVersion4(self):
+        categorias = CategoriaMono()
+        try:
+            categorias.create_table()
         except:
             pass

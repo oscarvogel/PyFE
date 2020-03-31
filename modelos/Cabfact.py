@@ -1,8 +1,10 @@
 # coding=utf-8
-from datetime import date
+from datetime import date, datetime
 
+import peewee
 from peewee import IntegerField, ForeignKeyField, DateField, CharField, DecimalField, TextField, AutoField
 
+from libs.Utiles import LeerIni
 from modelos import Cajeros
 from modelos.Cajeros import Cajero
 from modelos.Clientes import Cliente
@@ -43,3 +45,18 @@ class Cabfact(ModeloBase):
 
     class Meta:
         table_name = 'cabfact'
+
+    @classmethod
+    def DatosAgrupadosPeriodo(cls, desde=datetime.now().date(), hasta=datetime.now().date()):
+
+        total = peewee.fn.Sum(Cabfact.total).alias('total')
+        anio = Cabfact.fecha.year
+        mes = Cabfact.fecha.month
+
+        datos = Cabfact.select(anio.alias('anio'), mes.alias('mes'), TipoComprobante.lado, total).join(TipoComprobante)\
+            .where(Cabfact.fecha.between(
+                lo=desde, hi=hasta
+            ),TipoComprobante.exporta == True
+        ).group_by(anio, mes, TipoComprobante.lado)
+
+        return datos

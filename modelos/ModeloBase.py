@@ -49,7 +49,7 @@ class BitBooleanField(BooleanField):
     def db_value(self, value):
         if isinstance(db, SqliteDatabase):
             return value == 1
-        return value == b'\01'
+        return value
 
     def python_value(self, value):
         if isinstance(db, SqliteDatabase):

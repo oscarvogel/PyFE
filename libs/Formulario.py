@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QDialog, QDesktopWidget, QHBoxLayout
+from PyQt5.QtWidgets import QDialog, QDesktopWidget, QHBoxLayout, QVBoxLayout
 
+from libs.BarraProgreso import Avance
 from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import Etiqueta
 from libs.Utiles import icono_sistema

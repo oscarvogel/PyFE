@@ -5,6 +5,7 @@ import peewee
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QApplication, QMenu
 
+from controladores.ABMCategoriasMonotributo import ABMCategoriaMonoController
 from controladores.ABMGrupos import ABMGruposController
 from controladores.ABMImpuestos import ABMImpuestoController
 from controladores.ABMParametrosSistema import ABMParamSistController
@@ -25,6 +26,7 @@ from controladores.FirmaCorreoElectronico import FirmaCorreoElectronicoControlle
 from controladores.GeneraCertificados import GeneraCertificadosController
 from controladores.IVACompras import IVAComprasController
 from controladores.IVAVentas import IVAVentasController
+from controladores.InformeRecategorizacionMonotributo import InfRecMonotributoController
 from controladores.InformeVentasPorGrupo import InformeVentasPorGrupoController
 from controladores.Localidades import LocalidadesController
 from controladores.MigracionBaseDatos import MigracionBaseDatos
@@ -136,24 +138,32 @@ class Main(ControladorBase):
         ivaventasAction = menu.addAction(u"IVA Ventas")
         reciboAction = menu.addAction(u"Emision de recibo")
         citiAction = menu.addAction(u"RG 3685 AFIP")
+        abmCategoria = menu.addAction(u"Categorias monotributo")
+        infRecMono = menu.addAction(u"Informe de recategorizacion monotributo")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
         if action == emisionAction:
             factura = FacturaController()
-            factura.view.exec_()
+            factura.exec_()
         elif action == reimprimeAction:
             ventana = ReImprimeFacturaController()
-            ventana.view.exec_()
+            ventana.exec_()
         elif action == ivaventasAction:
             ventana = IVAVentasController()
-            ventana.view.exec_()
+            ventana.exec_()
         elif action == reciboAction:
             ventana = EmiteReciboController()
-            ventana.view.exec_()
+            ventana.exec_()
         elif action == citiAction:
             ventana = RG3685VentasController()
-            ventana.view.exec_()
+            ventana.exec_()
+        elif action == infRecMono:
+            ventana = InfRecMonotributoController()
+            ventana.exec_()
+        elif action == abmCategoria:
+            ventana = ABMCategoriaMonoController()
+            ventana.exec_()
 
     def onClickBtnSeteo(self):
         menu = QMenu(self.view)

@@ -74,7 +74,11 @@ class ABM(VistaBase):
         self.tableView.enabled = True
 
         # extraigo los nombres de las columnas
-        self.tableView.cabeceras = [x.column_name.capitalize() for x in self.camposAMostrar]
+        if self.camposAMostrar:
+            self.tableView.cabeceras = [x.verbose_name.capitalize() if x.verbose_name else x.column_name.capitalize()
+                                        for x in self.camposAMostrar]
+        else:
+            self.tableView.cabeceras = []
         self.tableView.ArmaCabeceras()
         self.gridLayout.addWidget(self.tableView, 1, 0, 1, 1)
         self.horizontalLayout = QHBoxLayout()
@@ -199,7 +203,7 @@ class ABM(VistaBase):
 
         id = self.tableView.ObtenerItem(fila=self.tableView.currentRow(), col=self.campoClave.column_name.capitalize())
         print(self.tableView.currentRow(), id)
-        data = self.model.select().where(self.campoClave == int(id)).dicts()
+        data = self.model.select().where(self.campoClave == id).dicts()
         self.tabDetalle.setEnabled(True)
         self.tabWidget.setCurrentIndex(1)
         self.CargaDatos(data)
@@ -239,6 +243,8 @@ class ABM(VistaBase):
                     self.controles[k].setStyleSheet("background-color: white")
 
     def ArmaEntrada(self, nombre="", boxlayout=None, texto='', *args, **kwargs):
+        if not nombre:
+            return
         if not boxlayout:
             boxlayout = QHBoxLayout()
             lAgrega = True
@@ -246,7 +252,13 @@ class ABM(VistaBase):
             lAgrega = False
 
         if not texto:
-            texto = nombre.capitalize()
+            if isinstance(nombre, str):
+                texto = nombre.capitalize()
+            else:
+                texto = nombre.verbose_name if nombre.verbose_name else nombre.name.capitalize()
+
+        if not isinstance(nombre, str): #si no es un campo texto intento convertir de un campo de pewee
+            nombre = nombre.name
 
         labelNombre = Etiqueta(texto=texto)
         labelNombre.setObjectName("labelNombre")

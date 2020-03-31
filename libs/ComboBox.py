@@ -1,9 +1,12 @@
 # coding=utf-8
+import datetime
 import decimal
 
 from PyQt5 import QtCore
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QComboBox
+
+from libs.Utiles import InicioMes
 
 
 class ComboSQL(QComboBox):
@@ -129,6 +132,9 @@ class Combo(QComboBox):
     def setIndex(self, p_str):
         self.setCurrentIndex(self.findData(p_str))
 
+    def GetDato(self):
+        return self.currentText()
+
 class ComboSINO(Combo):
 
     def __init__(self, parent=None, *args, **kwargs):
@@ -201,3 +207,26 @@ class ComboCopiasFE(Combo):
         self.CargaDatos(data=[
             '1','2','3','4'
         ])
+
+class ComboPeriodoMonotributo(Combo):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.CargaDatosValores(data={
+            '1' : 'Enero/Junio',
+            '2' : 'Julio/Diciembre'
+        })
+
+    def RangoFecha(self, anio=0):
+
+        if isinstance(anio, float):
+            anio = int(anio)
+
+        if self.text() == '1':
+            desde = datetime.date(anio -1, 7, 1)
+            hasta = datetime.date(anio, 6, 30)
+        else:
+            desde = datetime.date(anio -1, 1, 1)
+            hasta = datetime.date(anio -1, 12, 31)
+
+        return desde, hasta

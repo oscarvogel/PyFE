@@ -55,8 +55,8 @@ class IVAVentasView(Formulario):
         self.verticalLayoutDatos.addLayout(self.layoutFechas)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnExcel = Boton(texto="Excel", imagen=imagen('Excel.png'))
-        self.btnEnviaCorreo = Boton(texto="Envia correo", imagen=imagen('compras.png'))
+        self.btnExcel = Boton(texto="Excel", imagen=imagen('excel.png'))
+        self.btnEnviaCorreo = Boton(texto="Envia correo", imagen=imagen('email.png'))
         self.btnCerrar = BotonCerrarFormulario()
         self.layoutBotones.addWidget(self.btnExcel)
         self.layoutBotones.addWidget(self.btnEnviaCorreo)

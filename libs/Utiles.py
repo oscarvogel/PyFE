@@ -238,17 +238,13 @@ def FinMes(hFecha=None):
 
     return hFecha.replace(day = calendar.monthrange(hFecha.year, hFecha.month)[1])
 
-def GuardarArchivo(parent=None, caption="Guardar archivo", directory="", filter="", filename=""):
+def GuardarArchivo(caption="Guardar archivo", directory="", filter="", filename=""):
     options = QFileDialog.Options()
     if platform.system() == 'Linux':
         options |= QFileDialog.DontUseNativeDialog
-    if directory:
-        cArchivo = QFileDialog.getSaveFileName(parent, caption=caption,
-                                               directory=join(directory, filename),
-                                               filter=filter, options=options)[0]
-    else:
-        cArchivo = QFileDialog.getSaveFileName(parent, caption=caption,
-                                               filter=filter, options=options)[0]
+    cArchivo = QFileDialog.getSaveFileName(caption=caption,
+                                           directory=join(directory, filename),
+                                           filter=filter, options=options)[0]
 
     print(cArchivo)
     return cArchivo if cArchivo else ''
@@ -350,3 +346,66 @@ def envia_correo(from_address = '', to_address = '', message = '', subject = '',
         ok = False
 
     return ok, err_msg
+
+def PeriodoAFecha(periodo:str = ''):
+
+    fecha = datetime.date(int(periodo[:4]), int(periodo[4:]), 1)
+
+    return fecha
+
+def saveFileDialog(form=None, files=None, title="Guardar", filename="excel/archivo.xlsx"):
+    if not files:
+        files = "Todos los archivos (*);;Archivos de texto (*.txt)"
+
+    options = QFileDialog.Options()
+    if platform.system() == 'Linux':
+        options |= QFileDialog.DontUseNativeDialog
+
+    #verifico que tenga un nombre de una carpeta incluido
+    if filename.find("/") != -1:
+
+        #si no existe la carpeta la creo
+        if not os.path.isdir(filename.split("/")[0]):
+            os.mkdir(filename.split("/")[0])
+
+    fileName, _ = QFileDialog.getSaveFileName(form, title, filename,
+                                              files, options=options)
+    return fileName
+
+
+def FormatoFecha(fecha=datetime.datetime.today(), formato='largo'):
+
+    retorno = ''
+    if isinstance(fecha, (str)):
+        retorno = fecha
+    else:
+        if formato == 'largo':
+            retorno = datetime.datetime.strftime(fecha,'%d %b %Y')
+        elif formato == 'corto':
+            retorno = datetime.datetime.strftime(fecha, '%d-%b')
+        elif formato == 'dma':
+            retorno = datetime.datetime.strftime(fecha, '%d/%m/%Y')
+
+    return retorno
+
+def MesIdentificador(dFecha=datetime.datetime.now().date(), formato='largo'):
+    MESES = [
+        'Enero',
+        'Febrero',
+        'Marzo',
+        'Abril',
+        'Mayo',
+        'Junio',
+        'Julio',
+        'Agosto',
+        'Septiembre',
+        'Octubre',
+        'Noviembre',
+        'Diciembre',
+    ]
+    retorno = ''
+    if formato == 'largo':
+        retorno = '{}/{}'.format(MESES[dFecha.month - 1], dFecha.year)
+    elif formato == 'corto':
+        retorno = '{}/{}'.format(MESES[dFecha.month - 1][:3], dFecha.year)
+    return retorno
