@@ -85,5 +85,6 @@ class ConsultaPadronAfipController(ControladorBase):
             cliente.tiporesp = 2 if padron.tipo_doc == 80 else 0
             cliente.formapago = 1
             cliente.percepcion = 1
+            cliente.domicilio = padron.domicilio
             cliente.save()
             Ventanas.showAlert(LeerIni("nombre_sistema"), "Verifique si los datos cargados son los correctos")
