@@ -230,3 +230,12 @@ class ComboPeriodoMonotributo(Combo):
             hasta = datetime.date(anio -1, 12, 31)
 
         return desde, hasta
+
+class ComboActividadMono(Combo):
+
+    def __init__(self, parent=None, *args, **kwargs):
+        Combo.__init__(self, parent, *args, **kwargs)
+        self.CargaDatosValores(data={
+            'S': 'Locaciones y/o Prestaciones de Servicio',
+            'V': 'Venta de Cosas Muebles',
+        })

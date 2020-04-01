@@ -57,7 +57,7 @@ class ConfiguracionView(Formulario):
         layoutCertificadoKEY.addWidget(self.btnArchivoKEY)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnGrabar = Boton(texto="Grabar", imagen=imagen('guardar.png'))
+        self.btnGrabar = Boton(texto="Grabar", imagen=imagen('save.png'))
         self.btnCerrar = BotonCerrarFormulario()
         self.layoutBotones.addWidget(self.btnGrabar)
         self.layoutBotones.addWidget(self.btnCerrar)

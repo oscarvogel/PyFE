@@ -1,5 +1,6 @@
 import peewee
 
+from libs.ComboBox import ComboSQL
 from modelos.ModeloBase import ModeloBase
 
 
@@ -24,4 +25,11 @@ class CategoriaMono(ModeloBase):
             datos = None
 
         return datos
+
+class ComboCategoriaMono(ComboSQL):
+
+    model = CategoriaMono
+    cOrden = CategoriaMono.categoria
+    campovalor = CategoriaMono.categoria.name
+    campo1 = CategoriaMono.categoria.name
 

@@ -107,9 +107,15 @@ class Excel:
                 if col in formato:
                     formato_celda = self.libro.add_format(formato[col])
             if formato_celda:
-                self.hoja.write(fila, col, item, formato_celda)
+                if 'formula' in kwargs:
+                    self.hoja.write_formula(fila, col, item, formato_celda)
+                else:
+                    self.hoja.write(fila, col, item, formato_celda)
             else:
-                self.hoja.write(fila, col, item)
+                if 'formula' in kwargs:
+                    self.hoja.write_formula(fila, col, item)
+                else:
+                    self.hoja.write(fila, col, item)
             col += 1
 
     def Totales(self, columnas, desdefila, hastafila, filaformula, formato=None):

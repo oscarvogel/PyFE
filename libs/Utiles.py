@@ -409,3 +409,7 @@ def MesIdentificador(dFecha=datetime.datetime.now().date(), formato='largo'):
     elif formato == 'corto':
         retorno = '{}/{}'.format(MESES[dFecha.month - 1][:3], dFecha.year)
     return retorno
+
+
+def diferencia_meses(d1, d2):
+    return (d1.year - d2.year) * 12 + d1.month - d2.month

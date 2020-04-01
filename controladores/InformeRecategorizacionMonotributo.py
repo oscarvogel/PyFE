@@ -1,8 +1,10 @@
+from datetime import datetime
+
 from PyQt5.QtWidgets import QApplication
 
 from controladores.ControladorBase import ControladorBase
 from libs.Excel import Excel
-from libs.Utiles import GuardarArchivo, MesIdentificador, PeriodoAFecha, FormatoFecha
+from libs.Utiles import FormatoFecha, diferencia_meses
 from modelos.Cabfact import Cabfact
 from modelos.CategoriasMonotributo import CategoriaMono
 from modelos.ParametrosSistema import ParamSist
@@ -19,6 +21,15 @@ class InfRecMonotributoController(ControladorBase):
     def conectarWidgets(self):
         self.view.btnCerrar.clicked.connect(self.view.Cerrar)
         self.view.btnExcel.clicked.connect(self.onClickBtnExcel)
+        self.view.cboCategoriaMono.currentIndexChanged.connect(lambda : self.GrabaParametros('CATEGORIA'))
+        self.view.spnCantAdhOS.editingFinished.connect(lambda : self.GrabaParametros('OS'))
+        self.view.cboActividad.currentIndexChanged.connect(lambda : self.GrabaParametros('ACTIVIDAD'))
+
+    def exec_(self):
+        self.view.cboCategoriaMono.setText(ParamSist.ObtenerParametro("CATEGORIA_MONOTRIBUTO"))
+        self.view.spnCantAdhOS.setText(ParamSist.ObtenerParametro("CANTIDAD_ADH_OS"))
+        self.view.cboActividad.setIndex(ParamSist.ObtenerParametro("ACTIVIDAD_MONOTRIBUTO"))
+        super().exec_()
 
     def onClickBtnExcel(self):
         excel = Excel()
@@ -82,10 +93,74 @@ class InfRecMonotributoController(ControladorBase):
             datos = [
                 f'Recategorizacion {categoria_monto.categoria}', categoria_monto.ing_brutos
             ]
+            ingresos = categoria_monto.ing_brutos
+            if ParamSist.ObtenerParametro("ACTIVIDAD_MONOTRIBUTO") == "S":
+                cuota = float(categoria_monto.imp_servicio)
+            else:
+                cuota = float(categoria_monto.imp_cosas_muebles)
+            aporte_os = float(categoria_monto.obra_social) * (float(
+                ParamSist.ObtenerParametro("CANTIDAD_ADH_OS") or 0
+            ) + 1) + float(categoria_monto.sipa)
         else:
             datos = [
                 'Datos para recategorizacion no encontrado'
             ]
+            ingresos = 0
+            cuota = 0
+            aporte_os = 0
+        excel.EscribeFila(datos=datos, fila=fila)
+
+        fila +=1
+        datos = [
+            'Hasta el {} todavia podes facturar'.format(
+                FormatoFecha(hasta)
+            ), round(float(ingresos) - total_facturacion, 2)
+        ]
+        excel.EscribeFila(datos=datos, fila=fila)
+
+        fila += 1
+        meses = diferencia_meses(hasta, datetime.now().date()) + 1
+        datos = [
+            f"Faltan {meses} meses para la proxima recategorizacion", meses
+        ]
+        excel.EscribeFila(datos=datos, fila=fila)
+
+        fila += 1
+        datos = [
+            "Por mes podes facturar", f"=+B{fila-1}/B{fila}"
+        ]
+        excel.EscribeFila(datos=datos, fila=fila)
+
+        fila += 2
+        datos = [
+            "Montos para la nueva categoria", ""
+        ]
+        excel.EscribeFila(datos=datos, fila=fila)
+
+        fila += 1
+        datos = [
+            'Cuota Mensual', cuota
+        ]
+        excel.EscribeFila(datos=datos, fila=fila)
+
+        fila += 1
+        datos = [
+            'Aporte autonomo / Obra social', aporte_os
+        ]
+        excel.EscribeFila(datos=datos, fila=fila)
+
+        fila += 1
+        datos = [
+            'Total', aporte_os + cuota
+        ]
         excel.EscribeFila(datos=datos, fila=fila)
 
         excel.Cerrar()
+
+    def GrabaParametros(self, parametro=''):
+        if parametro == 'CATEGORIA':
+            ParamSist.GuardarParametro("CATEGORIA_MONOTRIBUTO", self.view.cboCategoriaMono.text())
+        elif parametro == 'OS':
+            ParamSist.GuardarParametro("CANTIDAD_ADH_OS", self.view.spnCantAdhOS.text())
+        elif parametro == 'ACTIVIDAD':
+            ParamSist.GuardarParametro("ACTIVIDAD_MONOTRIBUTO", self.view.cboActividad.text())
