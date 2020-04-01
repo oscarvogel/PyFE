@@ -13,3 +13,12 @@ class ABMCategoriaMonoController(ControladorBaseABM):
         super().__init__()
         self.view = ABMCategoriaMonoView()
         self.conectarWidgets()
+
+    def conectarWidgets(self):
+        super().conectarWidgets()
+        self.view.controles[CategoriaMono.categoria.name].editingFinished.connect(self.onEditingCategoria)
+
+    def onEditingCategoria(self):
+        self.view.controles[CategoriaMono.categoria.name].setText(
+            self.view.controles[CategoriaMono.categoria.name].text().upper()
+        )

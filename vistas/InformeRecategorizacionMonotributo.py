@@ -24,6 +24,7 @@ class InfRecMonotributoView(VistaBase):
         self.avance = Avance()
         layoutPpal.addWidget(self.avance)
 
+
         layoutPeriodo = QHBoxLayout()
         lblAnio = Etiqueta(texto=u"Año")
         self.spnAnio = Spinner(decimales=0)

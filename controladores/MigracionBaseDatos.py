@@ -4,7 +4,7 @@ import logging
 import sys
 import traceback
 
-from playhouse.migrate import MySQLMigrator, migrate, IntegerField, CharField
+from playhouse.migrate import MySQLMigrator, migrate, IntegerField, CharField, DecimalField
 
 from controladores.ControladorBase import ControladorBase
 from libs.Utiles import inicializar_y_capturar_excepciones
@@ -68,9 +68,12 @@ class MigracionBaseDatos(ControladorBase):
         if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 4:
             self.MigrarVersion4()
 
+        if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 5:
+            self.MigrarVersion5()
+
         self.RealizaMigraciones()
 
-        ParamSist.GuardarParametro("VERSION_DB", "4")
+        ParamSist.GuardarParametro("VERSION_DB", "5")
 
     def MigrarVersion1(self):
         migrator = self.migrator
@@ -224,3 +227,8 @@ class MigracionBaseDatos(ControladorBase):
             categorias.create_table()
         except:
             pass
+
+    def MigrarVersion5(self):
+        migrator = self.migrator
+        coldecimal = DecimalField(default=0, max_digits=12, decimal_places=2)
+        self.migraciones.append(migrator.add_column('categoriamono', 'ing_brutos', coldecimal))
