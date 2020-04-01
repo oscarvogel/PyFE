@@ -115,7 +115,9 @@ class ListaCorreosView(VistaBase):
 
         layoutBotones = QHBoxLayout()
         self.btnSeleccionar = Boton(texto="&Selecciona", imagen=imagen("check.png"))
+        self.btnAgregar = Boton(texto="&Agregar correo", imagen=imagen("email.png"))
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnSeleccionar)
+        layoutBotones.addWidget(self.btnAgregar)
         layoutBotones.addWidget(self.btnCerrar)
         layoutPpal.addLayout(layoutBotones)

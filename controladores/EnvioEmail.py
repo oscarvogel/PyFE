@@ -1,6 +1,7 @@
 from PyQt5.QtCore import Qt
 
 from controladores.ControladorBase import ControladorBase
+from controladores.Emailcliente import EmailClienteController
 from libs import Ventanas
 from libs.Utiles import envia_correo, imagen, AbrirMultiplesArchivos
 from modelos.Clientes import Cliente
@@ -32,7 +33,9 @@ class EnvioEmailController(ControladorBase):
         self.view.listaAdjuntos.keyPressed.connect(self.onKeyListaAdjunto)
         self.view.listaAdjuntos.itemDropped.connect(self.onItemDroppedAdjunto)
         self.view.btnAdjunto.clicked.connect(self.onClickBtnAdjunto)
-        self.view.btnPara.clicked.connect(self.onClicBtnPara)
+        self.view.btnPara.clicked.connect(lambda : self.onClicBtnPara(self.view.textPara))
+        self.view.btnCC.clicked.connect(lambda: self.onClicBtnPara(self.view.textCC))
+        self.view.btnCCO.clicked.connect(lambda: self.onClicBtnPara(self.view.textCCO))
 
     def onClickBtnEnviar(self):
         ok, err_msg = envia_correo(
@@ -133,12 +136,12 @@ class EnvioEmailController(ControladorBase):
 
         self.ActualizaListaAdjuntos()
 
-    def onClicBtnPara(self):
+    def onClicBtnPara(self, lineedit):
         controlador = ListaCorreosController()
         controlador.cliente = self.cliente
         controlador.CargaDatos()
         controlador.exec_()
-        self.view.textPara.setText(
+        lineedit.setText(
             ','.join(x for x in controlador.correos_seleccionados)
         )
 
@@ -158,6 +161,7 @@ class ListaCorreosController(ControladorBase):
         self.view.btnSeleccionar.clicked.connect(self.onClickSeleccionar)
         self.view.checkTodos.clicked.connect(self.CargaDatos)
         self.view.textBusqueda.textChanged.connect(self.CargaDatos)
+        self.view.btnAgregar.clicked.connect(self.onClickAgregar)
 
     def CargaDatos(self):
         self.view.gridCorreos.setRowCount(0)
@@ -193,3 +197,10 @@ class ListaCorreosController(ControladorBase):
             self.correos_seleccionados.append(correo)
 
         self.view.Cerrar()
+
+    def onClickAgregar(self):
+        if self.cliente:
+            controlador = EmailClienteController()
+            controlador.idcliente = self.cliente
+            controlador.CargaEmail()
+            controlador.exec_()
