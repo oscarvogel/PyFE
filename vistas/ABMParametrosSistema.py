@@ -19,3 +19,9 @@ class ABMParamSistView(ABM):
         codigo = self.ArmaEntrada(ParamSist.id.column_name)
         parametro = self.ArmaEntrada(ParamSist.parametro.column_name)
         valor = self.ArmaEntrada(ParamSist.valor.column_name)
+
+    def PostAgrega(self):
+        self.controles[ParamSist.parametro.column_name].setEnabled(True)
+
+    def PostModifica(self):
+        self.controles[ParamSist.parametro.column_name].setEnabled(False)

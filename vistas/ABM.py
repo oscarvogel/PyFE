@@ -209,6 +209,7 @@ class ABM(VistaBase):
         self.CargaDatos(data)
         if self.campoFoco:
             self.campoFoco.setFocus()
+        self.PostModifica()
 
     def CargaDatos(self, data=None):
         # self.tipo = 'A'
@@ -313,3 +314,10 @@ class ABM(VistaBase):
         self.tabWidget.setCurrentIndex(1)
         if self.campoFoco:
             self.campoFoco.setFocus()
+        self.PostAgrega()
+
+    def PostModifica(self):
+        pass
+
+    def PostAgrega(self):
+        pass
