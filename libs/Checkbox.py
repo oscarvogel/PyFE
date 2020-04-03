@@ -15,6 +15,8 @@ class CheckBox(QCheckBox):
         self.setFont(font)
         if 'texto' in kwargs:
             self.setText(kwargs['texto'])
+        if 'checked' in kwargs:
+            self.setChecked(kwargs['checked'])
 
     def text(self):
         if LeerIni('base') == 'mysql':

@@ -26,6 +26,7 @@ from controladores.FirmaCorreoElectronico import FirmaCorreoElectronicoControlle
 from controladores.GeneraCertificados import GeneraCertificadosController
 from controladores.IVACompras import IVAComprasController
 from controladores.IVAVentas import IVAVentasController
+from controladores.ImportacionAFIP import ImportaAFIPController
 from controladores.InformeRecategorizacionMonotributo import InfRecMonotributoController
 from controladores.InformeVentasPorGrupo import InformeVentasPorGrupoController
 from controladores.Localidades import LocalidadesController
@@ -197,6 +198,7 @@ class Main(ControladorBase):
         constatacionAction = menu.addAction(u"Constatacion de comprobantes")
         consultaCAE = menu.addAction(u"Consulta de CAE")
         rindeCaeIndividual = menu.addAction(u"Rinde CAEA Individual")
+        importa = menu.addAction(u"Importa comprobantes AFIP")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -211,6 +213,9 @@ class Main(ControladorBase):
             ventana.view.exec_()
         elif action == rindeCaeIndividual:
             ventana = RindeCAEAIndividualController()
+            ventana.exec_()
+        elif action == importa:
+            ventana = ImportaAFIPController()
             ventana.exec_()
 
     def onClickBtnCompras(self):

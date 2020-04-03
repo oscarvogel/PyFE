@@ -413,3 +413,8 @@ def MesIdentificador(dFecha=datetime.datetime.now().date(), formato='largo'):
 
 def diferencia_meses(d1, d2):
     return (d1.year - d2.year) * 12 + d1.month - d2.month
+
+def total_lineas_archivo(archivo):
+    with open(archivo) as f:
+        count = sum(1 for _ in f)
+    return count

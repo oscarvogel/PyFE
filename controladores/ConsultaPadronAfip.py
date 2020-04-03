@@ -67,7 +67,10 @@ class ConsultaPadronAfipController(ControladorBase):
     @inicializar_y_capturar_excepciones
     def onClickAgregaCliente(self, *args, **kwargs):
         padron = PadronAfip()
-        ok = padron.ConsultarPersona(cuit=str(self.view.textCUIT.text()).replace("-", ""))
+        if 'cuit' in kwargs:
+            ok = padron.ConsultarPersona(cuit=str(kwargs['cuit']).replace("-", ""))
+        else:
+            ok = padron.ConsultarPersona(cuit=str(self.view.textCUIT.text()).replace("-", ""))
         if padron.errores:
             Ventanas.showAlert(LeerIni("nombre_sistema"), "Error al leer informacion en la AFIP")
         else:
@@ -87,4 +90,6 @@ class ConsultaPadronAfipController(ControladorBase):
             cliente.percepcion = 1
             cliente.domicilio = padron.domicilio
             cliente.save()
-            Ventanas.showAlert(LeerIni("nombre_sistema"), "Verifique si los datos cargados son los correctos")
+            if not 'cuit' in kwargs:
+                Ventanas.showAlert(LeerIni("nombre_sistema"), "Verifique si los datos cargados son los correctos")
+        return padron.errores

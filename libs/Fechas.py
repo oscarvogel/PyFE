@@ -27,7 +27,10 @@ class Fecha(QDateEdit):
         font = QFont()
         font.setPointSizeF(self.tamanio)
         self.setFont(font)
-
+        if 'fecha' in kwargs:
+            self.setFecha(kwargs['fecha'])
+        else:
+            self.setFecha()
 
     def setFecha(self, fecha=datetime.datetime.today(), format=None):
         if format:
@@ -54,4 +57,13 @@ class Fecha(QDateEdit):
         fecha = str(self.text())
         fecha = datetime.datetime.strptime(fecha, "%d/%m/%Y").date().strftime('%Y%m%d')
         return fecha
+
+    def toPyDate(self):
+        return self.date().toPyDate()
+
+    def valor(self):
+        return self.date().toPyDate()
+
+    def text(self):
+        return self.valor()
 

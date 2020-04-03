@@ -18,7 +18,8 @@ from PyQt5.QtWidgets import QFileDialog, QApplication, QInputDialog
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1
 from libs import Constantes, Ventanas
-from libs.Utiles import AbrirArchivo, EsVerdadero, LeerIni, inicializar_y_capturar_excepciones, GrabarIni, envia_correo
+from libs.Utiles import AbrirArchivo, EsVerdadero, LeerIni, inicializar_y_capturar_excepciones, GrabarIni, envia_correo, \
+    GuardarArchivo
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Detfact import Detfact
@@ -50,9 +51,12 @@ class IVAVentasController(ControladorBase):
 
     def ExportaExcel(self, mostrar=True):
         self.view.avance.setVisible(True)
-        cArchivo = QFileDialog.getSaveFileName(caption="Guardar archivo", directory="", filter="*.XLSX")[0]
+        cArchivo = GuardarArchivo(caption="Guardar archivo", directory="", filter="*.XLSX")
         if not cArchivo:
             return
+
+        if not cArchivo.endswith("XLSX"):
+            cArchivo += ".XLSX"
         self.cArchivoGenerado = cArchivo
         workbook = xlsxwriter.Workbook(cArchivo)
         worksheet = workbook.add_worksheet()
@@ -97,7 +101,8 @@ class IVAVentasController(ControladorBase):
                 worksheet.write(fila, 9, d.iva if d.tipocomp.lado == 'D' else d.iva * -1)
                 worksheet.write(fila, 10, d.percepciondgr if d.tipocomp.lado == 'D' else d.percepciondgr * -1)
                 worksheet.write(fila, 11, d.cae)
-                worksheet.write(fila, 12, d.venccae.strftime('%d/%m/%Y') if d.venccae else '')
+                if not isinstance(d.venccae, str):
+                    worksheet.write(fila, 12, d.venccae.strftime('%d/%m/%Y') if d.venccae else '')
                 deta = Detfact.select().where(Detfact.idcabfact == d.idcabfact)
                 totserv = decimal.Decimal.from_float(0.)
                 totprod = totserv
