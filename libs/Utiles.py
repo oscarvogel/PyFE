@@ -13,6 +13,7 @@
 #Utilidades varias necesarias en el sistema
 import calendar
 import platform
+import subprocess
 from configparser import ConfigParser
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -60,10 +61,12 @@ def EsVerdadero(valor):
 #tendria que ver como hacerlo en Linux
 def AbrirArchivo(cArchivo=None):
     if cArchivo:
-        if platform.system() == 'Linux':
-            open(cArchivo)
-        else:
-            win32api.ShellExecute(0, "open", cArchivo, None, ".", 0)
+        if platform.system() == 'Darwin':  # macOS
+            subprocess.call(('open', cArchivo))
+        elif platform.system() == 'Windows':  # Windows
+            os.startfile(cArchivo)
+        else:  # linux variants
+            subprocess.call(('xdg-open', cArchivo))
 
 #leo el archivo de configuracion del sistema
 #recibe la clave y el key a leer en caso de que tenga mas de una seccion el archivo
