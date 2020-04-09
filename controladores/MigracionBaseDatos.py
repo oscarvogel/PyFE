@@ -4,10 +4,11 @@ import logging
 import sys
 import traceback
 
+import pymysql
 from playhouse.migrate import MySQLMigrator, migrate, IntegerField, CharField, DecimalField
 
 from controladores.ControladorBase import ControladorBase
-from libs.Utiles import inicializar_y_capturar_excepciones
+from libs.Utiles import inicializar_y_capturar_excepciones, desencriptar, LeerIni
 from modelos.Articulos import Articulo
 from modelos.CabFacProv import CabFactProv
 from modelos.Cabfact import Cabfact
@@ -112,6 +113,7 @@ class MigracionBaseDatos(ControladorBase):
                 self.error = True
 
     def MigrarVersion0(self):
+
         try:
             db.create_tables([Tipodoc, Tipoiva, Tiporesp, Unidad, CentroCosto, Grupo, Impuesto, Localidad, Provincia,
                               TipoComprobante, Articulo, Formapago, Cliente, Cajero, Cabfact, Detfact, CpbteRel,

@@ -2,6 +2,7 @@
 from shutil import copyfile
 
 import peewee
+import pymysql
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QApplication, QMenu
 
@@ -39,7 +40,7 @@ from controladores.RindeCAEAIndividual import RindeCAEAIndividualController
 from controladores.TipoComprobantes import TipoComprobantesController
 from controladores.Resguardo import ResguardoController
 from libs import Ventanas
-from libs.Utiles import LeerIni, GrabarIni, FechaMysql, inicializar_y_capturar_excepciones
+from libs.Utiles import LeerIni, GrabarIni, FechaMysql, inicializar_y_capturar_excepciones, desencriptar
 from modelos.ModeloBase import ModeloBase
 from modelos.ParametrosSistema import ParamSist
 from vistas.Main import MainView
@@ -246,6 +247,14 @@ class Main(ControladorBase):
 
     @inicializar_y_capturar_excepciones
     def CreaTablas(self, *args, **kwargs):
+        basedatos = LeerIni("basedatos")
+        user = LeerIni("usuario")
+        password = desencriptar(LeerIni('password').encode(), LeerIni('key').encode())
+        host = LeerIni("host")
+        conn = pymysql.connect(host=host, user=user, password=password)
+        conn.cursor().execute(f'CREATE DATABASE IF NOT EXISTS {basedatos}')
+        conn.close()
+
         try:
             ParamSist.create_table(safe=True)
         except peewee.InternalError:
