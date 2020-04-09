@@ -54,8 +54,9 @@ class Fecha(QDateEdit):
         QDateEdit.keyPressEvent(self, QKeyEvent, *args, **kwargs)
 
     def getFechaSql(self):
-        fecha = str(self.text())
-        fecha = datetime.datetime.strptime(fecha, "%d/%m/%Y").date().strftime('%Y%m%d')
+        # fecha = str(self.text())
+        # fecha = datetime.datetime.strptime(fecha, "%d/%m/%Y").date().strftime('%Y%m%d')
+        fecha = self.toPyDate().strftime("%Y%m%d")
         return fecha
 
     def toPyDate(self):
