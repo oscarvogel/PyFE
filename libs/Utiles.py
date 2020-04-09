@@ -11,6 +11,7 @@
 # for more details.
 
 #Utilidades varias necesarias en el sistema
+import argparse
 import calendar
 import platform
 import subprocess
@@ -70,43 +71,60 @@ def AbrirArchivo(cArchivo=None):
 
 #leo el archivo de configuracion del sistema
 #recibe la clave y el key a leer en caso de que tenga mas de una seccion el archivo
-def LeerIni(clave=None, key=None):
+def LeerIni(clave=None, key=None, carpeta=''):
+    analizador = argparse.ArgumentParser(description='Sistema de Facturacion Electronica.')
+    analizador.add_argument("-i", "--inicio", default=os.getcwd(), help="Carpeta de Inicio de sistema.")
+    analizador.add_argument("-a", "--archivo", default="sistema.ini", help="Archivo de Configuracion de sistema.")
+    argumento = analizador.parse_args()
     retorno = ''
     Config = ConfigParser()
-    Config.read("sistema.ini")
+    archivoini = argumento.archivo
+    carpeta = argumento.inicio
+    # Config.read("sistema.ini")
+    if carpeta:
+        Config.read(join(carpeta, archivoini))
+        # logging.debug("Archivo utilizado {}".format(join(carpeta, archivoini)))
+    else:
+        Config.read(archivoini)
+        # logging.debug("Archivo utilizado {}".format(archivoini))
+
     try:
         if not key:
             key = 'param'
         retorno = Config.get(key, clave)
     except:
-        # Ventanas.showAlert("Sistema", "No existe la seccion {}".format(clave))
-        print("No existe la seccion {}".format(clave))
-    # parser = SafeConfigParser()
-    # # Open the file with the correct encoding
-    # with codecs.open('sistema.ini', 'r', encoding='utf-8') as f:
-    #     parser.readfp(f)
-    # try:
-    #     if not key:
-    #         key = 'param'
-    #     retorno = parser.get(key, clave)
-    # except:
-    #     print("No existe la seccion {}".format(clave))
+        #Ventanas.showAlert("Sistema", "No existe la seccion {}".format(clave))
+        pass
+    # print("archivo {} clave {} key {} carpeta {} valor {}".format(archivoini, clave, key, carpeta, retorno))
     return retorno
 
 def GrabarIni(clave=None, key=None, valor=''):
+    analizador = argparse.ArgumentParser(description='Sistema de Facturacion Electronica.')
+    analizador.add_argument("-i", "--inicio", default=os.getcwd(), help="Carpeta de Inicio de sistema.")
+    analizador.add_argument("-a", "--archivo", default="sistema.ini", help="Archivo de Configuracion de sistema.")
+    argumento = analizador.parse_args()
+    archivoini = argumento.archivo
+    carpeta = argumento.inicio
+
     if not clave or not key:
         return
     Config = ConfigParser()
-    Config.read('sistema.ini')
-    cfgfile = open("sistema.ini",'w')
+    Config.read(join(carpeta, archivoini))
+    cfgfile = open(join(carpeta, archivoini), 'w')
+    if not Config.has_section(key):
+        Config.add_section(key)
     Config.set(key, clave, valor)
     Config.write(cfgfile)
     cfgfile.close()
 
 def ubicacion_sistema():
-    cUbicacion = LeerIni("iniciosistema") or os.path.dirname(argv[0])
+    c_ubicacion = LeerIni("iniciosistema")
+    if not c_ubicacion:#en caso de que no este establecido el inicio del sistema lo grabo
+        GrabarIni(clave="iniciosistema", key="param", valor=f'{os.path.dirname(sys.argv[0])}/')
+        c_ubicacion = f'{os.path.dirname(sys.argv[0])}/'
 
-    return cUbicacion
+    logging.debug("Ubicacion del sistema {}".format(c_ubicacion))
+    return c_ubicacion
 
 def imagen(archivo):
     archivoImg = ubicacion_sistema() + join("imagenes", archivo)

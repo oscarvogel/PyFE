@@ -93,7 +93,7 @@ class Periodo(QHBoxLayout):
         self.lineEditAnio.setValue(datetime.date.today().year)
 
     def ActualizaPeriodo(self):
-        self.cPeriodo = self.lineEditAnio.text() + str(self.lineEditMes.text()).zfill(2)
+        self.cPeriodo = str(self.lineEditAnio.text()) + str(self.lineEditMes.text()).zfill(2)
         if self.lineEditMes.value() >= 1 and self.lineEditMes.value() <= 12:
             self.dInicio = InicioMes(datetime.date(int(self.lineEditAnio.value()),
                                                int(self.lineEditMes.value()), 1))
