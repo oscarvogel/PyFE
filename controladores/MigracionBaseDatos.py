@@ -186,6 +186,14 @@ class MigracionBaseDatos(ControladorBase):
             modelo=Cliente
         )
         self.cargar_csv(
+            archivo='data/proveedores.csv',
+            campos=[
+                Proveedor.idproveedor, Proveedor.nombre, Proveedor.domicilio,
+                Proveedor.telefono, Proveedor.cuit, Proveedor.tiporesp, Proveedor.idlocalidad
+            ],
+            modelo=Proveedor
+        )
+        self.cargar_csv(
             archivo='data/articulos.csv',
             campos=[Articulo.idarticulo, Articulo.nombre, Articulo.nombreticket, Articulo.unidad,
                     Articulo.grupo, Articulo.costo, Articulo.provppal, Articulo.tipoiva, Articulo.modificaprecios,
