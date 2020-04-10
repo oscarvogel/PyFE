@@ -2,7 +2,7 @@
 from PyQt5.QtWidgets import QVBoxLayout, QLineEdit, QHBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario, BotonArchivo
-from libs.ComboBox import ComboSINO, ComboTipoBaseDatos, ComboTipoRespIVA, ComboCopiasFE
+from libs.ComboBox import ComboSINO, ComboTipoBaseDatos, ComboTipoRespIVA, ComboCopiasFE, ComboTema
 from libs.Etiquetas import EtiquetaTitulo
 from libs.Formulario import Formulario
 from libs.Utiles import imagen
@@ -32,7 +32,9 @@ class ConfiguracionView(Formulario):
 
         self.lblTituloParametros = EtiquetaTitulo(texto='Parametros')
         self.verticalLayoutDatos.addWidget(self.lblTituloParametros)
-        self.ArmaEntrada('nombre_sistema', texto='Nombre del sistema')
+        layoutNombreSistema = self.ArmaEntrada('nombre_sistema', texto='Nombre del sistema')
+        self.ArmaEntrada('tema', texto='Tema', boxlayout=layoutNombreSistema, control=ComboTema())
+
         layoutBaseDatos = self.ArmaEntrada('BaseDatos', texto='Base de datos')
         self.ArmaEntrada('Host', boxlayout=layoutBaseDatos)
         layoutUsuario = self.ArmaEntrada('Usuario', texto='Usuario de base de datos')

@@ -2,6 +2,7 @@
 from controladores.ControladorBase import ControladorBase
 from libs import Ventanas
 from libs.Utiles import LeerIni, GrabarIni, desencriptar, encriptar, inicializar_y_capturar_excepciones
+from modelos.ParametrosSistema import ParamSist
 from vistas.Configuracion import ConfiguracionView
 
 
@@ -46,6 +47,8 @@ class ConfiguracionController(ControladorBase):
             self.view.controles['crt'].setText(LeerIni(clave='cert_homo', key='WSAA'))
             self.view.controles['key'].setText(LeerIni(clave='privatekey_homo', key='WSAA'))
 
+        self.view.controles['tema'].setIndex(ParamSist.ObtenerParametro("TEMA"))
+
     @inicializar_y_capturar_excepciones
     def GrabaParametros(self, *args, **kwargs):
         GrabarIni(clave='EMPRESA', key='FACTURA', valor=self.view.controles['empresa'].text())
@@ -76,4 +79,6 @@ class ConfiguracionController(ControladorBase):
             GrabarIni(clave='cert_homo', key='WSAA', valor=self.view.controles['crt'].text())
             GrabarIni(clave='privatekey_homo', key='WSAA', valor=self.view.controles['key'].text())
 
+        ParamSist.GuardarParametro(parametro="TEMA", valor=self.view.controles['tema'].text())
+        self.view.EstablecerTema()
         Ventanas.showAlert(LeerIni('nombre_sistema'), 'Configuracion guardada con exito')

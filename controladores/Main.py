@@ -1,8 +1,10 @@
 # coding=utf-8
+import os
 from shutil import copyfile
 
 import peewee
 import pymysql
+from PyQt5.QtCore import QPropertyAnimation, QRect
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QApplication, QMenu
 
@@ -72,6 +74,12 @@ class Main(ControladorBase):
                 GrabarIni(clave='ultima_copia', key='param', valor=FechaMysql())
         self.CreaTablas()
         self.Migraciones()
+        self.initUi()
+
+    def initUi(self):
+        # self.AnimacionEntrada()
+        # self.EstableceTema()
+        pass
 
     def conectarWidgets(self):
         self.view.btnSalir.clicked.connect(self.SalirSistema)
@@ -247,13 +255,14 @@ class Main(ControladorBase):
 
     @inicializar_y_capturar_excepciones
     def CreaTablas(self, *args, **kwargs):
-        basedatos = LeerIni("basedatos")
-        user = LeerIni("usuario")
-        password = desencriptar(LeerIni('password').encode(), LeerIni('key').encode())
-        host = LeerIni("host")
-        conn = pymysql.connect(host=host, user=user, password=password)
-        conn.cursor().execute(f'CREATE DATABASE IF NOT EXISTS {basedatos}')
-        conn.close()
+        if LeerIni("base") == "mysql": #en caso de que sea mysql y no este creada la base la crea
+            basedatos = LeerIni("basedatos")
+            user = LeerIni("usuario")
+            password = desencriptar(LeerIni('password').encode(), LeerIni('key').encode())
+            host = LeerIni("host")
+            conn = pymysql.connect(host=host, user=user, password=password)
+            conn.cursor().execute(f'CREATE DATABASE IF NOT EXISTS {basedatos}')
+            conn.close()
 
         try:
             ParamSist.create_table(safe=True)
@@ -265,3 +274,14 @@ class Main(ControladorBase):
     def Migraciones(self):
         migracion = MigracionBaseDatos()
         migracion.Migrar()
+
+
+    def AnimacionEntrada(self):
+        animacion_caja = QPropertyAnimation(self.view.groupBoxBotones, b"geometry")
+        animacion_caja.setDuration(1000)
+        animacion_caja.setStartValue(QRect(0, self.view.lblTitulo.height(), self.view.lblTitulo.height(), 0))
+        animacion_caja.setEndValue(QRect(5, 5, self.view.sizeHint().width()-5, self.view.sizeHint().height()-5))
+        animacion_caja.start()
+        # self.view.
+        self.animacion_caja = animacion_caja
+

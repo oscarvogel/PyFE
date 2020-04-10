@@ -120,7 +120,8 @@ def GrabarIni(clave=None, key=None, valor=''):
 def ubicacion_sistema():
     c_ubicacion = LeerIni("iniciosistema")
     if not c_ubicacion:#en caso de que no este establecido el inicio del sistema lo grabo
-        GrabarIni(clave="iniciosistema", key="param", valor=f'{os.path.dirname(sys.argv[0])}/')
+        ubicacion = os.path.split(os.path.abspath(os.path.realpath(sys.argv[0])))[0]
+        GrabarIni(clave="iniciosistema", key="param", valor=f'{ubicacion}/')
         c_ubicacion = f'{os.path.dirname(sys.argv[0])}/'
 
     logging.debug("Ubicacion del sistema {}".format(c_ubicacion))

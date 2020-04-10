@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
 
 from libs.Botones import BotonMain
 from libs.Etiquetas import EtiquetaTitulo
+from libs.GroupBox import Agrupacion
 from libs.Utiles import LeerIni, DeCodifica
 from vistas.VistaBase import VistaBase
 
@@ -17,6 +18,7 @@ class MainView(VistaBase):
             LeerIni(clave="nombre_sistema"), DeCodifica(LeerIni(clave='EMPRESA', key='FACTURA'))))
         self.layoutPpal.addWidget(self.lblTitulo)
 
+        self.groupBoxBotones = Agrupacion()
         self.layoutBotones = QHBoxLayout()
 
         self.btnClientes = BotonMain(texto='&Clientes', imagen='imagenes/if_kuser_1400.png')
@@ -40,4 +42,6 @@ class MainView(VistaBase):
         self.btnSalir = BotonMain(texto='&Salir', imagen='imagenes/if_Log Out_27856.png')
         self.layoutBotones.addWidget(self.btnSalir)
 
-        self.layoutPpal.addLayout(self.layoutBotones)
+        # self.layoutPpal.addLayout(self.layoutBotones)
+        self.groupBoxBotones.setLayout(self.layoutBotones)
+        self.layoutPpal.addWidget(self.groupBoxBotones)

@@ -239,3 +239,17 @@ class ComboActividadMono(Combo):
             'S': 'Locaciones y/o Prestaciones de Servicio',
             'V': 'Venta de Cosas Muebles',
         })
+
+class ComboTema(Combo):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.CargaDatosValores(data={
+            '':'sin estilo',
+            'temas/qdark.css': 'dark',
+            'temas/darkblue.css': 'dark blue',
+            'temas/darkgray.css': 'dark gray',
+            'temas/darkorange.css': 'dark orange',
+            'temas/aqua.css': 'aqua',
+            'temas/ubuntu.css': 'ubuntu',
+        })
