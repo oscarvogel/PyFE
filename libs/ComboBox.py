@@ -252,4 +252,5 @@ class ComboTema(Combo):
             'temas/darkorange.css': 'dark orange',
             'temas/aqua.css': 'aqua',
             'temas/ubuntu.css': 'ubuntu',
+            'temas/blender.css': 'blender',
         })
