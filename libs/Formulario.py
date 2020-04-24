@@ -97,8 +97,11 @@ class Formulario(QDialog):
         pass
 
     def EstablecerTema(self):
-        tema = ParamSist.ObtenerParametro("TEMA")
-        if os.path.isfile(tema):
-            style = open(tema)
-            style = style.read()
-            self.setStyleSheet(style)
+        try:
+            tema = ParamSist.ObtenerParametro("TEMA")
+            if os.path.isfile(tema):
+                style = open(tema)
+                style = style.read()
+                self.setStyleSheet(style)
+        except:
+            pass
