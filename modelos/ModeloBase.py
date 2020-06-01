@@ -12,19 +12,21 @@
 #Modelo base del cual derivan todos los modelos del sistema
 
 __author__ = "Jose Oscar Vogel <oscarvogel@gmail.com>"
-__copyright__ = "Copyright (C) 2018 Jose Oscar Vogel"
+__copyright__ = "Copyright (C) 2020 Jose Oscar Vogel"
 __license__ = "GPL 3.0"
-__version__ = "0.1"
+__version__ = "0.5"
 
 from peewee import MySQLDatabase, Model, BooleanField, SqliteDatabase
 
 from libs.Utiles import LeerIni, desencriptar
 
 if LeerIni(clave='base') == 'sqlite':
-    if LeerIni(clave='usa_nombre_db'):
+    if LeerIni(clave='usa_nombre_db') == 'S':
         db = SqliteDatabase(f'{LeerIni("basedatos")}.db')
+        print(f'Usando {LeerIni("basedatos")}')
     else:
         db = SqliteDatabase(f'sistema.db')
+        print("Usando sistema.db")
 else:
     db = MySQLDatabase(LeerIni("basedatos"), user=LeerIni("usuario"),
                        password=desencriptar(LeerIni('password').encode(),LeerIni('key').encode()),
