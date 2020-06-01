@@ -21,7 +21,10 @@ from peewee import MySQLDatabase, Model, BooleanField, SqliteDatabase
 from libs.Utiles import LeerIni, desencriptar
 
 if LeerIni(clave='base') == 'sqlite':
-    db = SqliteDatabase(f'{LeerIni("basedatos")}.db')
+    if LeerIni(clave='usa_nombre_db'):
+        db = SqliteDatabase(f'{LeerIni("basedatos")}.db')
+    else:
+        db = SqliteDatabase(f'sistema.db')
 else:
     db = MySQLDatabase(LeerIni("basedatos"), user=LeerIni("usuario"),
                        password=desencriptar(LeerIni('password').encode(),LeerIni('key').encode()),
