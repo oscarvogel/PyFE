@@ -6,7 +6,7 @@ cryptography==2.7
 docopt==0.6.2
 fpdf==1.7.2
 future==0.17.1
-httplib2==0.9.2
+httplib2==0.18.0
 M2CryptoWin32==0.21.1.post3
 macholib==1.11
 peewee==3.13.1
