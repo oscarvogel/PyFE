@@ -94,7 +94,8 @@ class FEv1(WSFEv1):
                                abspath(LeerIni(clave="privatekey_homo", key="WSAA")))
                 ok = wsaa.Conectar("", LeerIni(clave='url_homo', key='WSAA'))  # Homologación
             else:
-                cacert = LeerIni('iniciosistema') + LeerIni(clave='cacert', key='WSFEv1')
+                # cacert = LeerIni('iniciosistema') + LeerIni(clave='cacert', key='WSFEv1')
+                cacert = True
                 cms = wsaa.SignTRA(tra, LeerIni(clave="cert_prod", key="WSAA"),
                                LeerIni(clave="privatekey_prod", key="WSAA"))
                 ok = wsaa.Conectar("", LeerIni(clave='url_prod', key='WSAA'), cacert=cacert) #Produccion
