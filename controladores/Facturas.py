@@ -72,7 +72,7 @@ class FacturaController(ControladorBase):
             if cliente.tiporesp.idtiporesp in [1, 2, 4]: #monotributo o resp inscripto
                 self.view.lineEditDocumento.setText(cliente.cuit.replace('-',''))
                 self.view.lineEditDocumento.setInputMask("99-99999999-9")
-                if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1:
+                if ParamSist.ObtenerParametro("EMITE_FCE") == "S":
                     wsfecred = WsFECred()
                     obligado, minimo = wsfecred.ConsultarMontoObligado(cliente.cuit.replace('-',''), LeerIni('cuit', key='WSFEv1'))
                     if obligado and not self.informo:
