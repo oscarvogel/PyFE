@@ -286,7 +286,7 @@ class FacturaController(ControladorBase):
             ok = wsfev1.Conectar("") #Homologacion
         else:
             # cacert = LeerIni(clave='cacert', key='WSFEv1')
-            cacert = True
+            cacert = None
             ok = wsfev1.Conectar("", LeerIni(clave="url_prod", key="WSFEv1"), cacert=cacert)
 
         if self.view.checkBoxServicios.isChecked() \

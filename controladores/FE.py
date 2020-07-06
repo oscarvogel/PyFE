@@ -41,7 +41,7 @@ class FEv1(WSFEv1):
         cache = None
         proxy = ""
         wrapper = ""  # "pycurl"
-        cacert = True  # geotrust.crt"
+        cacert = None  # geotrust.crt"
         # cacert = LeerIni('iniciosistema') + LeerIni(clave='cacert', key='WSFEv1')
         wrapper = ""
         # if int(platform.release()) < 10:
