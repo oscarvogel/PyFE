@@ -36,7 +36,7 @@ class FirmaCorreoElectronicoController(ControladorBase):
             self.view.editorFirma.file_open(archivo_firma)
 
     def onClickBtnGrabar(self):
-        archivo = GuardarArchivo(parent=self.view, filter="HTML documents (*.html)")
+        archivo = GuardarArchivo(filter="HTML documents (*.html)")
 
         self.view.editorFirma.file_save(archivo)
         ParamSist.GuardarParametro("ARCHIVO_FIRMA_EMAIL", archivo)

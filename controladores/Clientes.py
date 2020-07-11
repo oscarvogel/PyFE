@@ -4,7 +4,6 @@ from controladores.Emailcliente import EmailClienteController
 from vistas.Clientes import ClientesView
 
 
-
 class ClientesController(ControladorBase):
 
     def __init__(self):
