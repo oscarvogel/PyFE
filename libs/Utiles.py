@@ -177,31 +177,34 @@ def inicializar_y_capturar_excepciones(func):
             self.Traceback = ''.join(ex)
             self.Excepcion = traceback.format_exception_only( sys.exc_info()[0], sys.exc_info()[1])[0]
             logging.debug(self.Traceback)
-            Ventanas.showAlert("Error", "Se ha producido un error \n{}".format(self.Excepcion))
-            pyemail = PyEmail()
-            remitente = 'fe@servinlgsm.com.ar'
-            destinatario = 'fe@servinlgsm.com.ar'
-            mensaje = "{} {} Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar".format(
-                self.Traceback, self.Excepcion
-            )
-            motivo = "Se envia informe de errores de {}".format(LeerIni(clave='empresa', key='FACTURA'))
-            # servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
-            # clave = ParamSist.ObtenerParametro("CLAVE_SMTP")
-            # usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
-            # puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
-            #
-            pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
-                             usuario=Constantes.USUARIO_SMTP,
-                             clave=Constantes.CLAVE_SMTP,
-                             puerto=Constantes.PUERTO_SMTP)
+            if LeerIni('debug') == 'N':
+                Ventanas.showAlert("Error", "Se ha producido un error \n{}".format(self.Excepcion))
+                pyemail = PyEmail()
+                remitente = 'fe@servinlgsm.com.ar'
+                destinatario = 'fe@servinlgsm.com.ar'
+                mensaje = "{} {} Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar".format(
+                    self.Traceback, self.Excepcion
+                )
+                motivo = "Se envia informe de errores de {}".format(LeerIni(clave='empresa', key='FACTURA'))
+                # servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
+                # clave = ParamSist.ObtenerParametro("CLAVE_SMTP")
+                # usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
+                # puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
+                #
+                pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
+                                 usuario=Constantes.USUARIO_SMTP,
+                                 clave=Constantes.CLAVE_SMTP,
+                                 puerto=Constantes.PUERTO_SMTP)
 
-            ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje)
-            if not ok:
-                Ventanas.showAlert("Error", "{} {}".format(
-                    pyemail.Excepcion, pyemail.Traceback
-                ))
-            # envia_correo(from_address=remitente, to_address=destinatario,
-            #              message=mensaje, subject=motivo)
+                ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje)
+                if not ok:
+                    Ventanas.showAlert("Error", "{} {}".format(
+                        pyemail.Excepcion, pyemail.Traceback
+                    ))
+                # envia_correo(from_address=remitente, to_address=destinatario,
+                #              message=mensaje, subject=motivo)
+            else:
+                print(self.Traceback, self.Excepcion)
             if self.LanzarExcepciones:
                 raise
         finally:

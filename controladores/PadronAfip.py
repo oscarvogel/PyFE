@@ -38,7 +38,10 @@ class PadronAfip(WSSrPadronA5):
             self.Conectar("", self.WSDL)
         else:
             self.Conectar()
-        ok = self.Consultar(id_persona=cuit)
+        try:
+            ok = self.Consultar(id_persona=cuit)
+        except:
+            ok = False
         # ok = self.Consultar(id_persona=23347203)
         return ok
 
