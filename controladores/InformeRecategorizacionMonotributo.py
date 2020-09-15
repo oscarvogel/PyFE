@@ -38,7 +38,7 @@ class InfRecMonotributoController(ControladorBase):
                                                 self.view.cboPeriodo.GetDato().replace("/", ""))):
             return
 
-        #ajuste por GonzaloK
+        #ajuste por Gonzalo
         if (self.view.cboPeriodo.GetDato() == "Julio/Diciembre"):
             desde, hasta = self.view.cboPeriodo.RangoFecha(self.view.spnAnio.value() + 1)
         else:

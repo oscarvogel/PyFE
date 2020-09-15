@@ -1,6 +1,9 @@
 # coding=utf-8
+import email
 import logging
-import platform
+import os
+import sys
+import warnings
 from os.path import abspath
 
 from libs import Ventanas
@@ -8,6 +11,18 @@ from libs.Utiles import LeerIni, ubicacion_sistema, inicializar_y_capturar_excep
 from pyafipws.wsaa import WSAA
 from pyafipws.wscdc import WSCDC
 from pyafipws.wsfev1 import WSFEv1
+
+CERT = "certificados/homologacion.crt"        # El certificado X.509 obtenido de Seg. Inf.
+PRIVATEKEY = "certificados/homologacion.key"  # La clave privada del certificado CERT
+
+try:
+    from M2Crypto import BIO, Rand, SMIME, SSL
+except ImportError:
+    BIO = Rand = SMIME = SSL = None
+    # utilizar alternativa (ejecutar proceso por separado)
+    from subprocess import Popen, PIPE
+    from base64 import b64encode
+    from tempfile import NamedTemporaryFile
 
 
 class FEv1(WSFEv1):
@@ -67,7 +82,7 @@ class FEv1(WSFEv1):
             service = kwargs['service']
         else:
             service = 'wsfe'
-        wsaa = WSAA()
+        wsaa = FEWSAA()
         archivo = ubicacion_sistema() + service + '-ta.xml'
         try:
             file = open(archivo, "r")
@@ -156,3 +171,96 @@ class FEv1(WSFEv1):
 
         print("Tipo comprobante {}".format(tipocbte))
         caeconsultado = self.CompConsultar(tipo_cbte=tipocbte, punto_vta=puntoventa, cbte_nro=numero)
+
+class FEWSAA(WSAA):
+
+
+    @inicializar_y_capturar_excepciones
+    def SignTRA(self, tra, cert, privatekey, passphrase=""):
+        "Firmar el TRA y devolver CMS"
+        return sign_tra(tra, cert, privatekey, passphrase)
+
+
+def sign_tra(tra, cert=CERT, privatekey=PRIVATEKEY, passphrase=""):
+    "Firmar PKCS#7 el TRA y devolver CMS (recortando los headers SMIME)"
+
+    if BIO:
+        print("pudo importar m2crypto")
+        # Firmar el texto (tra) usando m2crypto (openssl bindings para python)
+        buf = BIO.MemoryBuffer(tra)             # Crear un buffer desde el texto
+        #Rand.load_file('randpool.dat', -1)     # Alimentar el PRNG
+        s = SMIME.SMIME()                       # Instanciar un SMIME
+        # soporte de contraseña de encriptación (clave privada, opcional)
+        callback = lambda *args, **kwarg: passphrase
+        # Cargar clave privada y certificado
+        if not privatekey.startswith("-----BEGIN RSA PRIVATE KEY-----"):
+            # leer contenido desde archivo (evitar problemas Applink / MSVCRT)
+            if os.path.exists(privatekey) and os.path.exists(cert):
+                privatekey = open(privatekey).read()
+                cert = open(cert).read()
+            else:
+                raise RuntimeError("Archivos no encontrados: %s, %s" % (privatekey, cert))
+        # crear buffers en memoria de la clave privada y certificado:
+        key_bio = BIO.MemoryBuffer(privatekey.encode('utf8'))
+        crt_bio = BIO.MemoryBuffer(cert.encode('utf8'))
+        s.load_key_bio(key_bio, crt_bio, callback)  # (desde buffer)
+        p7 = s.sign(buf, 0)                      # Firmar el buffer
+        out = BIO.MemoryBuffer()                # Crear un buffer para la salida
+        s.write(out, p7)                        # Generar p7 en formato mail
+        # Rand.save_file('randpool.dat')         # Guardar el estado del PRNG's
+
+        # extraer el cuerpo del mensaje (parte firmada)
+        msg = email.message_from_string(out.read().decode('utf8'))
+        for part in msg.walk():
+            filename = part.get_filename()
+            if filename == "smime.p7m":                 # es la parte firmada?
+                return part.get_payload(decode=False)   # devolver CMS
+    else:
+        # Firmar el texto (tra) usando OPENSSL directamente
+        try:
+            if sys.platform.startswith("linux"):
+                openssl = "openssl"
+            else:
+                path_openssl = LeerIni(clave="openssl", key="WSAA")
+                if path_openssl != '':
+                    openssl = path_openssl
+                else:
+                    if sys.maxsize <= 2**32:
+                        openssl = r"c:\OpenSSL-Win32\bin\openssl.exe"
+                    else:
+                        openssl = r"c:\OpenSSL-Win64\bin\openssl.exe"
+            # NOTE: workaround if certificate is not already stored in a file
+            # SECURITY WARNING: the private key will be exposed a bit in /tmp
+            #                   (in theory only for the current user)
+            if cert.startswith("-----BEGIN CERTIFICATE-----"):
+                cert_f = NamedTemporaryFile()
+                cert_f.write(cert.encode('utf-8'))
+                cert_f.flush()
+                cert = cert_f.name
+            else:
+                cert_f = None
+            if privatekey.startswith("-----BEGIN RSA PRIVATE KEY-----"):
+                key_f = NamedTemporaryFile()
+                key_f.write(privatekey.encode('utf-8'))
+                key_f.flush()
+                privatekey = key_f.name
+            else:
+                key_f = None
+            try:
+                out = Popen([openssl, "smime", "-sign",
+                        "-signer", cert, "-inkey", privatekey,
+                        "-outform","DER", "-nodetach"],
+                    stdin=PIPE, stdout=PIPE,
+                    stderr=PIPE).communicate(tra)[0]
+            finally:
+                # close temp files to delete them (just in case):
+                if cert_f:
+                    cert_f.close()
+                if key_f:
+                    key_f.close()
+            return b64encode(out).decode("utf8")
+        except OSError as e:
+            if e.errno == 2:
+                warnings.warn("El ejecutable de OpenSSL no esta disponible en el PATH")
+            raise
+
