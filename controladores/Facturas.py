@@ -11,7 +11,7 @@ from controladores.FCE import WsFECred
 from controladores.FE import FEv1
 from libs import Ventanas, Constantes
 from libs.Utiles import LeerIni, validar_cuit, FechaMysql, ubicacion_sistema, inicializar_y_capturar_excepciones, \
-    DeCodifica, imagen
+    DeCodifica, imagen, getFileName
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Clientes import Cliente
@@ -677,9 +677,15 @@ class FacturaController(ControladorBase):
 
         if not os.path.isdir('facturas'):
             os.mkdir('facturas')
-        #Genero el PDF de salida seg�n la plantilla procesada
-        salida = join('facturas',"{}-{}.pdf".format(cabfact.tipocomp.nombre.replace(" ", "_"), cabfact.numero))
-        ok = pyfpdf.GenerarPDF(salida)
+        try:
+            #Genero el PDF de salida seg�n la plantilla procesada
+            salida = join('facturas',"{}-{}.pdf".format(cabfact.tipocomp.nombre.replace(" ", "_"), cabfact.numero))
+            ok = pyfpdf.GenerarPDF(salida)
+        except:
+            cArchivo = getFileName("factura", False)
+            cArchivoPDF = cArchivo + '.pdf'
+            salida = cArchivoPDF
+            ok = pyfpdf.GenerarPDF(salida)
         #Abro el visor de PDF y muestro lo generado
         #(es necesario tener instalado Acrobat Reader o similar)
         imprimir = False #cambiar a True para que lo envie directo a laimpresora

@@ -8,6 +8,7 @@ from controladores.Facturas import FacturaController
 from libs.Utiles import inicializar_y_capturar_excepciones
 from modelos.Cabfact import Cabfact
 from modelos.Emailcliente import EmailCliente
+from modelos.Tipocomprobantes import TipoComprobante
 from vistas.ReImprimeFactura import ReImprimeFacturaView
 
 
@@ -29,7 +30,8 @@ class ReImprimeFacturaController(ControladorBase):
         self.view.gridDatos.setRowCount(0)
         if not self.view.controles['cliente'].text():
             return
-        cab = Cabfact().select().where(Cabfact.fecha >= self.view.controles['fecha'].date().toPyDate(),
+        cab = Cabfact().select(Cabfact, TipoComprobante).join(TipoComprobante)\
+            .where(Cabfact.fecha >= self.view.controles['fecha'].date().toPyDate(),
                                        Cabfact.cliente == self.view.controles['cliente'].text())
         for c in cab:
             if c.tipocomp.exporta:

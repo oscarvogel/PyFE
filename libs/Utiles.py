@@ -15,6 +15,7 @@ import argparse
 import calendar
 import platform
 import subprocess
+import tempfile
 from configparser import ConfigParser
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -443,3 +444,10 @@ def total_lineas_archivo(archivo):
     with open(archivo) as f:
         count = sum(1 for _ in f)
     return count
+
+def getFileName(filename='pdf', base=False):
+
+    tf = tempfile.NamedTemporaryFile(prefix=filename, mode='w+b')
+    if base:
+        return os.path.basename(tf.name)
+    return tf.name
