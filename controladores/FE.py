@@ -12,7 +12,7 @@ import qrcode
 
 from libs import Ventanas
 from libs.Utiles import LeerIni, ubicacion_sistema, inicializar_y_capturar_excepciones
-from pyafipws.pyqr import PyQR
+from controladores.pyqr import PyQR
 from pyafipws.wsaa import WSAA
 from pyafipws.wscdc import WSCDC
 from pyafipws.wsfev1 import WSFEv1
