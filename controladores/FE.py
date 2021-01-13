@@ -1,13 +1,18 @@
 # coding=utf-8
+import base64
 import email
+import json
 import logging
 import os
 import sys
 import warnings
 from os.path import abspath
 
+import qrcode
+
 from libs import Ventanas
 from libs.Utiles import LeerIni, ubicacion_sistema, inicializar_y_capturar_excepciones
+from pyafipws.pyqr import PyQR
 from pyafipws.wsaa import WSAA
 from pyafipws.wscdc import WSCDC
 from pyafipws.wsfev1 import WSFEv1
@@ -264,3 +269,52 @@ def sign_tra(tra, cert=CERT, privatekey=PRIVATEKEY, passphrase=""):
                 warnings.warn("El ejecutable de OpenSSL no esta disponible en el PATH")
             raise
 
+class PyQRv1(PyQR):
+
+    def __init__(self):
+        super().__init__()
+
+    def GenerarImagen(self, ver=1,
+                      fecha="2020-10-13",
+                      cuit=30000000007,
+                      pto_vta=10, tipo_cmp=1, nro_cmp=94,
+                      importe=12100, moneda="PES", ctz=1.000,
+                      tipo_doc_rec=80, nro_doc_rec=20000000001,
+                      tipo_cod_aut="E", cod_aut=70417054367476,
+                      ):
+        "Generar una im�gen con el c�digo QR"
+        # basado en: https://www.afip.gob.ar/fe/qr/especificaciones.asp
+        datos_cmp = {
+            "ver": int(ver),
+            "fecha": fecha,
+            "cuit": int(cuit),
+            "ptoVta": int(pto_vta),
+            "tipoCmp": int(tipo_cmp),
+            "nroCmp": int(nro_cmp),
+            "importe": float(importe),
+            "moneda": moneda,
+            "ctz": float(ctz),
+            "tipoDocRec": int(tipo_doc_rec),
+            "nroDocRec": int(nro_doc_rec),
+            "tipoCodAut": tipo_cod_aut,
+            "codAut": int(cod_aut),
+            }
+
+        # convertir a representación json y codificar en base64:
+        datos_cmp_json = json.dumps(datos_cmp)
+        data_bytes = datos_cmp_json.encode("utf-8")
+        url = self.URL % (base64.b64encode(data_bytes))
+
+        qr = qrcode.QRCode(
+            version=self.qr_ver,
+            error_correction=self.error_correction,
+            box_size=self.box_size,
+            border=self.border,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        img.save(self.Archivo, "PNG")
+        return url
