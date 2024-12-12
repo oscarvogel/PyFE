@@ -19,4 +19,6 @@ class Avance(QProgressBar):
             self.actualizar(kwargs['inicial'])
 
     def actualizar(self, valor=0):
+        if isinstance(valor, float):
+            valor = int(valor)
         self.setValue(valor)

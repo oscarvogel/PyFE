@@ -411,6 +411,8 @@ def FormatoFecha(fecha=datetime.datetime.today(), formato='largo'):
             retorno = datetime.datetime.strftime(fecha, '%d-%b')
         elif formato == 'dma':
             retorno = datetime.datetime.strftime(fecha, '%d/%m/%Y')
+        elif formato == 'afip':
+            retorno = datetime.datetime.strftime(fecha, '%d-%m-%Y')
 
     return retorno
 

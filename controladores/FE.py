@@ -1,14 +1,20 @@
 # coding=utf-8
+import base64
 import email
+import json
 import logging
 import os
+import shutil
 import sys
 import warnings
 from os.path import abspath
 
+import qrcode
+
 from libs import Ventanas
 from libs.Utiles import LeerIni, ubicacion_sistema, inicializar_y_capturar_excepciones
-from pyafipws.wsaa import WSAA
+from controladores.pyqr import PyQR
+from pyafipws.wsaa import WSAA, sign_tra_openssl
 from pyafipws.wscdc import WSCDC
 from pyafipws.wsfev1 import WSFEv1
 
@@ -111,8 +117,8 @@ class FEv1(WSFEv1):
             else:
                 # cacert = LeerIni('iniciosistema') + LeerIni(clave='cacert', key='WSFEv1')
                 cacert = True
-                cms = wsaa.SignTRA(tra, LeerIni(clave="cert_prod", key="WSAA"),
-                               LeerIni(clave="privatekey_prod", key="WSAA"))
+                cms = wsaa.SignTRA(tra, os.path.abspath(LeerIni(clave="cert_prod", key="WSAA")),
+                               os.path.abspath(LeerIni(clave="privatekey_prod", key="WSAA")))
                 ok = wsaa.Conectar("", LeerIni(clave='url_prod', key='WSAA'), cacert=cacert) #Produccion
 
             #Llamar al web service para autenticar
@@ -174,93 +180,93 @@ class FEv1(WSFEv1):
 
 class FEWSAA(WSAA):
 
-
+    # @inicializar_y_capturar_excepciones
+    # def SignTRA(self, tra, cert, privatekey, passphrase=""):
+    #     "Firmar el TRA y devolver CMS"
+    #     return sign_tra(tra, cert, privatekey, passphrase)
     @inicializar_y_capturar_excepciones
     def SignTRA(self, tra, cert, privatekey, passphrase=""):
         "Firmar el TRA y devolver CMS"
-        return sign_tra(tra, cert, privatekey, passphrase)
+        if not isinstance(tra, str):
+            tra = tra.decode("utf8")
 
-
+        cms = sign_tra(
+            tra,
+            cert.encode("latin1"),
+            privatekey.encode("latin1"),
+            passphrase.encode("utf8"),
+        )
+        return cms
 def sign_tra(tra, cert=CERT, privatekey=PRIVATEKEY, passphrase=""):
     "Firmar PKCS#7 el TRA y devolver CMS (recortando los headers SMIME)"
 
-    if BIO:
-        print("pudo importar m2crypto")
-        # Firmar el texto (tra) usando m2crypto (openssl bindings para python)
-        buf = BIO.MemoryBuffer(tra)             # Crear un buffer desde el texto
-        #Rand.load_file('randpool.dat', -1)     # Alimentar el PRNG
-        s = SMIME.SMIME()                       # Instanciar un SMIME
-        # soporte de contraseña de encriptación (clave privada, opcional)
-        callback = lambda *args, **kwarg: passphrase
-        # Cargar clave privada y certificado
-        if not privatekey.startswith("-----BEGIN RSA PRIVATE KEY-----"):
-            # leer contenido desde archivo (evitar problemas Applink / MSVCRT)
-            if os.path.exists(privatekey) and os.path.exists(cert):
-                privatekey = open(privatekey).read()
-                cert = open(cert).read()
-            else:
-                raise RuntimeError("Archivos no encontrados: %s, %s" % (privatekey, cert))
-        # crear buffers en memoria de la clave privada y certificado:
-        key_bio = BIO.MemoryBuffer(privatekey.encode('utf8'))
-        crt_bio = BIO.MemoryBuffer(cert.encode('utf8'))
-        s.load_key_bio(key_bio, crt_bio, callback)  # (desde buffer)
-        p7 = s.sign(buf, 0)                      # Firmar el buffer
-        out = BIO.MemoryBuffer()                # Crear un buffer para la salida
-        s.write(out, p7)                        # Generar p7 en formato mail
-        # Rand.save_file('randpool.dat')         # Guardar el estado del PRNG's
+    if isinstance(tra, str):
+        tra = tra.encode("utf8")
 
-        # extraer el cuerpo del mensaje (parte firmada)
-        msg = email.message_from_string(out.read().decode('utf8'))
-        for part in msg.walk():
-            filename = part.get_filename()
-            if filename == "smime.p7m":                 # es la parte firmada?
-                return part.get_payload(decode=False)   # devolver CMS
-    else:
-        # Firmar el texto (tra) usando OPENSSL directamente
-        try:
-            if sys.platform.startswith("linux"):
-                openssl = "openssl"
-            else:
-                path_openssl = LeerIni(clave="openssl", key="WSAA")
-                if path_openssl != '':
-                    openssl = path_openssl
-                else:
-                    if sys.maxsize <= 2**32:
-                        openssl = r"c:\OpenSSL-Win32\bin\openssl.exe"
-                    else:
-                        openssl = r"c:\OpenSSL-Win64\bin\openssl.exe"
-            # NOTE: workaround if certificate is not already stored in a file
-            # SECURITY WARNING: the private key will be exposed a bit in /tmp
-            #                   (in theory only for the current user)
-            if cert.startswith("-----BEGIN CERTIFICATE-----"):
-                cert_f = NamedTemporaryFile()
-                cert_f.write(cert.encode('utf-8'))
-                cert_f.flush()
-                cert = cert_f.name
-            else:
-                cert_f = None
-            if privatekey.startswith("-----BEGIN RSA PRIVATE KEY-----"):
-                key_f = NamedTemporaryFile()
-                key_f.write(privatekey.encode('utf-8'))
-                key_f.flush()
-                privatekey = key_f.name
-            else:
-                key_f = None
-            try:
-                out = Popen([openssl, "smime", "-sign",
-                        "-signer", cert, "-inkey", privatekey,
-                        "-outform","DER", "-nodetach"],
-                    stdin=PIPE, stdout=PIPE,
-                    stderr=PIPE).communicate(tra)[0]
-            finally:
-                # close temp files to delete them (just in case):
-                if cert_f:
-                    cert_f.close()
-                if key_f:
-                    key_f.close()
-            return b64encode(out).decode("utf8")
-        except OSError as e:
-            if e.errno == 2:
-                warnings.warn("El ejecutable de OpenSSL no esta disponible en el PATH")
-            raise
+    return sign_tra_openssl(tra, cert, privatekey, passphrase)
 
+
+def openssl_exe():
+    try:
+        openssl = shutil.which("openssl")
+    except Exception:
+        openssl = None
+    if not openssl:
+        if sys.platform.startswith("linux"):
+            openssl = "openssl"
+        else:
+            if sys.maxsize <= 2 ** 32:
+                openssl = r"c:\OpenSSL-Win32\bin\openssl.exe"
+            else:
+                openssl = r"c:\OpenSSL-Win64\bin\openssl.exe"
+    return openssl
+
+class PyQRv1(PyQR):
+
+    def __init__(self):
+        super().__init__()
+
+    def GenerarImagen(self, ver=1,
+                      fecha="2020-10-13",
+                      cuit=30000000007,
+                      pto_vta=10, tipo_cmp=1, nro_cmp=94,
+                      importe=12100, moneda="PES", ctz=1.000,
+                      tipo_doc_rec=80, nro_doc_rec=20000000001,
+                      tipo_cod_aut="E", cod_aut=70417054367476,
+                      ):
+        "Generar una im�gen con el c�digo QR"
+        # basado en: https://www.afip.gob.ar/fe/qr/especificaciones.asp
+        datos_cmp = {
+            "ver": int(ver),
+            "fecha": fecha,
+            "cuit": int(cuit),
+            "ptoVta": int(pto_vta),
+            "tipoCmp": int(tipo_cmp),
+            "nroCmp": int(nro_cmp),
+            "importe": float(importe),
+            "moneda": moneda,
+            "ctz": float(ctz),
+            "tipoDocRec": int(tipo_doc_rec),
+            "nroDocRec": int(nro_doc_rec),
+            "tipoCodAut": tipo_cod_aut,
+            "codAut": int(cod_aut),
+            }
+
+        # convertir a representación json y codificar en base64:
+        datos_cmp_json = json.dumps(datos_cmp)
+        data_bytes = datos_cmp_json.encode("utf-8")
+        url = self.URL % (base64.b64encode(data_bytes))
+
+        qr = qrcode.QRCode(
+            version=self.qr_ver,
+            error_correction=self.error_correction,
+            box_size=self.box_size,
+            border=self.border,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        img.save(self.Archivo, "PNG")
+        return url

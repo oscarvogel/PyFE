@@ -71,7 +71,7 @@ class IVAComprasController(ControladorBase):
         worksheet.write(row, col + 13, 'Monotributo')
         worksheet.write(row, col + 14, 'Total')
         for cab in cabecera:
-            self.view.avance.setValue(i / total * 100)
+            self.view.avance.actualizar(i / total * 100)
             row += 1
             worksheet.write(row, col, cab.fechaem.strftime("%d/%m/%Y"))
             worksheet.write(row, col + 1, '{} {}'.format(cab.tipocomp.nombre, cab.numero))

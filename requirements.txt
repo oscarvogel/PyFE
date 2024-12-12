@@ -1,7 +1,7 @@
 2to3==1.0
 altgraph==0.16.1
 asn1crypto==0.24.0
-cffi
+cffi==1.12.3
 cryptography==2.7
 docopt==0.6.2
 fpdf==1.7.2
@@ -20,7 +20,7 @@ PyQt5==5.12.2
 PyQt5-sip==4.19.17
 PySimpleSOAP==1.8.14
 python-dateutil==2.8.0
-pywin32
+pywin32==224
 pywin32-ctypes==0.2.0
 six==1.12.0
 soap2py==1.16

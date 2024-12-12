@@ -8,10 +8,10 @@ from os.path import join
 
 from controladores.ControladorBase import ControladorBase
 from controladores.FCE import WsFECred
-from controladores.FE import FEv1
+from controladores.FE import FEv1, PyQRv1
 from libs import Ventanas, Constantes
 from libs.Utiles import LeerIni, validar_cuit, FechaMysql, ubicacion_sistema, inicializar_y_capturar_excepciones, \
-    DeCodifica, imagen, getFileName
+    DeCodifica, imagen, getFileName, FormatoFecha
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Clientes import Cliente
@@ -347,7 +347,7 @@ class FacturaController(ControladorBase):
                 moneda_id, moneda_ctz)
 
         # Agregar comprobantes asociados(si es una NC / ND):
-        if self.tipo_cpte in [3, 8, 13]:
+        if self.tipo_cpte in [2, 3, 7, 8, 12, 13]:
         # if str(self.view.cboComprobante.text()).find('credito'):
             tipo = tipo_cbte
             pto_vta = self.view.layoutCpbteRelacionado.lineEditPtoVta.text()
@@ -652,6 +652,30 @@ class FacturaController(ControladorBase):
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))
         ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='inicio', key='FACTURA')))
 
+        pyqr = PyQRv1()
+        pyqr.CrearArchivo()
+        ver = 1
+        fecha = FormatoFecha(cabfact.desde, formato='afip')
+        cuit = ParamSist.ObtenerParametro("CUIT_EMPRESA").replace('-', '')
+        if not cuit:
+            cuit = LeerIni(clave='cuit', key='WSFEv1').replace('-', '')
+        pto_vta = punto_vta
+        tipo_cmp = tipo_cbte
+        nro_cmp = cbte_nro
+        importe = round(imp_total, 2)
+        moneda = moneda_id
+        ctz = moneda_ctz
+        tipo_doc_rec = tipo_doc
+        nro_doc_rec = nro_doc.replace('-', '')
+        tipo_cod_aut = "E"
+        cod_aut = cae
+        url = pyqr.GenerarImagen(
+            ver, fecha, cuit, pto_vta, tipo_cmp, nro_cmp,
+            importe, moneda, ctz, tipo_doc_rec, nro_doc_rec,
+            tipo_cod_aut, cod_aut
+        )
+        pyfpdf.AgregarDato("QR", pyqr.Archivo)
+
         if int(cabfact.tipocomp.codigo) in Constantes.COMPROBANTES_FCE: #si es una FCE
             pyfpdf.AgregarDato('CBUFCE', LeerIni('CBUFCE', key='FACTURA'))
             pyfpdf.AgregarDato('ALIASFCE', LeerIni('ALIASFCE', key='FACTURA'))
@@ -660,7 +684,8 @@ class FacturaController(ControladorBase):
         else:
             #Cargo el formato desde el archivo CSV(opcional)
             #(carga todos los campos a utilizar desde la planilla)
-            ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura.csv")
+            # ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura.csv")
+            ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura_qr.csv")
         #Creo plantilla para esta factura(papel A4vertical):
 
         if LeerIni(clave='homo') == 'S':
