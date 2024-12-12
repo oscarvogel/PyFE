@@ -107,9 +107,8 @@ venv.bak/
 
 /.idea
 
-/certificados/traid.crt
-/certificados/traid.csr
-/certificados/traid.key
+/certificados/*.crt
+/certificados/*.key
 *.db
 *.xml
 /facturas
