@@ -1,6 +1,6 @@
 # coding=utf-8
-from peewee import AutoField, CharField, IntegerField, ForeignKeyField
-
+import peewee
+from peewee import AutoField, CharField, IntegerField, ForeignKeyField, fn
 from libs.Validaciones import Validaciones
 from modelos.Formaspago import Formapago
 from modelos.Impuestos import Impuesto
@@ -32,3 +32,36 @@ class Valida(Validaciones):
     campoRetorno = Cliente.idcliente
     campoNombre = Cliente.nombre
     campos = ['idcliente', 'nombre']
+
+class FichaCliente(ModeloBase):
+
+    id = AutoField(primary_key=True)
+    cliente = ForeignKeyField(Cliente, db_column='cliente')
+    fecha = peewee.DateField()
+    detalle = peewee.TextField()
+    debe = peewee.DecimalField(max_digits=12, decimal_places=2, default=0)
+    haber = peewee.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    class Meta:
+        table_name = 'ficha_cliente'
+        
+    @classmethod
+    def calcular_saldo(cls, cliente_id, fecha_hasta):
+        """
+        Calcula la diferencia entre las sumas de 'debe' y 'haber' para un cliente
+        hasta una fecha específica.
+
+        :param cliente_id: ID del cliente.
+        :param fecha_hasta: Fecha límite (incluida).
+        :return: Diferencia entre 'debe' y 'haber'.
+        """
+        query = cls.select(
+            fn.SUM(cls.debe).alias('total_debe'),
+            fn.SUM(cls.haber).alias('total_haber')
+        ).where(
+            (cls.cliente == cliente_id) & (cls.fecha <= fecha_hasta)
+        ).dicts().get()
+
+        total_debe = query.get('total_debe') or 0
+        total_haber = query.get('total_haber') or 0
+        return total_debe - total_haber        

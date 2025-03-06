@@ -13,6 +13,7 @@ from controladores.ABMGrupos import ABMGruposController
 from controladores.ABMImpuestos import ABMImpuestoController
 from controladores.ABMParametrosSistema import ABMParamSistController
 from controladores.ABMTipoDocumentos import ABMTipoDocumentoController
+from controladores.ABMTipoResponsable import ABMTipoResponsableController
 from controladores.Articulos import ArticulosController
 from controladores.CargaFacturasProveedor import CargaFacturaProveedorController
 from controladores.CentroCostos import CentroCostoController
@@ -43,6 +44,7 @@ from controladores.TipoComprobantes import TipoComprobantesController
 from controladores.Resguardo import ResguardoController
 from libs import Ventanas
 from libs.Utiles import LeerIni, GrabarIni, FechaMysql, inicializar_y_capturar_excepciones, desencriptar
+from modelos.Clientes import FichaCliente
 from modelos.ModeloBase import ModeloBase
 from modelos.ParametrosSistema import ParamSist
 from vistas.Main import MainView
@@ -100,6 +102,7 @@ class Main(ControladorBase):
         localidadAction = menu.addAction(u"ABM Localidades")
         tipoCompAction = menu.addAction(u"ABM Tipo Comprobantes")
         tipoDocAction = menu.addAction(u"ABM Tipo de documentos")
+        tipoResponsable = menu.addAction(u"ABM Tipo de responsable")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
@@ -118,6 +121,9 @@ class Main(ControladorBase):
         elif action == tipoDocAction:
             tipodoc = ABMTipoDocumentoController()
             tipodoc.exec_()
+        elif action == tipoResponsable:
+            tiporesp = ABMTipoResponsableController()
+            tiporesp.exec_()
 
     def onClickBtnArticulo(self):
         menu = QMenu(self.view)
@@ -266,6 +272,13 @@ class Main(ControladorBase):
 
         try:
             ParamSist.create_table(safe=True)
+        except peewee.InternalError:
+            Ventanas.showAlert("Sistema", "Verifique que la base de datos este creada en {}".format(
+                LeerIni("host")
+            ))
+
+        try:
+            FichaCliente.create_table()
         except peewee.InternalError:
             Ventanas.showAlert("Sistema", "Verifique que la base de datos este creada en {}".format(
                 LeerIni("host")

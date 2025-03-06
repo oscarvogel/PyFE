@@ -5,10 +5,14 @@ import re
 
 import xlsxwriter
 from PyQt5 import QtCore
+from PyQt5.QtCore import QAbstractTableModel, Qt, QVariant
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QFileDialog, QAbstractItemView
 
-from libs.Utiles import EsVerdadero, AbrirArchivo
+from openpyxl.reader.excel import load_workbook
+
+from libs import Ventanas
+from libs.Utiles import EsVerdadero, AbrirArchivo, saveFileDialog
 
 
 class Grilla(QTableWidget):
@@ -57,6 +61,9 @@ class Grilla(QTableWidget):
 
     #emit signal
     keyPressed = QtCore.pyqtSignal(int)
+    
+    #formatos de las columnas
+    formatos = {}
 
     def __init__(self, *args, **kwargs):
 
@@ -72,6 +79,13 @@ class Grilla(QTableWidget):
             self.setSortingEnabled(True)
         # self.itemClicked.connect(self.handleItemClicked)
         self.setEditTriggers(QAbstractItemView.AllEditTriggers)#para que se pueda editar el contenido con solo un click
+        
+        if 'enabled' in kwargs:
+            self.enabled = kwargs['enabled']
+        else:
+            self.enabled = True
+        
+        self.setEnabled(self.enabled)
 
 
     def ArmaCabeceras(self, cabeceras=None):
@@ -90,7 +104,7 @@ class Grilla(QTableWidget):
         self.OcultaColumnas()
 
     def AgregaItem(self, items=None,
-                   backgroundColor=QColor(255,255,255), readonly=False):
+                   backgroundColor=QColor(255, 255, 255), readonly=False):
 
         if items:
             col = 0
@@ -98,25 +112,37 @@ class Grilla(QTableWidget):
             self.setRowCount(cantFilas)
             for x in items:
                 flags = QtCore.Qt.ItemIsSelectable
-                if isinstance(x, (bool)):
+                if isinstance(x, bool):
                     item = QTableWidgetItem(x)
                     if x:
                         item.setCheckState(QtCore.Qt.Checked)
                     else:
                         item.setCheckState(QtCore.Qt.Unchecked)
+                    self.formatos[col] = 'Bool'
                 elif isinstance(x, (int, float, decimal.Decimal)):
                     item = QTableWidgetItem(str(x))
+                    item.setTextAlignment(Qt.AlignRight)
+                    self.formatos[col] = 'Decimal'
+                # en caso de que sea formato de fecha
                 elif isinstance(x, (datetime.date)):
                     fecha = x.strftime('%d/%m/%Y')
                     item = QTableWidgetItem(fecha)
+                    self.formatos[col] = 'Date'
+                # en caso de que sea formato de hora
+                elif isinstance(x, (datetime.time)):
+                    fecha = x.strftime('%H:%M:%S')
+                    item = QTableWidgetItem(fecha)
+                    self.formatos[col] = 'Time'
                 elif isinstance(x, (bytes)):
                     if EsVerdadero(x):
                         item = 'Si'
                     else:
                         item = 'No'
                     item = QTableWidgetItem(QTableWidgetItem(x))
+                    self.formatos[col] = 'Bytes'
                 else:
                     item = QTableWidgetItem(QTableWidgetItem(x))
+                    self.formatos[col] = 'String'
 
                 if readonly:
                     flags = QtCore.Qt.ItemIsSelectable
@@ -137,10 +163,13 @@ class Grilla(QTableWidget):
                     item.setBackground(backgroundColor)
 
                 self.setItem(cantFilas - 1, col, item)
+                # if self.widgetCol:
+                #     self.ArmaWidgetCol(col)
                 if col in self.widgetCol:
-                   widgetColumna = self.widgetCol[col]
-                   self.setCellWidget(cantFilas - 1, col, widgetColumna)
-
+                    widgetColumna = self.widgetCol[col]
+                    self.setItemDelegateForColumn(col, widgetColumna)
+                    # self.setItemDelegate(widgetColumna)
+                    # self.setCellWidget(cantFilas - 1, col, widgetColumna)
                 col += 1
             self.resizeRowsToContents()
             self.resizeColumnsToContents()
@@ -231,30 +260,81 @@ class Grilla(QTableWidget):
     def focusOutEvent(self, *args, **kwargs):
         self.engrilla = False
 
-    def ExportaExcel(self, columnas=None):
+    def ExportaExcel(self, columnas=None, archivo="", titulo="", nuevo=True, hoja='', fila=0, col=0):
+
         if not columnas:
             columnas = self.cabeceras
 
-        cArchivo = QFileDialog.getSaveFileName(caption="Guardar archivo", directory="", filter="*.XLSX")
+        if nuevo:
+            archivo = archivo.replace('.', '').replace('/', '')
+        if not archivo.startswith("excel"):
+            archivo = "excel/" + archivo
+
+        if nuevo:
+            cArchivo = saveFileDialog(filename=archivo,
+                                      files="Archivos de Excel (*.xlsx)")
+        else:
+            cArchivo = archivo
+        # cArchivo = QFileDialog.getSaveFileName(caption="Guardar archivo", directory="", filter="*.XLSX")
         if not cArchivo:
             return
 
-        workbook = xlsxwriter.Workbook(cArchivo[0])
-        worksheet = workbook.add_worksheet()
+        if nuevo:
+            workbook = xlsxwriter.Workbook(cArchivo)
+        else:
+            try:
+                # Carga el archivo
+                workbook = load_workbook(cArchivo)
+            except:
+                Ventanas.showAlert("Sistema", f"Ocurrio un error al intentar abrir el archivo {cArchivo}")
+                return
 
-        fila = 0
+        if hoja:
+            # Selecciona la hoja por su nombre
+            worksheet = workbook[hoja]
+        else:
+            #creamos una hoja nueva
+            worksheet = workbook.add_worksheet()
+
+        formato_fecha = workbook.add_format({'num_format': 'dd/mm/yyyy'})
+        # fila = 0
+        # col = 0
+        if titulo:
+            worksheet.write(fila, col, titulo)
+            fila += 2
+
+        for c in columnas:
+            worksheet.write(fila, col, c)
+            col += 1
+
+        fila += 1
         for row in range(self.rowCount()):
             col = 0
             for c in columnas:
                 dato = self.ObtenerItem(fila=row, col=c)
-                if dato.isdigit():
-                    dato = int(dato)
-                worksheet.write(fila, col, dato)
+                if isinstance(dato, bool):
+                    dato = 'SI' if dato else 'NO'
+                else:
+                    dato = dato.strip()
+                try:
+                    dato = float(dato)
+                except:
+                    if dato.isdigit():
+                        dato = int(dato)
+                if self.formatos[col] == 'Date':
+
+                    worksheet.write_datetime(fila, col, datetime.datetime.strptime(dato, '%d/%m/%Y').date(),
+                                             formato_fecha)
+                else:
+                    worksheet.write(fila, col, dato)
                 col += 1
             fila += 1
 
+        # cabeceras_excel = [{'header': x} for x in columnas]
+        # worksheet.add_table(0, 0, fila, col-1, cabeceras_excel)
         workbook.close()
-        AbrirArchivo(cArchivo[0])
+        AbrirArchivo(cArchivo)
+
 
     def keyPressEvent(self, event):
         super(Grilla, self).keyPressEvent(event)

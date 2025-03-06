@@ -55,6 +55,9 @@ class Spinner(QDoubleSpinBox):
 
     def text(self):
         return self.value()
+    
+    def valor(self):
+        return self.value()
 
 class Periodo(QHBoxLayout):
 

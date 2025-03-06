@@ -14,11 +14,7 @@ import qrcode
 from libs import Ventanas
 from libs.Utiles import LeerIni, ubicacion_sistema, inicializar_y_capturar_excepciones
 from controladores.pyqr import PyQR
-<<<<<<< HEAD
 from pyafipws.wsaa import WSAA, sign_tra_openssl
-=======
-from pyafipws.wsaa import WSAA
->>>>>>> e7370fecc36617ef72375c5ee5f9ef5eaeadfe31
 from pyafipws.wscdc import WSCDC
 from pyafipws.wsfev1 import WSFEv1
 
@@ -219,10 +215,7 @@ def openssl_exe():
         if sys.platform.startswith("linux"):
             openssl = "openssl"
         else:
-            if sys.maxsize <= 2 ** 32:
-                openssl = r"c:\OpenSSL-Win32\bin\openssl.exe"
-            else:
-                openssl = r"c:\OpenSSL-Win64\bin\openssl.exe"
+            openssl = r"c:\OpenSSL-Win32\bin\openssl.exe"
     return openssl
 
 class PyQRv1(PyQR):

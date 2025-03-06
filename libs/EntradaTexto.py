@@ -206,6 +206,9 @@ class TextEdit(QTextEdit):
             return
 
         super(TextEdit, self).insertFromMimeData(source)
+        
+    def valor(self):
+        return self.toPlainText()
 
 
 class CUIT(EntradaTexto):

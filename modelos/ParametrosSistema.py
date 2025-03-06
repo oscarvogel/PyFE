@@ -11,7 +11,7 @@ class ParamSist(ModeloBase):
     valor = peewee.CharField(max_length=100, default='')
 
     @classmethod
-    def ObtenerParametro(cls, parametro=''):
+    def ObtenerParametro(cls, parametro='', valor_defecto=''):
         if not parametro:
             return  ''
 
@@ -21,7 +21,7 @@ class ParamSist(ModeloBase):
         except ParamSist.DoesNotExist:
             param = ParamSist()
             param.parametro = parametro
-            param.valor = ''
+            param.valor = valor_defecto
             param.save()
             valor = ''
 

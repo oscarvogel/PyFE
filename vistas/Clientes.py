@@ -1,13 +1,20 @@
 # coding=utf-8
+from gc import enable
 from PyQt5.QtCore import QSize
+from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QFormLayout
 
 from libs import Ventanas
 from libs.Botones import Boton
-from libs.Etiquetas import Etiqueta
+from libs.EntradaTexto import TextEdit
+from libs.Etiquetas import Etiqueta, EtiquetaTitulo
+from libs.Fechas import Fecha, RangoFechas
+from libs.Grillas import Grilla
+from libs.Spinner import Spinner
 from libs.Utiles import inicializar_y_capturar_excepciones, imagen
 from modelos import Localidades, Tipodoc, Tiporesp, Impuestos
-from modelos.Clientes import Cliente
+from modelos.Clientes import Cliente, Valida
 from vistas.ABM import ABM
+from vistas.VistaBase import VistaBase
 
 
 class ClientesView(ABM):
@@ -86,5 +93,91 @@ class ClientesView(ABM):
         self.btnEmail = Boton(self.tabLista, texto="Email Cliente", imagen=imagen("email.png"), tamanio=QSize(32,32),
                                 tooltip='Agrega email del cliente')
         self.btnEmail.setObjectName("btnEmail")
-        self.horizontalLayout.addWidget(self.btnEmail)
 
+        self.btn_ficha = Boton(self.tabLista, texto="Ficha", imagen=imagen("document-copy.png"), tamanio=QSize(32,32),
+                                tooltip='Ficha del cliente')
+        self.btn_ficha.setObjectName("btn_ficha")
+        self.horizontalLayout.addWidget(self.btnEmail)
+        self.horizontalLayout.addWidget(self.btn_ficha)
+
+class ListaFichaClienteView(VistaBase):
+
+    def __init__(self, *args, **kwargs):
+        VistaBase.__init__(self, *args, **kwargs)
+        self.initUi()
+
+    def initUi(self):
+        self.setWindowTitle("Ficha de cliente")
+        self.resize(750, 450)
+        layoutPpal = QVBoxLayout(self)
+        lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
+        layoutPpal.addWidget(lblTitulo)
+
+        self.layout_fechas = RangoFechas()
+        self.layout_fechas.desde_fecha.setFecha(fecha=-30)
+        layoutPpal.addLayout(self.layout_fechas)
+
+        self.grid_datos = Grilla(enabled=True)
+        self.grid_datos.ArmaCabeceras(
+            cabeceras=["Fecha", "Detalle", "Debe", "Haber", "Saldo", 'id']
+        )
+        layoutPpal.addWidget(self.grid_datos)
+
+        layout_botones = QHBoxLayout()
+        self.btn_cargar = Boton(texto="Cargar", imagen=imagen("if_product-sales-report_49607.png"))
+        self.btn_agregar = Boton(texto="Agregar", imagen=imagen("new.png"))
+        self.btn_editar = Boton(texto="Editar", imagen=imagen("edit.png"))
+        self.btn_borrar = Boton(texto="Borrar", imagen=imagen("delete.png"))
+        self.btn_impresion = Boton(texto="Imprimir", imagen=imagen("print.png"))
+        self.btn_cerrar = Boton(texto="Cerrar", imagen=imagen("close.png"))
+        layout_botones.addWidget(self.btn_cargar)
+        layout_botones.addWidget(self.btn_agregar)
+        layout_botones.addWidget(self.btn_editar)
+        layout_botones.addWidget(self.btn_borrar)
+        layout_botones.addWidget(self.btn_impresion)
+        layout_botones.addWidget(self.btn_cerrar)
+        layoutPpal.addLayout(layout_botones)
+        
+class FichaClienteView(VistaBase):
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.initUi()
+        
+    def initUi(self):
+        self.setWindowTitle("Ficha de cliente")
+        self.resize(500, 350)
+        layoutPpal = QVBoxLayout(self)
+        lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
+        layoutPpal.addWidget(lblTitulo)
+        
+        layoutDatos = QFormLayout()
+        lblCliente = Etiqueta(texto="Cliente")
+        self.txtCliente = Valida(enabled=False)
+        layoutDatos.addRow(lblCliente, self.txtCliente)
+        
+        lblFecha = Etiqueta(texto="Fecha")
+        self.fecha = Fecha()
+        layoutDatos.addRow(lblFecha, self.fecha)
+        
+        lblDetalle = Etiqueta(texto="Detalle")
+        self.txtDetalle = TextEdit()
+        layoutDatos.addRow(lblDetalle, self.txtDetalle)
+        
+        lblDebe = Etiqueta(texto="Debe")
+        self.txtDebe = Spinner(decimales=2)
+        layoutDatos.addRow(lblDebe, self.txtDebe)
+        
+        lblHaber = Etiqueta(texto="Haber")
+        self.txtHaber = Spinner(decimales=2)
+        layoutDatos.addRow(lblHaber, self.txtHaber)
+        
+        layoutPpal.addLayout(layoutDatos)
+        
+        layout_botones = QHBoxLayout()
+        self.btn_guardar = Boton(texto="Guardar", imagen=imagen("save.png"))
+        self.btn_cerrar = Boton(texto="Cerrar", imagen=imagen("close.png"))
+        layout_botones.addWidget(self.btn_guardar)
+        layout_botones.addWidget(self.btn_cerrar)
+        layoutPpal.addLayout(layout_botones)
+        

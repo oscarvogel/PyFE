@@ -1,0 +1,106 @@
+//
+// wsaa.idl: source PyAfipWs WSAA COM Type Library 
+// influenced by msdn example2.idl and pythoncom's pippo.idl
+//
+// Use "print pythoncom.CreateGuid()" to make a new one.
+
+import "unknwn.idl","oaidl.idl"; 
+
+[
+	uuid(50596DAF-5374-4548-BFC3-44CA335A4016),
+	helpstring("PyAfipWs WSAA interface"),
+	pointer_default(unique),
+	dual,
+	object
+	//oleautomation
+] 
+interface IWSAA : IDispatch
+{
+	[id(1)] HRESULT CreateTRA([in] BSTR service, [in] int ttl,
+					[out, retval] BSTR * tra);
+	[id(2)] HRESULT SignTRA([in] BSTR tra, [in] BSTR cert, [in] BSTR privatekey,
+					[out, retval] BSTR * cms);
+	[id(3)] HRESULT CallWSAA([in] BSTR cms, [in] BSTR proxy, [in] BSTR url,
+					[out, retval] BSTR * ta);
+
+	[propget, id(4)] HRESULT Token( [out, retval] BSTR *  token); 
+	[propget, id(5)] HRESULT Sign( [out, retval] BSTR *  sign); 
+	[propget, id(6)] HRESULT Version( [out, retval] BSTR *  sign); 
+	[propget, id(7)] HRESULT XmlResponse( [out, retval] BSTR *  sign); 
+
+    [id(8)] HRESULT Conectar([in] BSTR cache, [in] BSTR wsdl, 
+                    [in] BSTR proxy, [in] BSTR wrapper, [in] BSTR cacert,
+                    [in] int timeout,
+                    [out, retval] BOOL * ok);
+    [id(9)] HRESULT LoginCMS([in] BSTR cms, [out, retval] BSTR * ta);
+    [id(10)] HRESULT AnalizarXml([in] BSTR xml, [out, retval] BOOL * ok);
+    [id(11)] HRESULT ObtenerTagXml([in] BSTR tags, [out, retval] BSTR * texto);
+    [id(12)] HRESULT Expirado([in] BSTR fecha, [out, retval] BOOL * ok);
+
+	[propget, id(13)] HRESULT InstallDir( [out, retval] BSTR *  val); 
+	[propget, id(14)] HRESULT Traceback( [out, retval] BSTR *  val); 
+	[propget, id(15)] HRESULT Excepcion( [out, retval] BSTR *  val); 
+	[propget, id(16)] HRESULT SoapFault( [out, retval] BSTR *  val); 
+	[propput, id(17)] HRESULT LanzarExcepciones( [in] BOOL * val); 
+	[propget, id(18)] HRESULT XmlRequest( [out, retval] BSTR *  val); 
+
+    [id(19)] HRESULT AnalizarCertificado(
+                          [in] BSTR crt,
+                          [in] BOOL binary,
+                          [out, retval] BOOL * ok);
+
+	[propget, id(20)] HRESULT Identidad( [out, retval] BSTR *  val); 
+	[propget, id(21)] HRESULT Caducidad( [out, retval] BSTR *  val); 
+	[propget, id(22)] HRESULT Emisor( [out, retval] BSTR *  val); 
+	[propget, id(27)] HRESULT CertX509( [out, retval] BSTR *  val); 
+
+    [id(23)] HRESULT CrearClavePrivada(
+                          [in] BSTR filename,
+                          [in] int key_length,
+                          [in] long pub_exponent,
+                          [in] BSTR passphrase,
+                          [out, retval] void
+                          );
+
+    [id(24)] HRESULT CrearPedidoCertificado(
+                          [in] BSTR cuit,
+                          [in] BSTR empresa,
+                          [in] BSTR nombre,
+                          [in] BSTR filename,
+                          [out, retval] void
+                          );
+                          
+    [id(25)] HRESULT SetParametro(
+                          [in] BSTR clave,
+                          [in] BSTR valor,
+                          [out, retval] BSTR * ok);
+    
+    [id(26)] HRESULT Autenticar(
+                          [in] BSTR service,
+                          [in] BSTR crt,
+                          [in] BSTR key,
+                          [in] BSTR wsdl,
+                          [in] BSTR proxy,
+                          [in] BSTR wrapper,
+                          [in] BSTR cacert,
+                          [in] BOOL debug,
+                          [out, retval] BSTR * TA);
+    
+};  //end interface def
+
+[
+	uuid(6E4B43FD-0ABB-4627-AA4E-2AD08BD3D212),
+	version(2.12),
+	helpstring("PyAfipWs WSAA 2.12 Type Library"),
+] library PyAfipWsWSAALib
+{
+	importlib("stdole32.tlb");
+
+	[
+		uuid(51342E57-9681-4610-AF2B-686267470930),
+		helpstring("WSAA Component Class")
+	] coclass WSAA
+	{
+		[default]interface IWSAA;
+	}
+}; //end library def

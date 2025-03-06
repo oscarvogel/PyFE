@@ -1,0 +1,76 @@
+O:\python\FE\certificados>c:openssl genrsa -out vogel.key 2048
+Generating RSA private key, 2048 bit long modulus
+.............................+++
+..............+++
+e is 65537 (0x010001)
+
+O:\python\FE\certificados>c:openssl req -new -key vogel.key -out vogel.csr -subj "/c=AR/O=Jose Oscar Vogel/serialNumber=CUIT 20233472035"
+req: Skipping unknown attribute "c"
+
+O:\python\FE\certificados>c:openssl req -new -key vogel.key -out vogel.csr -subj "/C=AR/O=Jose Oscar Vogel/serialNumber=CUIT 20233472035"
+
+O:\python\FE\certificados>
+
+
+Para generar sus certificados digitales, basicamente, necesita usar el 
+utilitario OpenSSL. Si tiene acceso a un servidor Unix/Linux, seguramente ya 
+lo tiene instalado. Si tiene acceso a equipos Windows, puede bajar openSSL de:
+
+http://www.slproweb.com/products/Win32OpenSSL.html
+
+Los pasos a seguir son los siguientes:
+
+PASO 1 - Genere su clave privada (private key) de 2048 bits ejecutando:
+
+   openssl genrsa -out privada.key 2048
+
+Haga un backup de su clave privada para evitar futuros inconvenientes. 
+Tenga en cuenta que la va a necesitar una vez que obtenga su certificado X.509, 
+el cual no le va a servir de mucho si Ud. no dispone de la clave privada que 
+le corresponde.
+
+PASO 2 - Genere su CSR (Certificate Signing Request) ejecutando:
+  
+   openssl req 
+   -new 
+   -key privada.key 
+   -subj "/C=AR/O=subj_o/CN=subj_cn/serialNumber=CUIT subj_cuit" -out pedido.csr
+  
+Reemplazando:
+. subj_o por el nombre de su empresa.
+. subj_cn por su nombre o server hostname.
+. subj_cuit por la CUIT sin guiones de la empresa o programador.
+
+NOTA: Para certificado de testing use la CUIT del programador.
+
+Una vez que haya generado correctamente su CSR, puede usarlo para obtener su 
+certificado digital X.509. Para el caso del entorno de Testing, utilice la 
+aplicacion online WSASS. Para el caso del entorno de Produccion, Ud. podra 
+obtener su certificado interactivamente usando el "Administrador de 
+Certificados Digitales" del menu de tramites con Clave Fiscal en nuestro portal 
+ www.afip.gob.ar
+ 
+  
+- Segun la tecnologÃ­a que elija utilizar para llevar a cabo el desarrollo puede 
+llegar a necesitar el certificado en formato pkcs12 (certificado x509 + clave 
+privada). Para generarlo debe ejecutar desde la lÃ­nea de comando:
+
+   openssl pkcs12 -export -inkey privada.key -in certificado.crt -out alias.pfx
+	 
+Debera definir una password para el certificado 'alias.pfx' (que debera 
+ingresar 2 veces).
+
+
+- En algunos equipos Windows al invocar al WSAA para obtener su ticket de 
+acceso puede llegar a obtener el siguiente mensaje de error:
+
+   "La contraseÃ±a de red especificada no es vÃ¡lida".
+
+Este error tiene que ver con el problema de que Windows parece no entender que 
+el pkcs#12 generado con openssl no tiene password. La soluciÃ³n es importar el 
+certificado al repositorio de Windows (Control panel / Internet Options / 
+Contents / Certificates). Luego volver a exportarlo (hasta la versiÃ³n 7 de 
+Internet Explorer no es obligatorio ponerle password). Tener en cuenta que debe 
+tildar la opciÃ³n "Marcar esta clave como exportable".
+
+https://www.afip.gob.ar/ws/WSAA/WSAA.ObtenerCertificado.pdf

@@ -72,9 +72,12 @@ class MigracionBaseDatos(ControladorBase):
         if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 5:
             self.MigrarVersion5()
 
+        if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 6:
+            self.MigrarVersion6()
+        
         self.RealizaMigraciones()
 
-        ParamSist.GuardarParametro("VERSION_DB", "5")
+        ParamSist.GuardarParametro("VERSION_DB", "6")
 
     def MigrarVersion1(self):
         migrator = self.migrator
@@ -242,3 +245,8 @@ class MigracionBaseDatos(ControladorBase):
         migrator = self.migrator
         coldecimal = DecimalField(default=0, max_digits=12, decimal_places=2)
         self.migraciones.append(migrator.add_column('categoriamono', 'ing_brutos', coldecimal))
+        
+    def MigrarVersion6(self):
+        migrator = self.migrator
+        colentero = IntegerField(default=5)
+        self.migraciones.append(migrator.add_column('tiporesp', 'condicion_iva_receptor_id', colentero))

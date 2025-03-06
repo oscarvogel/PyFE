@@ -1,0 +1,11 @@
+PyAfipWS: Interfaces y herramientas para Servicios Web AFIP Copyright (C) 2008-2021 Mariano Reingart <reingart@gmail.com>
+
+Este programa se entrega ABSOLUTAMENTE SIN GARANTIA bajo la licencia LGPLv3 de software libre (ver COPYING y COPYING.LESSER), y no puede ser incorporado o distribuido como software propietario (no libre).
+Adicionalmente se debe conservar y mostrar las atribuciones de autoría y avisos legales, estando prohibida la tergiversación del origen de este material.
+
+Para solicitar soporte comercial (pago), excepciones de la licencia LGPLv3 o información adicional y descargas ver:
+http://www.sistemasagiles.com.ar/
+
+Este programa utiliza bibliotecas de Software Libre / Código Abierto (Python, OpenSSL, httplib2, etc.) gobernadas por sus respectivas licencias.
+
+

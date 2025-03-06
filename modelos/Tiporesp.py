@@ -16,6 +16,7 @@ class Tiporesp(ModeloBase):
     notacredito = IntegerField()
     notadebito = IntegerField()
     tipoivaepson = CharField(max_length=1, default='')
+    condicion_iva_receptor_id = IntegerField(default=5)
 
 class Valida(Validaciones):
     modelo = Tiporesp

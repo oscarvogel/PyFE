@@ -31,12 +31,12 @@ VSVersionInfo(
         u'040904b0',
         [StringStruct(u'CompanyName', u'Servin LGSM'),
         StringStruct(u'ProductName', u'Sistema'),
-        StringStruct(u'ProductVersion', u'2020, 12, 5, 1'),
+        StringStruct(u'ProductVersion', u'2025, 1, 21, 1'),
         StringStruct(u'InternalName', u'Sistema'),
         StringStruct(u'OriginalFilename', u'main.exe'),
-        StringStruct(u'FileVersion', u'2020, 12, 5, 1'),
+        StringStruct(u'FileVersion', u'2025, 1, 21, 1'),
         StringStruct(u'FileDescription', u'Sistema en FE de Servin LGSM'),
-        StringStruct(u'LegalCopyright', u'Copyright 2020, Servin LGSM'),
+        StringStruct(u'LegalCopyright', u'Copyright 2025, Servin LGSM'),
         StringStruct(u'LegalTrademarks', u'Marca registrada de Servin LGSM'),])
       ]),
     VarFileInfo([VarStruct(u'Translation', [1033, 1200])])

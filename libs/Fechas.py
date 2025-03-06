@@ -4,8 +4,10 @@ import datetime
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QDateEdit
+from PyQt5.QtWidgets import QDateEdit, QHBoxLayout
 from PyQt5.uic.properties import QtGui
+
+from libs.Etiquetas import Etiqueta
 
 
 class Fecha(QDateEdit):
@@ -68,3 +70,22 @@ class Fecha(QDateEdit):
     def text(self):
         return self.valor()
 
+class RangoFechas(QHBoxLayout):
+
+    etiqueta_desde = "Desde fecha"
+    etiqueta_hasta = "Hasta fecha"
+
+    def __init__(self):
+        super().__init__()
+        self.setupUi()
+
+    def setupUi(self):
+        lblDesdeFecha = Etiqueta(texto=self.etiqueta_desde)
+        self.desde_fecha = Fecha(fecha=0)
+        lblHastaFecha = Etiqueta(texto=self.etiqueta_hasta)
+        self.hasta_fecha = Fecha(fecha=0)
+        self.addWidget(lblDesdeFecha)
+        self.addWidget(self.desde_fecha)
+        self.addWidget(lblHastaFecha)
+        self.addWidget(self.hasta_fecha)
+        self.desde_fecha.proximoWidget = self.hasta_fecha

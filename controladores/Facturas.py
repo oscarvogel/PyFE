@@ -339,12 +339,23 @@ class FacturaController(ControladorBase):
 
         if self.tipo_cpte in Constantes.COMPROBANTES_FCE: #FCE
             fecha_venc_pago = self.view.lineEditFecha.getFechaSql()
-        #Llamo al WebService de Autorizacion para obtener el CAE
-        ok = wsfev1.CrearFactura(concepto, tipo_doc, nro_doc, tipo_cbte, punto_vta,
-                cbt_desde, cbt_hasta, imp_total, imp_tot_conc, imp_neto,
-                imp_iva, imp_trib, imp_op_ex, fecha_cbte, fecha_venc_pago,
-                fecha_serv_desde, fecha_serv_hasta,
-                moneda_id, moneda_ctz)
+        
+        if ParamSist.ObtenerParametro("RG5616", valor_defecto='N') == "S":
+            cliente = Cliente.get_by_id(self.view.validaCliente.text())
+            #Llamo al WebService de Autorizacion para obtener el CAE
+            ok = wsfev1.CrearFactura(concepto, tipo_doc, nro_doc, tipo_cbte, punto_vta,
+                    cbt_desde, cbt_hasta, imp_total, imp_tot_conc, imp_neto,
+                    imp_iva, imp_trib, imp_op_ex, fecha_cbte, fecha_venc_pago,
+                    fecha_serv_desde, fecha_serv_hasta,
+                    moneda_id, moneda_ctz, cancela_misma_moneda_ext='N',
+                    condicion_iva_receptor_id=cliente.tiporesp.condicion_iva_receptor_id)
+        else:    
+            #Llamo al WebService de Autorizacion para obtener el CAE
+            ok = wsfev1.CrearFactura(concepto, tipo_doc, nro_doc, tipo_cbte, punto_vta,
+                    cbt_desde, cbt_hasta, imp_total, imp_tot_conc, imp_neto,
+                    imp_iva, imp_trib, imp_op_ex, fecha_cbte, fecha_venc_pago,
+                    fecha_serv_desde, fecha_serv_hasta,
+                    moneda_id, moneda_ctz)
 
         # Agregar comprobantes asociados(si es una NC / ND):
         if self.tipo_cpte in [2, 3, 7, 8, 12, 13]:
