@@ -47,6 +47,7 @@ class Formulario(QDialog):
     def resizeEvent(self, QResizeEvent):
         self.Center()
         QDialog.resizeEvent(self, QResizeEvent)
+        print(f"Alto {self.height()} Ancho {self.width()}")
 
     def addStatusBar(self, layout=None):
         if layout:

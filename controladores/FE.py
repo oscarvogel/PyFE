@@ -180,23 +180,25 @@ class FEv1(WSFEv1):
 
 class FEWSAA(WSAA):
 
-    # @inicializar_y_capturar_excepciones
+    def __init__(self):
+        super().__init__()
+# @inicializar_y_capturar_excepciones
     # def SignTRA(self, tra, cert, privatekey, passphrase=""):
     #     "Firmar el TRA y devolver CMS"
     #     return sign_tra(tra, cert, privatekey, passphrase)
-    @inicializar_y_capturar_excepciones
-    def SignTRA(self, tra, cert, privatekey, passphrase=""):
-        "Firmar el TRA y devolver CMS"
-        if not isinstance(tra, str):
-            tra = tra.decode("utf8")
-
-        cms = sign_tra(
-            tra,
-            cert.encode("latin1"),
-            privatekey.encode("latin1"),
-            passphrase.encode("utf8"),
-        )
-        return cms
+    # @inicializar_y_capturar_excepciones
+    # def SignTRA(self, tra, cert, privatekey, passphrase=""):
+    #     "Firmar el TRA y devolver CMS"
+    #     if not isinstance(tra, str):
+    #         tra = tra.decode("utf8")
+    #
+    #     cms = sign_tra(
+    #         tra,
+    #         cert.encode("latin1"),
+    #         privatekey.encode("latin1"),
+    #         passphrase.encode("utf8"),
+    #     )
+    #     return cms
 def sign_tra(tra, cert=CERT, privatekey=PRIVATEKEY, passphrase=""):
     "Firmar PKCS#7 el TRA y devolver CMS (recortando los headers SMIME)"
 
@@ -267,3 +269,4 @@ class PyQRv1(PyQR):
 
         img.save(self.Archivo, "PNG")
         return url
+    

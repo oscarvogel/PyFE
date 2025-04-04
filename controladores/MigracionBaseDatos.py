@@ -31,6 +31,7 @@ from modelos.ParametrosSistema import ParamSist
 from modelos.PercepcionesDGR import PercepDGR
 from modelos.Proveedores import Proveedor
 from modelos.Provincias import Provincia
+from modelos.Remitos import DetalleRemito, Remito
 from modelos.Tipocomprobantes import TipoComprobante
 from modelos.Tipodoc import Tipodoc
 from modelos.Tipoiva import Tipoiva
@@ -74,10 +75,13 @@ class MigracionBaseDatos(ControladorBase):
 
         if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 6:
             self.MigrarVersion6()
+
+        if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 7:
+            self.MigrarVersion7()
         
         self.RealizaMigraciones()
 
-        ParamSist.GuardarParametro("VERSION_DB", "6")
+        ParamSist.GuardarParametro("VERSION_DB", "7")
 
     def MigrarVersion1(self):
         migrator = self.migrator
@@ -250,3 +254,21 @@ class MigracionBaseDatos(ControladorBase):
         migrator = self.migrator
         colentero = IntegerField(default=5)
         self.migraciones.append(migrator.add_column('tiporesp', 'condicion_iva_receptor_id', colentero))
+        
+    def MigrarVersion7(self):
+        try:
+            db.create_tables([Remito, DetalleRemito])
+        except:
+            pass
+        try:
+            tipo_comprobante = TipoComprobante.get_by_id(92)
+        except:
+            tipo_comprobante = TipoComprobante.create(
+                codigo=92,
+                nombre='Proforma',
+                abreviatura='PRO',
+                lado='',
+                exporta=0,
+                ultcomp=0,
+                letra='X'
+            )

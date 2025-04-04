@@ -68,6 +68,8 @@ class ComboSQL(QComboBox):
             return self.currentText()
 
     def setText(self, p_str):
+        if isinstance(p_str, (int, float)):
+            p_str = str(p_str)
         index = self.findText(p_str)
         self.setCurrentIndex(index)
 

@@ -118,6 +118,7 @@ venv.bak/
 /citi
 /instaladores
 /dist
+/res
 
 *.wheels
 *.whl

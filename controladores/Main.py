@@ -39,6 +39,8 @@ from controladores.Proveedores import ProveedoresController
 from controladores.RG3685Compras import RG3685ComprasController
 from controladores.RG3685Ventas import RG3685VentasController
 from controladores.ReImprimeFactura import ReImprimeFacturaController
+from controladores.ReImprimeRemito import ReImprimeRemitoController
+from controladores.Remitos import RemitoController
 from controladores.RindeCAEAIndividual import RindeCAEAIndividualController
 from controladores.TipoComprobantes import TipoComprobantesController
 from controladores.Resguardo import ResguardoController
@@ -150,21 +152,19 @@ class Main(ControladorBase):
     def onClickBtnFactura(self):
         menu = QMenu(self.view)
         emisionAction = menu.addAction(u"Emision de Factura")
-        reimprimeAction = menu.addAction(u"Re imprime factura")
         ivaventasAction = menu.addAction(u"IVA Ventas")
         reciboAction = menu.addAction(u"Emision de recibo")
         citiAction = menu.addAction(u"RG 3685 AFIP")
         abmCategoria = menu.addAction(u"Categorias monotributo")
         infRecMono = menu.addAction(u"Informe de recategorizacion monotributo")
+        emite_remito = menu.addAction(u"Emision de comprobantes")
+        reimpresiones = menu.addAction(u"Reimpresiones")
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
         if action == emisionAction:
             factura = FacturaController()
             factura.exec_()
-        elif action == reimprimeAction:
-            ventana = ReImprimeFacturaController()
-            ventana.exec_()
         elif action == ivaventasAction:
             ventana = IVAVentasController()
             ventana.exec_()
@@ -180,7 +180,27 @@ class Main(ControladorBase):
         elif action == abmCategoria:
             ventana = ABMCategoriaMonoController()
             ventana.exec_()
+        elif action == emite_remito:
+            ventana = RemitoController()
+            ventana.view.exec_()
+        elif action == reimpresiones:
+            self.reimpresiones()
 
+    
+    def reimpresiones(self):
+        menu = QMenu(self.view)
+        reimprimeFacturaAction = menu.addAction(u"Reimprime factura")
+        reimprimeRemitoAction = menu.addAction(u"Reimprime remito")
+        menu.addAction(u"Volver")
+        
+        action = menu.exec_(QCursor.pos())
+        if action == reimprimeFacturaAction:
+            ventana = ReImprimeFacturaController()
+            ventana.exec_()
+        elif action == reimprimeRemitoAction:
+            ventana = ReImprimeRemitoController()
+            ventana.exec_()
+            
     def onClickBtnSeteo(self):
         menu = QMenu(self.view)
         emisionConfig = menu.addAction(u"Configuracion de inicio")
