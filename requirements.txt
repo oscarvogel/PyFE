@@ -3,7 +3,7 @@ altgraph==0.17.4
 certifi==2026.2.25
 cffi==2.0.0
 colorama==0.4.6
-cryptography==46.0.6
+cryptography==46.0.7
 dbf==0.99.11
 fpdf==1.7.2
 future==1.0.0
