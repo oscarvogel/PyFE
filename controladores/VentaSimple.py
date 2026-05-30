@@ -11,7 +11,7 @@ from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones
 from modelos.Articulos import Articulo
 from modelos.Clientes import Cliente
 from vistas.VentaSimple import VentaSimpleAltaArticuloDialog, VentaSimpleAltaClienteDialog, \
-    VentaSimpleCantidadPrecioDialog, VentaSimpleView
+    VentaSimpleCantidadPrecioDialog, VentaSimpleSeleccionClienteDialog, VentaSimpleView
 
 
 class VentaSimpleController(ControladorBase):
@@ -43,7 +43,7 @@ class VentaSimpleController(ControladorBase):
         if not busqueda or self.view.checkConsumidorFinal.isChecked() and busqueda == "Consumidor Final":
             return
 
-        cliente = self.buscar_cliente(busqueda)
+        cliente = self.resolver_cliente_desde_busqueda(busqueda)
         if not cliente:
             if not self.confirmar_alta("Venta", "Cliente no encontrado. Desea agregarlo?"):
                 return
@@ -103,13 +103,32 @@ class VentaSimpleController(ControladorBase):
             percepcion=1,
         )
 
+    def resolver_cliente_desde_busqueda(self, busqueda):
+        clientes = self.buscar_clientes(busqueda)
+        if not clientes:
+            return None
+        if len(clientes) == 1:
+            return clientes[0]
+        return self.seleccionar_cliente(clientes)
+
+    def seleccionar_cliente(self, clientes):
+        dialogo = VentaSimpleSeleccionClienteDialog(clientes)
+        dialogo.exec_()
+        if dialogo.result() != QDialog.Accepted:
+            return None
+        return dialogo.cliente
+
     def buscar_cliente(self, busqueda):
+        clientes = self.buscar_clientes(busqueda)
+        return clientes[0] if clientes else None
+
+    def buscar_clientes(self, busqueda):
         texto = str(busqueda).strip()
         posible_id = texto.split(" - ", 1)[0]
 
         if posible_id.isdigit():
             try:
-                return Cliente.get_by_id(posible_id)
+                return [Cliente.get_by_id(posible_id)]
             except Exception:
                 pass
 
@@ -117,10 +136,10 @@ class VentaSimpleController(ControladorBase):
         try:
             cliente = Cliente.select().where(Cliente.cuit == texto).first()
             if cliente:
-                return cliente
+                return [cliente]
             cliente = Cliente.select().where(fn.REPLACE(Cliente.cuit, "-", "") == cuit).first()
             if cliente:
-                return cliente
+                return [cliente]
         except Exception:
             pass
 
@@ -128,11 +147,11 @@ class VentaSimpleController(ControladorBase):
             try:
                 cliente = Cliente.select().where(Cliente.dni == int(texto)).first()
                 if cliente:
-                    return cliente
+                    return [cliente]
             except Exception:
                 pass
 
-        return Cliente.select().where(Cliente.nombre.contains(texto)).first()
+        return list(Cliente.select().where(Cliente.nombre.contains(texto)).order_by(Cliente.nombre))
 
     @inicializar_y_capturar_excepciones
     def agregar_articulo(self, *args, **kwargs):

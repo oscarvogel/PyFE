@@ -1,6 +1,6 @@
 # coding=utf-8
 from PyQt5.QtCore import QSize
-from PyQt5.QtWidgets import QCheckBox, QDialogButtonBox, QGridLayout, QHBoxLayout, QVBoxLayout
+from PyQt5.QtWidgets import QCheckBox, QDialogButtonBox, QGridLayout, QHBoxLayout, QListWidget, QVBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario
 from libs.EntradaTexto import EntradaTexto
@@ -143,6 +143,42 @@ class VentaSimpleAltaArticuloDialog(Formulario):
             "iva": self.textIva.text().strip(),
             "codbarra": self.textCodigoBarra.text().strip(),
         }
+
+
+class VentaSimpleSeleccionClienteDialog(Formulario):
+    def __init__(self, clientes):
+        Formulario.__init__(self)
+        self.clientes = list(clientes)
+        self.cliente = None
+        self.setupUi(self)
+
+    def setupUi(self, Form):
+        self.setWindowTitle("Seleccionar cliente")
+        self.resize(560, 320)
+
+        self.layoutPpal = QVBoxLayout(Form)
+        self.lblTitulo = EtiquetaTitulo(texto="Seleccionar cliente")
+        self.layoutPpal.addWidget(self.lblTitulo)
+
+        self.listaClientes = QListWidget()
+        for cliente in self.clientes:
+            documento = cliente.cuit if str(cliente.cuit).replace("-", "").strip("0") else str(cliente.dni or "")
+            self.listaClientes.addItem("{} - {} - {}".format(cliente.idcliente, cliente.nombre, documento))
+        if self.clientes:
+            self.listaClientes.setCurrentRow(0)
+        self.listaClientes.itemDoubleClicked.connect(self.accept)
+        self.layoutPpal.addWidget(self.listaClientes)
+
+        self.botones = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.botones.accepted.connect(self.accept)
+        self.botones.rejected.connect(self.reject)
+        self.layoutPpal.addWidget(self.botones)
+
+    def accept(self):
+        fila = self.listaClientes.currentRow()
+        if fila >= 0:
+            self.cliente = self.clientes[fila]
+        Formulario.accept(self)
 
 
 class VentaSimpleView(Formulario):

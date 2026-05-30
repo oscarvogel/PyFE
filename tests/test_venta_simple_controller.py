@@ -45,7 +45,7 @@ def test_carga_cliente_desde_busqueda(monkeypatch):
         dni = 0
 
     controller = VentaSimpleController()
-    monkeypatch.setattr(controller, "buscar_cliente", lambda busqueda: ClienteEncontrado())
+    monkeypatch.setattr(controller, "buscar_clientes", lambda busqueda: [ClienteEncontrado()])
     controller.view.textCliente.setText("duomo")
 
     controller.cargar_cliente_desde_busqueda()
@@ -54,6 +54,37 @@ def test_carga_cliente_desde_busqueda(monkeypatch):
     assert controller.view.checkConsumidorFinal.isChecked() is False
     assert controller.view.textCliente.text() == "7 - DUOMO"
     assert controller.view.textDocumento.text() == "20-12345678-9"
+    controller.view.Cerrar()
+
+
+def test_busqueda_cliente_con_multiples_coincidencias_obliga_a_elegir(monkeypatch):
+    monkeypatch.setattr(sys, "argv", [sys.argv[0]])
+    app = QApplication.instance() or QApplication([])
+
+    from controladores.VentaSimple import VentaSimpleController
+
+    class ClienteA:
+        idcliente = 10
+        nombre = "TRAID UNO"
+        cuit = "20-00000000-1"
+        dni = 0
+
+    class ClienteB:
+        idcliente = 11
+        nombre = "TRAID DOS"
+        cuit = "20-00000000-2"
+        dni = 0
+
+    controller = VentaSimpleController()
+    monkeypatch.setattr(controller, "buscar_clientes", lambda busqueda: [ClienteA(), ClienteB()])
+    monkeypatch.setattr(controller, "seleccionar_cliente", lambda clientes: clientes[1])
+    controller.view.textCliente.setText("traid")
+
+    controller.cargar_cliente_desde_busqueda()
+
+    assert controller.cliente.idcliente == 11
+    assert controller.view.textCliente.text() == "11 - TRAID DOS"
+    assert controller.view.textDocumento.text() == "20-00000000-2"
     controller.view.Cerrar()
 
 
