@@ -34,6 +34,7 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
+*.log
 
 # Unit test / coverage reports
 htmlcov/
@@ -52,7 +53,6 @@ coverage.xml
 *.pot
 
 # Django stuff:
-*.log
 local_settings.py
 db.sqlite3
 
@@ -111,7 +111,22 @@ venv.bak/
 
 /certificados/*.crt
 /certificados/*.key
+/certificados/*.csr
+/certificados/**/*.crt
+/certificados/**/*.key
+/certificados/**/*.csr
+/certificados/**/*.pem
+/certificados/**/*.p12
+/certificados/**/*.pfx
+/certificados/**/clave_privada*
+/certificados/**/pedido_cert_*
+/certificados/**/privada*
+/certificados/sito/
 *.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
 *.xml
 /facturas
 /excel
@@ -122,3 +137,8 @@ venv.bak/
 
 *.wheels
 *.whl
+*.zip
+Thumbs.db
+*.bak
+* copy.ini
+* copia.ini

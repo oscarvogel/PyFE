@@ -2,6 +2,7 @@
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1
 from libs import Ventanas
+from libs.Utiles import inicializar_y_capturar_excepciones
 from vistas.ConsultaCAE import ConsultaCAEView
 
 
@@ -16,7 +17,8 @@ class ConsultaCAEController(ControladorBase):
         self.view.btnCerrar.clicked.connect(self.view.cerrarformulario)
         self.view.btnConsultar.clicked.connect(self.ConsultaCAE)
 
-    def ConsultaCAE(self):
+    @inicializar_y_capturar_excepciones
+    def ConsultaCAE(self, *args, **kwargs):
         fe = FEv1()
         # tipocbte = [k for (k, v) in self.view.cboTipoComp.valores.iteritems() if v == self.view.cboTipoComp.text()][0]
         tipocbte = self.view.cboTipoComp.text()
