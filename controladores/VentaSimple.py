@@ -1,17 +1,21 @@
 # coding=utf-8
 from decimal import Decimal
 
+from peewee import fn
+
 from controladores.ControladorBase import ControladorBase
 from controladores.venta_simple_totales import RenglonVenta, calcular_totales
 from libs import Ventanas
 from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones
 from modelos.Articulos import Articulo
+from modelos.Clientes import Cliente
 from vistas.VentaSimple import VentaSimpleView
 
 
 class VentaSimpleController(ControladorBase):
     def __init__(self):
         super(VentaSimpleController, self).__init__()
+        self.cliente = None
         self.view = VentaSimpleView()
         self.conectarWidgets()
 
@@ -22,6 +26,62 @@ class VentaSimpleController(ControladorBase):
         self.view.btnBorrar.clicked.connect(self.borrar_renglon)
         self.view.textArticulo.returnPressed.connect(self.agregar_articulo)
         self.view.textCantidad.returnPressed.connect(self.agregar_articulo)
+        self.view.textCliente.returnPressed.connect(self.cargar_cliente_desde_busqueda)
+        self.view.textCliente.editingFinished.connect(self.cargar_cliente_desde_busqueda)
+        self.view.checkConsumidorFinal.stateChanged.connect(self.on_consumidor_final_changed)
+
+    def on_consumidor_final_changed(self):
+        if self.view.checkConsumidorFinal.isChecked():
+            self.cliente = None
+            self.view.textCliente.setText("")
+            self.view.textDocumento.setText("")
+
+    def cargar_cliente_desde_busqueda(self):
+        busqueda = self.view.textCliente.text().strip()
+        if not busqueda or self.view.checkConsumidorFinal.isChecked() and busqueda == "Consumidor Final":
+            return
+
+        cliente = self.buscar_cliente(busqueda)
+        if not cliente:
+            Ventanas.showAlert("Venta", "Cliente no encontrado")
+            return
+
+        self.cliente = cliente
+        self.view.checkConsumidorFinal.setChecked(False)
+        self.view.textCliente.setText("{} - {}".format(cliente.idcliente, cliente.nombre))
+        documento = cliente.cuit if str(cliente.cuit).replace("-", "").strip("0") else str(cliente.dni or "")
+        self.view.textDocumento.setText(documento)
+
+    def buscar_cliente(self, busqueda):
+        texto = str(busqueda).strip()
+        posible_id = texto.split(" - ", 1)[0]
+
+        if posible_id.isdigit():
+            try:
+                return Cliente.get_by_id(posible_id)
+            except Exception:
+                pass
+
+        cuit = texto.replace("-", "").replace(" ", "")
+        try:
+            cliente = Cliente.select().where(Cliente.cuit == texto).first()
+            if cliente:
+                return cliente
+            cliente = Cliente.select().where(fn.REPLACE(Cliente.cuit, "-", "") == cuit).first()
+            if cliente:
+                return cliente
+        except Exception:
+            pass
+
+        if texto.isdigit():
+            try:
+                cliente = Cliente.select().where(Cliente.dni == int(texto)).first()
+                if cliente:
+                    return cliente
+            except Exception:
+                pass
+
+        return Cliente.select().where(Cliente.nombre.contains(texto)).first()
 
     @inicializar_y_capturar_excepciones
     def agregar_articulo(self, *args, **kwargs):
@@ -108,7 +168,12 @@ class VentaSimpleController(ControladorBase):
         factura = FacturaController()
         cliente_id = None
         if not self.view.checkConsumidorFinal.isChecked():
-            cliente_id = self.view.textCliente.text().strip()
+            if not self.cliente:
+                self.cargar_cliente_desde_busqueda()
+            if not self.cliente:
+                Ventanas.showAlert("Venta", "Seleccione un cliente valido")
+                return
+            cliente_id = self.cliente.idcliente
 
         factura.cargar_venta_simple(
             cliente_id=cliente_id,
