@@ -16,7 +16,7 @@ class VentaSimpleController(ControladorBase):
         self.conectarWidgets()
 
     def conectarWidgets(self):
-        self.view.btnCerrar.clicked.connect(self.view.cerrarformulario)
+        self.view.btnCerrar.clicked.connect(self.view.Cerrar)
         self.view.btnAgregar.clicked.connect(self.agregar_articulo)
         self.view.btnEmitir.clicked.connect(self.emitir_factura)
         self.view.btnBorrar.clicked.connect(self.borrar_renglon)
