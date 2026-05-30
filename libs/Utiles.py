@@ -51,7 +51,7 @@ from cryptography.fernet import Fernet
 from os.path import join
 from sys import argv
 
-from libs import Ventanas, Constantes
+from libs import Constantes
 
 
 #necesario porque en mysql tengo definido el campo boolean como bit
@@ -179,6 +179,7 @@ def inicializar_y_capturar_excepciones(func):
             self.Excepcion = traceback.format_exception_only( sys.exc_info()[0], sys.exc_info()[1])[0]
             logging.debug(self.Traceback)
             if LeerIni('debug') == 'N':
+                from libs import Ventanas
                 Ventanas.showAlert("Error", "Se ha producido un error \n{}".format(self.Excepcion))
                 pyemail = PyEmail()
                 remitente = 'fe@servinlgsm.com.ar'
