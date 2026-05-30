@@ -1,6 +1,6 @@
 # coding=utf-8
 from PyQt5.QtCore import QSize
-from PyQt5.QtWidgets import QCheckBox, QGridLayout, QHBoxLayout, QVBoxLayout
+from PyQt5.QtWidgets import QCheckBox, QDialogButtonBox, QGridLayout, QHBoxLayout, QVBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario
 from libs.EntradaTexto import EntradaTexto
@@ -10,6 +10,44 @@ from libs.Grillas import Grilla
 from libs.GroupBox import Agrupacion
 from libs.Utiles import imagen
 from modelos.Formaspago import ComboFormapago
+
+
+class VentaSimpleCantidadPrecioDialog(Formulario):
+    def __init__(self, articulo, cantidad, precio):
+        Formulario.__init__(self)
+        self.articulo = articulo
+        self.setupUi(self)
+        self.textCantidad.setText(str(cantidad))
+        self.textPrecio.setText(str(precio))
+
+    def setupUi(self, Form):
+        self.setWindowTitle("Cantidad y precio")
+        self.resize(420, 160)
+
+        self.layoutPpal = QVBoxLayout(Form)
+        self.lblTitulo = EtiquetaTitulo(texto=self.articulo.nombre)
+        self.layoutPpal.addWidget(self.lblTitulo)
+
+        self.layoutDatos = QGridLayout()
+        self.textCantidad = EntradaTexto(placeholderText="Cantidad")
+        self.textPrecio = EntradaTexto(placeholderText="Precio")
+        self.layoutDatos.addWidget(Etiqueta(texto="Cantidad"), 0, 0)
+        self.layoutDatos.addWidget(self.textCantidad, 0, 1)
+        self.layoutDatos.addWidget(Etiqueta(texto="Precio"), 1, 0)
+        self.layoutDatos.addWidget(self.textPrecio, 1, 1)
+        self.layoutPpal.addLayout(self.layoutDatos)
+
+        self.botones = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.botones.accepted.connect(self.accept)
+        self.botones.rejected.connect(self.reject)
+        self.layoutPpal.addWidget(self.botones)
+
+        self.textCantidad.proximoWidget = self.textPrecio
+        self.textCantidad.returnPressed.connect(self.textPrecio.setFocus)
+        self.textPrecio.returnPressed.connect(self.accept)
+
+    def valores(self):
+        return self.textCantidad.text(), self.textPrecio.text()
 
 
 class VentaSimpleView(Formulario):
@@ -72,7 +110,7 @@ class VentaSimpleView(Formulario):
         self.layoutBotones = QHBoxLayout()
         self.btnEmitir = Boton(texto="Emitir factura", imagen=imagen("save.png"), autodefault=False)
         self.btnPresupuesto = Boton(texto="Guardar presupuesto", imagen=imagen("new.png"), autodefault=False)
-        self.btnBorrar = Boton(texto="Borrar renglon", imagen=imagen("delete.png"), tamanio=QSize(16, 16), autodefault=False)
+        self.btnBorrar = Boton(texto="Borrar renglon", imagen=imagen("delete.png"), tamanio=QSize(32, 32), autodefault=False)
         self.btnCerrar = BotonCerrarFormulario(autodefault=False)
         self.layoutBotones.addWidget(self.btnEmitir)
         self.layoutBotones.addWidget(self.btnPresupuesto)

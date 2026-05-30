@@ -2,6 +2,7 @@
 from decimal import Decimal
 
 from peewee import fn
+from PyQt5.QtWidgets import QDialog
 
 from controladores.ControladorBase import ControladorBase
 from controladores.venta_simple_totales import RenglonVenta, calcular_totales
@@ -9,7 +10,7 @@ from libs import Ventanas
 from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones
 from modelos.Articulos import Articulo
 from modelos.Clientes import Cliente
-from vistas.VentaSimple import VentaSimpleView
+from vistas.VentaSimple import VentaSimpleCantidadPrecioDialog, VentaSimpleView
 
 
 class VentaSimpleController(ControladorBase):
@@ -105,7 +106,11 @@ class VentaSimpleController(ControladorBase):
             Ventanas.showAlert("Venta", "La cantidad debe ser mayor a cero")
             return
 
-        precio = Decimal(str(articulo.preciopub))
+        datos_renglon = self.solicitar_cantidad_y_precio(articulo, cantidad)
+        if not datos_renglon:
+            return
+
+        cantidad, precio = datos_renglon
         iva = Decimal(str(articulo.tipoiva.iva))
         subtotal = cantidad * precio
 
@@ -120,6 +125,33 @@ class VentaSimpleController(ControladorBase):
         self.view.textArticulo.setText("")
         self.view.textCantidad.setText("1")
         self.recalcular_total()
+
+    def solicitar_cantidad_y_precio(self, articulo, cantidad):
+        dialogo = VentaSimpleCantidadPrecioDialog(
+            articulo=articulo,
+            cantidad=cantidad,
+            precio=Decimal(str(articulo.preciopub)),
+        )
+        dialogo.exec_()
+        if dialogo.result() != QDialog.Accepted:
+            return None
+
+        cantidad_texto, precio_texto = dialogo.valores()
+        try:
+            cantidad = Decimal(cantidad_texto or "1")
+            precio = Decimal(precio_texto or "0")
+        except Exception:
+            Ventanas.showAlert("Venta", "Cantidad y precio deben ser numericos")
+            return None
+
+        if cantidad <= 0:
+            Ventanas.showAlert("Venta", "La cantidad debe ser mayor a cero")
+            return None
+        if precio < 0:
+            Ventanas.showAlert("Venta", "El precio no puede ser negativo")
+            return None
+
+        return cantidad, precio
 
     def buscar_articulo(self, busqueda):
         try:

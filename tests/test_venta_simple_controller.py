@@ -1,5 +1,6 @@
 import os
 import sys
+from decimal import Decimal
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -40,4 +41,79 @@ def test_carga_cliente_desde_busqueda(monkeypatch):
     assert controller.view.checkConsumidorFinal.isChecked() is False
     assert controller.view.textCliente.text() == "7 - DUOMO"
     assert controller.view.textDocumento.text() == "20-12345678-9"
+    controller.view.Cerrar()
+
+
+def test_agregar_articulo_pide_cantidad_y_precio(monkeypatch):
+    monkeypatch.setattr(sys, "argv", [sys.argv[0]])
+    app = QApplication.instance() or QApplication([])
+
+    from controladores.VentaSimple import VentaSimpleController
+
+    class TipoIva:
+        iva = Decimal("21")
+
+    class ArticuloEncontrado:
+        idarticulo = 11
+        nombre = "Articulo modal"
+        preciopub = Decimal("100.00")
+        tipoiva = TipoIva()
+
+    controller = VentaSimpleController()
+    monkeypatch.setattr(controller, "buscar_articulo", lambda busqueda: ArticuloEncontrado())
+    monkeypatch.setattr(
+        controller,
+        "solicitar_cantidad_y_precio",
+        lambda articulo, cantidad: (Decimal("3"), Decimal("150.00")),
+    )
+    controller.view.textArticulo.setText("articulo modal")
+    controller.view.textCantidad.setText("2")
+
+    controller.agregar_articulo()
+
+    assert controller.view.gridVenta.ObtenerItem(fila=0, col="Cant.") == "3"
+    assert controller.view.gridVenta.ObtenerItem(fila=0, col="Unitario") == "150.00"
+    assert controller.view.gridVenta.ObtenerItem(fila=0, col="SubTotal") == "450.00"
+    assert controller.view.textTotal.text() == "450.00"
+    controller.view.Cerrar()
+
+
+def test_solicitar_cantidad_y_precio_acepta_dialogo_formulario(monkeypatch):
+    monkeypatch.setattr(sys, "argv", [sys.argv[0]])
+    app = QApplication.instance() or QApplication([])
+
+    import controladores.VentaSimple as venta_simple
+    from controladores.VentaSimple import VentaSimpleController
+
+    class TipoIva:
+        iva = Decimal("21")
+
+    class ArticuloEncontrado:
+        idarticulo = 11
+        nombre = "Articulo modal"
+        preciopub = Decimal("100.00")
+        tipoiva = TipoIva()
+
+    class DialogoAceptado:
+        def __init__(self, articulo, cantidad, precio):
+            self.articulo = articulo
+            self.cantidad = cantidad
+            self.precio = precio
+
+        def exec_(self):
+            return None
+
+        def result(self):
+            return 1
+
+        def valores(self):
+            return "4", "125.50"
+
+    controller = VentaSimpleController()
+    monkeypatch.setattr(venta_simple, "VentaSimpleCantidadPrecioDialog", DialogoAceptado)
+
+    cantidad, precio = controller.solicitar_cantidad_y_precio(ArticuloEncontrado(), Decimal("2"))
+
+    assert cantidad == Decimal("4")
+    assert precio == Decimal("125.50")
     controller.view.Cerrar()
