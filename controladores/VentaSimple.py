@@ -19,6 +19,9 @@ class VentaSimpleController(ControladorBase):
         self.view.btnCerrar.clicked.connect(self.view.cerrarformulario)
         self.view.btnAgregar.clicked.connect(self.agregar_articulo)
         self.view.btnEmitir.clicked.connect(self.emitir_factura)
+        self.view.btnBorrar.clicked.connect(self.borrar_renglon)
+        self.view.textArticulo.returnPressed.connect(self.agregar_articulo)
+        self.view.textCantidad.returnPressed.connect(self.agregar_articulo)
 
     @inicializar_y_capturar_excepciones
     def agregar_articulo(self, *args, **kwargs):
@@ -32,7 +35,16 @@ class VentaSimpleController(ControladorBase):
             Ventanas.showAlert("Venta", "Producto no encontrado")
             return
 
-        cantidad = Decimal(self.view.textCantidad.text() or "1")
+        try:
+            cantidad = Decimal(self.view.textCantidad.text() or "1")
+        except Exception:
+            Ventanas.showAlert("Venta", "La cantidad debe ser numerica")
+            return
+
+        if cantidad <= 0:
+            Ventanas.showAlert("Venta", "La cantidad debe ser mayor a cero")
+            return
+
         precio = Decimal(str(articulo.preciopub))
         iva = Decimal(str(articulo.tipoiva.iva))
         subtotal = cantidad * precio
@@ -78,6 +90,12 @@ class VentaSimpleController(ControladorBase):
         responsable_inscripto = int(LeerIni(clave="cat_iva", key="WSFEv1")) == 1
         totales = calcular_totales(self.obtener_renglones(), responsable_inscripto)
         self.view.textTotal.setText(str(totales.total))
+
+    def borrar_renglon(self):
+        fila = self.view.gridVenta.currentRow()
+        if fila >= 0:
+            self.view.gridVenta.removeRow(fila)
+            self.recalcular_total()
 
     def emitir_factura(self):
         renglones = self.obtener_renglones()
