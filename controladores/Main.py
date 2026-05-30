@@ -92,9 +92,9 @@ class Main(ControladorBase):
         self.view.btnClientes.clicked.connect(self.onClickBtnCliente)
         self.view.btnArticulo.clicked.connect(self.onClickBtnArticulo)
         self.view.btnFactura.clicked.connect(self.onClickBtnFactura)
+        self.view.btnCuentas.clicked.connect(self.onClickBtnCuentas)
+        self.view.btnReportes.clicked.connect(self.onClickBtnReportes)
         self.view.btnSeteo.clicked.connect(self.onClickBtnSeteo)
-        self.view.btnAFIP.clicked.connect(self.onClickBtnAFIP)
-        self.view.btnCompras.clicked.connect(self.onClickBtnCompras)
 
     def SalirSistema(self):
         QApplication.exit(1)
@@ -191,6 +191,24 @@ class Main(ControladorBase):
             ventana.view.exec_()
         elif action == reimpresiones:
             self.reimpresiones()
+
+    def onClickBtnCuentas(self):
+        consulta = ConsultaCtaCteController()
+        consulta.exec_()
+
+    def onClickBtnReportes(self):
+        menu = QMenu(self.view)
+        ivaventasAction = menu.addAction(u"IVA Ventas")
+        informeGrupoAction = menu.addAction(u"Informe de ventas por grupo")
+        menu.addAction(u"Volver")
+        action = menu.exec_(QCursor.pos())
+
+        if action == ivaventasAction:
+            ventana = IVAVentasController()
+            ventana.exec_()
+        elif action == informeGrupoAction:
+            controlador = InformeVentasPorGrupoController()
+            controlador.view.exec_()
 
     
     def reimpresiones(self):
