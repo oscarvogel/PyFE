@@ -260,6 +260,31 @@ class FacturaController(ControladorBase):
         self.view.lineEditTotalIVA.setText(str(round(ivagral, self.decimales)))
         self.view.lineEditTotal.setText(str(round(totalgral + ivagral + dgrgral, 2)))
 
+    def cargar_venta_simple(self, cliente_id=None, renglones=None, forma_pago_id=None):
+        if cliente_id:
+            self.view.validaCliente.setText(str(cliente_id))
+            self.CargaDatosCliente()
+
+        if forma_pago_id:
+            indice = self.view.cboFormaPago.findData(str(forma_pago_id))
+            if indice >= 0:
+                self.view.cboFormaPago.setCurrentIndex(indice)
+            else:
+                self.view.cboFormaPago.setText(str(forma_pago_id))
+
+        self.view.gridFactura.setRowCount(0)
+        for renglon in renglones or []:
+            self.view.gridFactura.AgregaItem(items=[
+                str(renglon.cantidad),
+                str(renglon.codigo),
+                renglon.detalle,
+                str(renglon.precio_unitario),
+                str(renglon.iva),
+                str(renglon.cantidad * renglon.precio_unitario),
+            ])
+
+        self.SumaTodo()
+
     def GrabaFactura(self):
         if not self.Validacion():
             return

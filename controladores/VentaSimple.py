@@ -80,4 +80,21 @@ class VentaSimpleController(ControladorBase):
         self.view.textTotal.setText(str(totales.total))
 
     def emitir_factura(self):
-        Ventanas.showAlert("Venta", "La emision desde venta simple se conecta en la siguiente tarea")
+        renglones = self.obtener_renglones()
+        if not renglones:
+            Ventanas.showAlert("Venta", "Agregue al menos un producto")
+            return
+
+        from controladores.Facturas import FacturaController
+
+        factura = FacturaController()
+        cliente_id = None
+        if not self.view.checkConsumidorFinal.isChecked():
+            cliente_id = self.view.textCliente.text().strip()
+
+        factura.cargar_venta_simple(
+            cliente_id=cliente_id,
+            renglones=renglones,
+            forma_pago_id=self.view.cboFormaPago.text(),
+        )
+        factura.exec_()
