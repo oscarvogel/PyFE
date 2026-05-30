@@ -21,6 +21,9 @@ class MainView(VistaBase):
         self.groupBoxBotones = Agrupacion()
         self.layoutBotones = QHBoxLayout()
 
+        self.btnVentaSimple = BotonMain(texto='&Nueva venta', imagen='imagenes/if_bill_416404.png')
+        self.layoutBotones.addWidget(self.btnVentaSimple)
+
         self.btnClientes = BotonMain(texto='&Clientes', imagen='imagenes/if_kuser_1400.png')
         self.layoutBotones.addWidget(self.btnClientes)
 

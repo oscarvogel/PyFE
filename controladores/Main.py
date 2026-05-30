@@ -44,6 +44,7 @@ from controladores.Remitos import RemitoController
 from controladores.RindeCAEAIndividual import RindeCAEAIndividualController
 from controladores.TipoComprobantes import TipoComprobantesController
 from controladores.Resguardo import ResguardoController
+from controladores.VentaSimple import VentaSimpleController
 from libs import Ventanas
 from libs.Utiles import LeerIni, GrabarIni, FechaMysql, inicializar_y_capturar_excepciones, desencriptar
 from modelos.Clientes import FichaCliente
@@ -87,6 +88,7 @@ class Main(ControladorBase):
 
     def conectarWidgets(self):
         self.view.btnSalir.clicked.connect(self.SalirSistema)
+        self.view.btnVentaSimple.clicked.connect(self.onClickBtnVentaSimple)
         self.view.btnClientes.clicked.connect(self.onClickBtnCliente)
         self.view.btnArticulo.clicked.connect(self.onClickBtnArticulo)
         self.view.btnFactura.clicked.connect(self.onClickBtnFactura)
@@ -96,6 +98,10 @@ class Main(ControladorBase):
 
     def SalirSistema(self):
         QApplication.exit(1)
+
+    def onClickBtnVentaSimple(self):
+        venta = VentaSimpleController()
+        venta.exec_()
 
     def onClickBtnCliente(self):
         menu = QMenu(self.view)
@@ -317,4 +323,3 @@ class Main(ControladorBase):
         animacion_caja.start()
         # self.view.
         self.animacion_caja = animacion_caja
-
