@@ -2,7 +2,7 @@
 from decimal import Decimal
 
 from peewee import fn
-from PyQt5.QtWidgets import QDialog
+from PyQt5.QtWidgets import QDialog, QMessageBox
 
 from controladores.ControladorBase import ControladorBase
 from controladores.venta_simple_totales import RenglonVenta, calcular_totales
@@ -10,7 +10,8 @@ from libs import Ventanas
 from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones
 from modelos.Articulos import Articulo
 from modelos.Clientes import Cliente
-from vistas.VentaSimple import VentaSimpleCantidadPrecioDialog, VentaSimpleView
+from vistas.VentaSimple import VentaSimpleAltaArticuloDialog, VentaSimpleAltaClienteDialog, \
+    VentaSimpleCantidadPrecioDialog, VentaSimpleView
 
 
 class VentaSimpleController(ControladorBase):
@@ -44,14 +45,63 @@ class VentaSimpleController(ControladorBase):
 
         cliente = self.buscar_cliente(busqueda)
         if not cliente:
-            Ventanas.showAlert("Venta", "Cliente no encontrado")
-            return
+            if not self.confirmar_alta("Venta", "Cliente no encontrado. Desea agregarlo?"):
+                return
+            cliente = self.solicitar_alta_cliente(busqueda)
+            if not cliente:
+                return
 
+        self.cargar_cliente_en_vista(cliente)
+
+    def confirmar_alta(self, titulo, mensaje):
+        respuesta = QMessageBox.question(
+            self.view,
+            titulo,
+            mensaje,
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        return respuesta == QMessageBox.Yes
+
+    def cargar_cliente_en_vista(self, cliente):
         self.cliente = cliente
         self.view.checkConsumidorFinal.setChecked(False)
         self.view.textCliente.setText("{} - {}".format(cliente.idcliente, cliente.nombre))
         documento = cliente.cuit if str(cliente.cuit).replace("-", "").strip("0") else str(cliente.dni or "")
         self.view.textDocumento.setText(documento)
+
+    def solicitar_alta_cliente(self, busqueda):
+        dialogo = VentaSimpleAltaClienteDialog(busqueda)
+        dialogo.exec_()
+        if dialogo.result() != QDialog.Accepted:
+            return None
+
+        datos = dialogo.valores()
+        nombre = datos["nombre"]
+        if not nombre:
+            Ventanas.showAlert("Venta", "Ingrese el nombre del cliente")
+            return None
+
+        documento = datos["documento"].replace("-", "").replace(" ", "")
+        cuit = ""
+        dni = 0
+        if documento:
+            if len(documento) == 11:
+                cuit = datos["documento"]
+            elif documento.isdigit():
+                dni = int(documento)
+
+        return Cliente.create(
+            nombre=nombre,
+            domicilio=datos["domicilio"],
+            localidad=1,
+            cuit=cuit,
+            dni=dni,
+            tipodocu=0,
+            tiporesp=3,
+            formapago=1,
+            percepcion=1,
+        )
 
     def buscar_cliente(self, busqueda):
         texto = str(busqueda).strip()
@@ -93,8 +143,11 @@ class VentaSimpleController(ControladorBase):
 
         articulo = self.buscar_articulo(busqueda)
         if not articulo:
-            Ventanas.showAlert("Venta", "Producto no encontrado")
-            return
+            if not self.confirmar_alta("Venta", "Producto no encontrado. Desea agregarlo?"):
+                return
+            articulo = self.solicitar_alta_articulo(busqueda)
+            if not articulo:
+                return
 
         try:
             cantidad = Decimal(self.view.textCantidad.text() or "1")
@@ -152,6 +205,39 @@ class VentaSimpleController(ControladorBase):
             return None
 
         return cantidad, precio
+
+    def solicitar_alta_articulo(self, busqueda):
+        dialogo = VentaSimpleAltaArticuloDialog(busqueda)
+        dialogo.exec_()
+        if dialogo.result() != QDialog.Accepted:
+            return None
+
+        datos = dialogo.valores()
+        nombre = datos["nombre"]
+        if not nombre:
+            Ventanas.showAlert("Venta", "Ingrese el nombre del articulo")
+            return None
+
+        try:
+            precio = Decimal(datos["precio"] or "0")
+            iva = Decimal(datos["iva"] or "21")
+        except Exception:
+            Ventanas.showAlert("Venta", "Precio e IVA deben ser numericos")
+            return None
+
+        if precio < 0:
+            Ventanas.showAlert("Venta", "El precio no puede ser negativo")
+            return None
+
+        tipoiva = "01" if iva == Decimal("21") else "01"
+        return Articulo.create(
+            nombre=nombre,
+            nombreticket=nombre[:30],
+            preciopub=precio,
+            costo=precio,
+            tipoiva=tipoiva,
+            codbarra=datos["codbarra"],
+        )
 
     def buscar_articulo(self, busqueda):
         try:

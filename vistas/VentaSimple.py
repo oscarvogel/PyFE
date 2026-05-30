@@ -50,6 +50,101 @@ class VentaSimpleCantidadPrecioDialog(Formulario):
         return self.textCantidad.text(), self.textPrecio.text()
 
 
+class VentaSimpleAltaClienteDialog(Formulario):
+    def __init__(self, busqueda):
+        Formulario.__init__(self)
+        self.busqueda = busqueda
+        self.setupUi(self)
+        self.textNombre.setText(busqueda)
+
+    def setupUi(self, Form):
+        self.setWindowTitle("Agregar cliente")
+        self.resize(520, 220)
+
+        self.layoutPpal = QVBoxLayout(Form)
+        self.lblTitulo = EtiquetaTitulo(texto="Agregar cliente")
+        self.layoutPpal.addWidget(self.lblTitulo)
+
+        self.layoutDatos = QGridLayout()
+        self.textNombre = EntradaTexto(placeholderText="Nombre")
+        self.textDocumento = EntradaTexto(placeholderText="CUIT/DNI")
+        self.textDomicilio = EntradaTexto(placeholderText="Domicilio")
+        self.layoutDatos.addWidget(Etiqueta(texto="Nombre"), 0, 0)
+        self.layoutDatos.addWidget(self.textNombre, 0, 1)
+        self.layoutDatos.addWidget(Etiqueta(texto="CUIT/DNI"), 1, 0)
+        self.layoutDatos.addWidget(self.textDocumento, 1, 1)
+        self.layoutDatos.addWidget(Etiqueta(texto="Domicilio"), 2, 0)
+        self.layoutDatos.addWidget(self.textDomicilio, 2, 1)
+        self.layoutPpal.addLayout(self.layoutDatos)
+
+        self.botones = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.botones.accepted.connect(self.accept)
+        self.botones.rejected.connect(self.reject)
+        self.layoutPpal.addWidget(self.botones)
+
+        self.textNombre.proximoWidget = self.textDocumento
+        self.textDocumento.proximoWidget = self.textDomicilio
+        self.textDomicilio.returnPressed.connect(self.accept)
+
+    def valores(self):
+        return {
+            "nombre": self.textNombre.text().strip(),
+            "documento": self.textDocumento.text().strip(),
+            "domicilio": self.textDomicilio.text().strip(),
+        }
+
+
+class VentaSimpleAltaArticuloDialog(Formulario):
+    def __init__(self, busqueda):
+        Formulario.__init__(self)
+        self.busqueda = busqueda
+        self.setupUi(self)
+        self.textNombre.setText(busqueda)
+
+    def setupUi(self, Form):
+        self.setWindowTitle("Agregar articulo")
+        self.resize(520, 220)
+
+        self.layoutPpal = QVBoxLayout(Form)
+        self.lblTitulo = EtiquetaTitulo(texto="Agregar articulo")
+        self.layoutPpal.addWidget(self.lblTitulo)
+
+        self.layoutDatos = QGridLayout()
+        self.textNombre = EntradaTexto(placeholderText="Nombre")
+        self.textPrecio = EntradaTexto(placeholderText="Precio")
+        self.textIva = EntradaTexto(placeholderText="IVA")
+        self.textCodigoBarra = EntradaTexto(placeholderText="Codigo de barras")
+        self.textPrecio.setText("0.00")
+        self.textIva.setText("21")
+        self.layoutDatos.addWidget(Etiqueta(texto="Nombre"), 0, 0)
+        self.layoutDatos.addWidget(self.textNombre, 0, 1)
+        self.layoutDatos.addWidget(Etiqueta(texto="Precio"), 1, 0)
+        self.layoutDatos.addWidget(self.textPrecio, 1, 1)
+        self.layoutDatos.addWidget(Etiqueta(texto="IVA"), 2, 0)
+        self.layoutDatos.addWidget(self.textIva, 2, 1)
+        self.layoutDatos.addWidget(Etiqueta(texto="Codigo barras"), 3, 0)
+        self.layoutDatos.addWidget(self.textCodigoBarra, 3, 1)
+        self.layoutPpal.addLayout(self.layoutDatos)
+
+        self.botones = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.botones.accepted.connect(self.accept)
+        self.botones.rejected.connect(self.reject)
+        self.layoutPpal.addWidget(self.botones)
+
+        self.textNombre.proximoWidget = self.textPrecio
+        self.textPrecio.proximoWidget = self.textIva
+        self.textIva.proximoWidget = self.textCodigoBarra
+        self.textCodigoBarra.returnPressed.connect(self.accept)
+
+    def valores(self):
+        return {
+            "nombre": self.textNombre.text().strip(),
+            "precio": self.textPrecio.text().strip(),
+            "iva": self.textIva.text().strip(),
+            "codbarra": self.textCodigoBarra.text().strip(),
+        }
+
+
 class VentaSimpleView(Formulario):
     def __init__(self):
         Formulario.__init__(self)
