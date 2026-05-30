@@ -99,6 +99,7 @@ class VentaSimpleView(Formulario):
 
         self.layoutTotales = QHBoxLayout()
         self.cboFormaPago = ComboFormapago()
+        self.cboFormaPago.setCurrentIndex(self.cboFormaPago.findData("1"))
         self.textTotal = EntradaTexto(tamanio=16, enabled=False)
         self.textTotal.setText("0.00")
         self.layoutTotales.addWidget(Etiqueta(texto="Forma de pago"))

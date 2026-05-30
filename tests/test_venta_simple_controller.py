@@ -19,6 +19,19 @@ def test_venta_simple_controller_se_puede_construir(monkeypatch):
     controller.view.Cerrar()
 
 
+def test_venta_simple_inicia_con_forma_pago_efectivo(monkeypatch):
+    monkeypatch.setattr(sys, "argv", [sys.argv[0]])
+    app = QApplication.instance() or QApplication([])
+
+    from controladores.VentaSimple import VentaSimpleController
+
+    controller = VentaSimpleController()
+
+    assert controller.view.cboFormaPago.text() == "1"
+    assert controller.view.cboFormaPago.currentText().strip().upper() == "EFECTIVO"
+    controller.view.Cerrar()
+
+
 def test_carga_cliente_desde_busqueda(monkeypatch):
     monkeypatch.setattr(sys, "argv", [sys.argv[0]])
     app = QApplication.instance() or QApplication([])
