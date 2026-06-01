@@ -9,6 +9,7 @@ from os.path import join
 from controladores.ControladorBase import ControladorBase
 from controladores.FCE import WsFECred
 from controladores.FE import FEv1, PyQRv1
+from controladores.FacturaBranding import aplicar_marca_factura, cargar_config_marca_factura, obtener_formato_factura
 from libs import Ventanas, Constantes
 from libs.Utiles import LeerIni, validar_cuit, FechaMysql, ubicacion_sistema, inicializar_y_capturar_excepciones, \
     DeCodifica, imagen, getFileName, FormatoFecha
@@ -711,7 +712,10 @@ class FacturaController(ControladorBase):
             #Cargo el formato desde el archivo CSV(opcional)
             #(carga todos los campos a utilizar desde la planilla)
             # ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura.csv")
-            ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura_qr.csv")
+            config_marca = cargar_config_marca_factura()
+            formato = obtener_formato_factura(os.getcwd(), config_marca, "plantillas/factura_qr.csv")
+            ok = pyfpdf.CargarFormato(str(formato))
+            aplicar_marca_factura(pyfpdf, os.getcwd(), config_marca)
         #Creo plantilla para esta factura(papel A4vertical):
 
         if LeerIni(clave='homo') == 'S':

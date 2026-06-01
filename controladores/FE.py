@@ -21,6 +21,17 @@ from pyafipws.wsfev1 import WSFEv1
 CERT = "certificados/homologacion.crt"        # El certificado X.509 obtenido de Seg. Inf.
 PRIVATEKEY = "certificados/homologacion.key"  # La clave privada del certificado CERT
 
+
+def obtener_cacert(seccion="WSAA"):
+    cacert = LeerIni(clave='cacert', key=seccion)
+    return cacert.strip() if cacert and cacert.strip() else None
+
+
+def archivo_ticket_acceso(service):
+    modo = "homo" if LeerIni(clave='homo') == 'S' else "prod"
+    return os.path.join(ubicacion_sistema(), "{}-{}-ta.xml".format(service, modo))
+
+
 try:
     from M2Crypto import BIO, Rand, SMIME, SSL
 except ImportError:
@@ -89,7 +100,7 @@ class FEv1(WSFEv1):
         else:
             service = 'wsfe'
         wsaa = FEWSAA()
-        archivo = ubicacion_sistema() + service + '-ta.xml'
+        archivo = archivo_ticket_acceso(service)
         try:
             file = open(archivo, "r")
             ta = file.read()
@@ -113,17 +124,18 @@ class FEv1(WSFEv1):
             if LeerIni(clave='homo') == 'S':#homologacion
                 cms = wsaa.SignTRA(tra, abspath(LeerIni(clave="cert_homo", key="WSAA")),
                                abspath(LeerIni(clave="privatekey_homo", key="WSAA")))
-                ok = wsaa.Conectar("", LeerIni(clave='url_homo', key='WSAA'))  # Homologación
+                ok = wsaa.Conectar("", LeerIni(clave='url_homo', key='WSAA'),
+                                   cacert=obtener_cacert("WSAA"))  # Homologación
             else:
-                # cacert = LeerIni('iniciosistema') + LeerIni(clave='cacert', key='WSFEv1')
-                cacert = True
                 cms = wsaa.SignTRA(tra, os.path.abspath(LeerIni(clave="cert_prod", key="WSAA")),
                                os.path.abspath(LeerIni(clave="privatekey_prod", key="WSAA")))
-                ok = wsaa.Conectar("", LeerIni(clave='url_prod', key='WSAA'), cacert=cacert) #Produccion
+                ok = wsaa.Conectar("", LeerIni(clave='url_prod', key='WSAA'),
+                                   cacert=obtener_cacert("WSAA")) #Produccion
 
             #Llamar al web service para autenticar
             ta = wsaa.LoginCMS(cms)
             #Grabo el ticket de acceso para poder reutilizarlo
+            os.makedirs(os.path.dirname(archivo), exist_ok=True)
             file = open(archivo, 'w')
             file.write(ta)
             file.close()

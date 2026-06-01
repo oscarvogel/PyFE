@@ -6,6 +6,10 @@ from PyQt5.QtWidgets import QApplication
 from os.path import join
 
 
+from libs.Compatibilidad import aplicar_compatibilidad_pysimplesoap
+
+aplicar_compatibilidad_pysimplesoap()
+
 from controladores.Main import Main
 from libs.Utiles import LeerIni, initialize_logger
 

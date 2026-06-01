@@ -24,6 +24,7 @@ from controladores.ConsultaCAE import ConsultaCAEController
 from controladores.ConsultaCtaCte import ConsultaCtaCteController
 from controladores.ConsultaPadronAfip import ConsultaPadronAfipController
 from controladores.ControladorBase import ControladorBase
+from controladores.DiagnosticoAfip import DiagnosticoAfip
 from controladores.EmiteRecibo import EmiteReciboController
 from controladores.Facturas import FacturaController
 from controladores.FirmaCorreoElectronico import FirmaCorreoElectronicoController
@@ -94,6 +95,7 @@ class Main(ControladorBase):
         self.view.btnFactura.clicked.connect(self.onClickBtnFactura)
         self.view.btnCuentas.clicked.connect(self.onClickBtnCuentas)
         self.view.btnReportes.clicked.connect(self.onClickBtnReportes)
+        self.view.btnAFIP.clicked.connect(self.onClickBtnAFIP)
         self.view.btnSeteo.clicked.connect(self.onClickBtnSeteo)
 
     def SalirSistema(self):
@@ -253,6 +255,7 @@ class Main(ControladorBase):
 
     def onClickBtnAFIP(self):
         menu = QMenu(self.view)
+        testServicios = menu.addAction(u"Test de servicio AFIP/ARCA")
         consultaAction = menu.addAction(u"Consulta de CUIT")
         constatacionAction = menu.addAction(u"Constatacion de comprobantes")
         consultaCAE = menu.addAction(u"Consulta de CAE")
@@ -261,7 +264,11 @@ class Main(ControladorBase):
         menu.addAction(u"Volver")
         action = menu.exec_(QCursor.pos())
 
-        if action == consultaAction:
+        if action == testServicios:
+            diagnostico = DiagnosticoAfip()
+            pasos = diagnostico.ejecutar()
+            Ventanas.showAlert(LeerIni("nombre_sistema"), diagnostico.formatear(pasos))
+        elif action == consultaAction:
             ventana = ConsultaPadronAfipController()
             ventana.view.exec_()
         elif action == constatacionAction:

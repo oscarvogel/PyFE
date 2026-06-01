@@ -10,7 +10,7 @@ from vistas.VistaBase import VistaBase
 class MainView(VistaBase):
 
     def initUi(self):
-        self.setGeometry(150, 150, 500, 150)
+        self.setGeometry(150, 150, 620, 150)
         self.setWindowTitle('Vogel Gestion Simple')
         self.layoutPpal = QVBoxLayout(self)
         self.lblTitulo = EtiquetaTitulo(texto="Vogel Gestion Simple")
@@ -36,6 +36,9 @@ class MainView(VistaBase):
 
         self.btnReportes = BotonMain(texto='&Reportes', imagen='imagenes/excel.png')
         self.layoutBotones.addWidget(self.btnReportes)
+
+        self.btnAFIP = BotonMain(texto='AFIP/&ARCA', imagen='imagenes/buscar.png')
+        self.layoutBotones.addWidget(self.btnAFIP)
 
         self.btnSeteo = BotonMain(texto='&Configuracion', imagen='imagenes/if_Settings-2_379349.png')
         self.layoutBotones.addWidget(self.btnSeteo)
