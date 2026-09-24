@@ -7,7 +7,7 @@ cryptography==48.0.1
 dbf==0.99.11
 fpdf==1.7.2
 future==1.0.0
-httplib2==0.31.2
+httplib2==0.32.0
 packaging==26.0
 peewee==3.17.8
 pefile==2024.8.26
