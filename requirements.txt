@@ -11,7 +11,7 @@ httplib2==0.31.2
 packaging==26.0
 peewee==3.17.8
 pefile==2024.8.26
-Pillow==12.2.0
+Pillow==12.3.0
 pycparser==3.0
 pyinstaller==6.19.0
 pyinstaller-hooks-contrib==2026.4
