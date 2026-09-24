@@ -23,7 +23,7 @@ PyQt5_sip==12.16.1
 PySimpleSOAP==1.8.22
 pywin32-ctypes==0.2.3; sys_platform == 'win32'
 qrcode==8.2
-setuptools==82.0.1
+setuptools==83.0.0
 six==1.17.0
 tabulate==0.10.0
 XlsxWriter==3.2.9
