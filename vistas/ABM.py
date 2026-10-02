@@ -11,7 +11,7 @@ from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import Etiqueta
 from libs.Grillas import Grilla
 from libs.Spinner import Spinner
-from libs.Utiles import EsVerdadero, inicializar_y_capturar_excepciones, imagen
+from libs.Utiles import EsVerdadero, inicializar_y_capturar_excepciones, imagen, icono
 from vistas.VistaBase import VistaBase
 
 
@@ -86,22 +86,28 @@ class ABM(VistaBase):
 
         self.BotonesAdicionales()
 
-        self.btnAgregar = Boton(self.tabLista, texto='Nuevo', imagen=imagen('new.png'), tamanio=QSize(32,32),
-                                tooltip='Agrega nuevo registro')
+        # Jerarquia de la barra: "Nuevo" es la accion que se usa casi siempre,
+        # "Borrar" es la que no se quiere tocar por error y "Cerrar" es salir
+        # sin hacer nada. Con los cuatro con el mismo peso, nada indicaba cual
+        # era cual. Como esta clase es la base de todos los ABM (grupos,
+        # impuestos, localidades, tipos de documento...), el cambio se ve en
+        # todas esas pantallas de una.
+        self.btnAgregar = Boton(self.tabLista, texto='Nuevo', imagen=icono('nuevo'), tamanio=QSize(32,32),
+                                tooltip='Agrega nuevo registro', estilo='primario')
         self.btnAgregar.setObjectName("btnAgregar")
         self.horizontalLayout.addWidget(self.btnAgregar)
 
-        self.btnEditar = Boton(self.tabLista, imagen=imagen('edit.png'), tamanio=QSize(32,32),
+        self.btnEditar = Boton(self.tabLista, imagen=icono('editar'), tamanio=QSize(32,32),
                                tooltip='Modifica registro', texto='Editar')
         self.btnEditar.setObjectName("btnEditar")
         self.horizontalLayout.addWidget(self.btnEditar)
 
-        self.btnBorrar = Boton(self.tabLista, imagen=imagen('delete.png'), tamanio=QSize(32,32),
-                               tooltip='Borrar registro', texto='Borrar')
+        self.btnBorrar = Boton(self.tabLista, imagen=icono('borrar'), tamanio=QSize(32,32),
+                               tooltip='Borrar registro', texto='Borrar', estilo='peligro')
         self.btnBorrar.setObjectName("btnBorrar")
         self.horizontalLayout.addWidget(self.btnBorrar)
 
-        self.btnCerrar = Boton(self.tabLista, imagen=imagen('close.png'), tamanio=QSize(32,32),
+        self.btnCerrar = Boton(self.tabLista, imagen=icono('cerrar'), tamanio=QSize(32,32),
                                tooltip='Cerrar ABM', texto='Cerrar')
 
         self.btnCerrar.setObjectName("btnCerrar")
@@ -154,12 +160,12 @@ class ABM(VistaBase):
 
         self.grdBotones = QGridLayout()
         self.grdBotones.setObjectName("grdBotones")
-        self.btnAceptar = Boton(self.tabDetalle, texto='Guardar', imagen=imagen('save.png'), tamanio=QSize(32, 32),
-                                tooltip="Guardar cambios")
+        self.btnAceptar = Boton(self.tabDetalle, texto='Guardar', imagen=icono('guardar'), tamanio=QSize(32, 32),
+                                tooltip="Guardar cambios", estilo='primario')
         self.btnAceptar.setObjectName("btnAceptar")
         self.grdBotones.addWidget(self.btnAceptar, 0, 0, 1, 1)
 
-        self.btnCancelar = Boton(self.tabDetalle, texto='Cerrar', imagen=imagen('close.png'), tamanio=QSize(32, 32),
+        self.btnCancelar = Boton(self.tabDetalle, texto='Cerrar', imagen=icono('cerrar'), tamanio=QSize(32, 32),
                                  tooltip="Cerrar sin guardar")
         self.btnCancelar.setObjectName("btnCancelar")
         self.grdBotones.addWidget(self.btnCancelar, 0, 1, 1, 1)
@@ -241,7 +247,12 @@ class ABM(VistaBase):
                                 self.controles[k].setCurrentIndex(self.controles[k].findData('No'))
                         else:
                             self.controles[k].setCurrentIndex(self.controles[k].findData(d[k]))
-                    self.controles[k].setStyleSheet("background-color: white")
+                    # El dato ya se cargo, asi que el estado de validacion del
+                    # campo deja de aplicar. Antes se "limpiaba" poniendo el
+                    # fondo blanco a mano, lo que ademas pisaba cualquier
+                    # estilo del tema sobre ese control.
+                    from libs.tema import limpiar_estado
+                    limpiar_estado(self.controles[k])
 
     def ArmaEntrada(self, nombre="", boxlayout=None, texto='', *args, **kwargs):
         if not nombre:
@@ -309,7 +320,10 @@ class ABM(VistaBase):
                 if x == self.campoClave.column_name:
                     self.controles[x].setEnabled(False)
             self.controles[x].setText('')
-            self.controles[x].setStyleSheet("background-color: white")
+            # Campo vacio para un alta nueva: se saca el estado de validacion
+            # del registro anterior. Ver la nota en Carga().
+            from libs.tema import limpiar_estado
+            limpiar_estado(self.controles[x])
         self.tabDetalle.setEnabled(True)
         self.tabWidget.setCurrentIndex(1)
         if self.campoFoco:

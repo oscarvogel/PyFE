@@ -1,12 +1,33 @@
 # coding=utf-8
+"""Controlador principal: arma la base y maneja la navegacion.
+
+Como funciona la navegacion
+---------------------------
+La vista (vistas/Main.py) declara SECCIONES, una lista de acciones con su
+clave. Este controlador tiene que tener un destino para cada clave, en
+DESTINOS. La vista avisa una clave y el controller abre lo que corresponda.
+
+Eso sustituye al patron anterior, donde cada boton abria un QMenu pegado a la
+posicion del cursor y comparaba el QAction devuelto con una cadena de if/elif.
+Con el mapa:
+
+  * agregar una accion es agregar una linea en la vista y otra aca
+  * una accion sin destino es un error visible, y hay un test que la busca
+  * las acciones de Compras, que estaban escritas pero no conectadas a nada,
+    quedan expuestas al usuario
+
+Nota: el codigo de la base (CreaTablas, Migraciones, respaldo) no cambio. Lo
+que cambio es como se llega a cada pantalla.
+"""
+
+import logging
 import os
+import traceback
 from shutil import copyfile
 
 import peewee
 import pymysql
-from PyQt5.QtCore import QPropertyAnimation, QRect
-from PyQt5.QtGui import QCursor
-from PyQt5.QtWidgets import QApplication, QMenu
+from PyQt5.QtWidgets import QApplication
 
 from controladores.ABMCategoriasMonotributo import ABMCategoriaMonoController
 from controladores.ABMGrupos import ABMGruposController
@@ -26,14 +47,15 @@ from controladores.ConsultaPadronAfip import ConsultaPadronAfipController
 from controladores.ControladorBase import ControladorBase
 from controladores.DiagnosticoAfip import DiagnosticoAfip
 from controladores.EmiteRecibo import EmiteReciboController
+from controladores.EnvioEmail import EnvioEmailController
 from controladores.Facturas import FacturaController
 from controladores.FirmaCorreoElectronico import FirmaCorreoElectronicoController
 from controladores.GeneraCertificados import GeneraCertificadosController
-from controladores.IVACompras import IVAComprasController
-from controladores.IVAVentas import IVAVentasController
 from controladores.ImportacionAFIP import ImportaAFIPController
 from controladores.InformeRecategorizacionMonotributo import InfRecMonotributoController
 from controladores.InformeVentasPorGrupo import InformeVentasPorGrupoController
+from controladores.IVACompras import IVAComprasController
+from controladores.IVAVentas import IVAVentasController
 from controladores.Localidades import LocalidadesController
 from controladores.MigracionBaseDatos import MigracionBaseDatos
 from controladores.Proveedores import ProveedoresController
@@ -47,7 +69,8 @@ from controladores.TipoComprobantes import TipoComprobantesController
 from controladores.Resguardo import ResguardoController
 from controladores.VentaSimple import VentaSimpleController
 from libs import Ventanas
-from libs.Utiles import LeerIni, GrabarIni, FechaMysql, inicializar_y_capturar_excepciones, desencriptar
+from libs.Utiles import (FechaMysql, GrabarIni, LeerIni,
+                         inicializar_y_capturar_excepciones)
 from modelos.Clientes import FichaCliente
 from modelos.ModeloBase import ModeloBase
 from modelos.ParametrosSistema import ParamSist
@@ -59,14 +82,14 @@ class Main(ControladorBase):
     def __init__(self):
         super(Main, self).__init__()
         if LeerIni("base") == "sqlite":
-            #pongo todo en un try para que en caso de que no exista aun la base de datos continue de todas formas
+            # pongo todo en un try para que en caso de que no exista aun la
+            # base de datos continue de todas formas
             try:
                 copyfile("sistema.db", "sistema-res.db")
-            except:
+            except Exception:
                 pass
         self.view = MainView()
         self.view.initUi()
-        self.conectarWidgets()
         self.model = ModeloBase()
         self.model.getDb()
         if not LeerIni("ultima_copia"):
@@ -80,239 +103,135 @@ class Main(ControladorBase):
                 GrabarIni(clave='ultima_copia', key='param', valor=FechaMysql())
         self.CreaTablas()
         self.Migraciones()
+        self.conectarWidgets()
         self.initUi()
 
     def initUi(self):
-        # self.AnimacionEntrada()
-        # self.EstableceTema()
-        pass
+        """La vista lee sola la configuracion del encabezado y la barra de estado.
+
+        Aca solo se refresca, para que quede al dia si algo cambio desde la
+        ultima vez que se abrio la ventana.
+        """
+        self.view.refrescar_datos()
 
     def conectarWidgets(self):
-        self.view.btnSalir.clicked.connect(self.SalirSistema)
-        self.view.btnVentaSimple.clicked.connect(self.onClickBtnVentaSimple)
-        self.view.btnClientes.clicked.connect(self.onClickBtnCliente)
-        self.view.btnArticulo.clicked.connect(self.onClickBtnArticulo)
-        self.view.btnFactura.clicked.connect(self.onClickBtnFactura)
-        self.view.btnCuentas.clicked.connect(self.onClickBtnCuentas)
-        self.view.btnReportes.clicked.connect(self.onClickBtnReportes)
-        self.view.btnAFIP.clicked.connect(self.onClickBtnAFIP)
-        self.view.btnSeteo.clicked.connect(self.onClickBtnSeteo)
+        self.view.navegar.connect(self.onNavegar)
 
-    def SalirSistema(self):
-        QApplication.exit(1)
+    # -- Navegacion --------------------------------------------------------
+    def onNavegar(self, clave):
+        """Abre la pantalla de la clave. Si no hay destino, lo dice."""
+        destino = self.DESTINOS().get(clave)
+        if destino is None:
+            # No deberia pasar: hay un test que revisa que todas las claves de
+            # la vista tengan destino. Si aparece, se ve en vez de fallar en
+            # silencio con un AttributeError.
+            Ventanas.showAlert("Sistema",
+                               "La acción '{}' todavía no tiene destino.".format(clave))
+            return
+        self.view.marcar_activo(clave)
+        try:
+            destino()
+        except Exception as e:
+            # Esto corre dentro de un slot de Qt. Si algo falla al construir o
+            # abrir una pantalla, la excepcion se pierde: el ejecutable esta
+            # compilado con -w (sin consola), asi que no se ve por ningun lado
+            # y el usuario solo ve que "no pasa nada" al hacer clic. Se muestra
+            # y se loguea.
+            self.Traceback = traceback.format_exc()
+            logging.error("No se pudo abrir %r: %s", clave, e)
+            logging.error(self.Traceback)
+            Ventanas.showAlert(
+                "Sistema",
+                "No se pudo abrir '{}'.\n\n{}: {}".format(clave, type(e).__name__, e))
 
-    def onClickBtnVentaSimple(self):
-        venta = VentaSimpleController()
-        venta.exec_()
+    def _abrir(self, controlador, usar_exec=True):
+        """Instancia un controlador y abre su ventana.
 
-    def onClickBtnCliente(self):
-        menu = QMenu(self.view)
-        altaAction = menu.addAction(u"Alta, bajas y modificaciones")
-        ctacteAction = menu.addAction(u"Cuenta corriente")
-        localidadAction = menu.addAction(u"ABM Localidades")
-        tipoCompAction = menu.addAction(u"ABM Tipo Comprobantes")
-        tipoDocAction = menu.addAction(u"ABM Tipo de documentos")
-        tipoResponsable = menu.addAction(u"ABM Tipo de responsable")
-        menu.addAction(u"Volver")
-        action = menu.exec_(QCursor.pos())
-
-        if action == altaAction:
-            clientes = ClientesController()
-            clientes.exec_()
-        elif action == ctacteAction:
-            consulta = ConsultaCtaCteController()
-            consulta.exec_()
-        elif action == localidadAction:
-            localidad = LocalidadesController()
-            localidad.exec_()
-        elif action == tipoCompAction:
-            tipocomp = TipoComprobantesController()
-            tipocomp.view.exec_()
-        elif action == tipoDocAction:
-            tipodoc = ABMTipoDocumentoController()
-            tipodoc.exec_()
-        elif action == tipoResponsable:
-            tiporesp = ABMTipoResponsableController()
-            tiporesp.exec_()
-
-    def onClickBtnArticulo(self):
-        menu = QMenu(self.view)
-        altaAction = menu.addAction(u"Alta, bajas y modificaciones")
-        informeGrupoAction = menu.addAction(u"Informe de ventas por grupo")
-        gruposAction  = menu.addAction(u"ABM Grupos de articulos")
-        impuestoAction = menu.addAction(u"ABM de impuestos")
-        menu.addAction(u"Volver")
-        action = menu.exec_(QCursor.pos())
-
-        if action == altaAction:
-            articulos = ArticulosController()
-            articulos.view.exec_()
-        elif action == informeGrupoAction:
-            controlador = InformeVentasPorGrupoController()
-            controlador.view.exec_()
-        elif action == gruposAction:
-            controlador = ABMGruposController()
-            controlador.exec_()
-        elif action == impuestoAction:
-            controlador = ABMImpuestoController()
-            controlador.exec_()
-
-    def onClickBtnFactura(self):
-        menu = QMenu(self.view)
-        emisionAction = menu.addAction(u"Emision de Factura")
-        ivaventasAction = menu.addAction(u"IVA Ventas")
-        reciboAction = menu.addAction(u"Emision de recibo")
-        citiAction = menu.addAction(u"RG 3685 AFIP")
-        abmCategoria = menu.addAction(u"Categorias monotributo")
-        infRecMono = menu.addAction(u"Informe de recategorizacion monotributo")
-        emite_remito = menu.addAction(u"Emision de comprobantes")
-        reimpresiones = menu.addAction(u"Reimpresiones")
-        menu.addAction(u"Volver")
-        action = menu.exec_(QCursor.pos())
-
-        if action == emisionAction:
-            factura = FacturaController()
-            factura.exec_()
-        elif action == ivaventasAction:
-            ventana = IVAVentasController()
+        Un mismo constructor se comporta distinto segun el tipo de pantalla:
+        unos son QDialog (se abren con exec_) y otros QWidget (se muestran con
+        show()). El metodo se llama distinto segun el caso, asi que se centraliza
+        la decision en un helper con un nombre explicito por pantalla.
+        """
+        ventana = controlador()
+        if usar_exec:
             ventana.exec_()
-        elif action == reciboAction:
-            ventana = EmiteReciboController()
-            ventana.exec_()
-        elif action == citiAction:
-            ventana = RG3685VentasController()
-            ventana.exec_()
-        elif action == infRecMono:
-            ventana = InfRecMonotributoController()
-            ventana.exec_()
-        elif action == abmCategoria:
-            ventana = ABMCategoriaMonoController()
-            ventana.exec_()
-        elif action == emite_remito:
-            ventana = RemitoController()
+        else:
             ventana.view.exec_()
-        elif action == reimpresiones:
-            self.reimpresiones()
+        return ventana
 
-    def onClickBtnCuentas(self):
-        consulta = ConsultaCtaCteController()
-        consulta.exec_()
+    def DESTINOS(self):
+        """Mapa clave -> accion. Se arma por metodo porque usa self."""
+        return {
+            # -- Facturacion
+            "nueva-venta": lambda: self._abrir(VentaSimpleController),
+            "comprobantes": lambda: self._abrir(FacturaController),
+            "remitos": lambda: self._abrir(RemitoController, usar_exec=False),
+            "recibos": lambda: self._abrir(EmiteReciboController),
+            "reimprimir-factura": lambda: self._abrir(ReImprimeFacturaController),
+            "reimprimir-remito": lambda: self._abrir(ReImprimeRemitoController),
 
-    def onClickBtnReportes(self):
-        menu = QMenu(self.view)
-        ivaventasAction = menu.addAction(u"IVA Ventas")
-        informeGrupoAction = menu.addAction(u"Informe de ventas por grupo")
-        menu.addAction(u"Volver")
-        action = menu.exec_(QCursor.pos())
+            # -- Compras: los cinco estaban escritos y no conectados a nada
+            "proveedores": lambda: self._abrir(ProveedoresController, usar_exec=False),
+            "centro-costos": lambda: self._abrir(CentroCostoController),
+            "carga-facturas": lambda: self._abrir(CargaFacturaProveedorController,
+                                                 usar_exec=False),
+            "iva-compras": lambda: self._abrir(IVAComprasController, usar_exec=False),
+            "rg3685-compras": lambda: self._abrir(RG3685ComprasController),
 
-        if action == ivaventasAction:
-            ventana = IVAVentasController()
-            ventana.exec_()
-        elif action == informeGrupoAction:
-            controlador = InformeVentasPorGrupoController()
-            controlador.view.exec_()
+            # -- Fiscal
+            "iva-ventas": lambda: self._abrir(IVAVentasController),
+            "rg3685-ventas": lambda: self._abrir(RG3685VentasController),
+            "importar": lambda: self._abrir(ImportaAFIPController),
 
-    
-    def reimpresiones(self):
-        menu = QMenu(self.view)
-        reimprimeFacturaAction = menu.addAction(u"Reimprime factura")
-        reimprimeRemitoAction = menu.addAction(u"Reimprime remito")
-        menu.addAction(u"Volver")
-        
-        action = menu.exec_(QCursor.pos())
-        if action == reimprimeFacturaAction:
-            ventana = ReImprimeFacturaController()
-            ventana.exec_()
-        elif action == reimprimeRemitoAction:
-            ventana = ReImprimeRemitoController()
-            ventana.exec_()
-            
-    def onClickBtnSeteo(self):
-        menu = QMenu(self.view)
-        emisionConfig = menu.addAction(u"Configuracion de inicio")
-        paramAction = menu.addAction(u"Parametros de sistema")
-        firmaEmailAction = menu.addAction(u"Firma de correo electronico")
-        generaAction = menu.addAction(u"Genera certificados digitales")
-        menu.addAction(emisionConfig)
-        menu.addAction(paramAction)
-        menu.addAction(firmaEmailAction)
-        menu.addAction(generaAction)
-        menu.addAction(u"Volver")
-        action = menu.exec_(QCursor.pos())
-        if action == emisionConfig:
-            config = ConfiguracionController()
-            config.view.exec_()
-        elif action == paramAction:
-            _ventana = ABMParamSistController()
-            _ventana.exec_()
-        elif action == generaAction:
-            _ventana_genera = GeneraCertificadosController()
-            _ventana_genera.exec_()
-        elif action == firmaEmailAction:
-            _ventana_firma_email = FirmaCorreoElectronicoController()
-            _ventana_firma_email.exec_()
+            # -- Clientes
+            "clientes": lambda: self._abrir(ClientesController),
+            "cuenta-corriente": lambda: self._abrir(ConsultaCtaCteController),
+            "enviar-email": lambda: self._abrir(EnvioEmailController),
 
+            # -- Stock
+            "productos": lambda: self._abrir(ArticulosController, usar_exec=False),
+            "grupos": lambda: self._abrir(ABMGruposController),
+            "impuestos": lambda: self._abrir(ABMImpuestoController),
+            "informe-ventas-grupo": lambda: self._abrir(InformeVentasPorGrupoController,
+                                                        usar_exec=False),
 
-    def onClickBtnAFIP(self):
-        menu = QMenu(self.view)
-        testServicios = menu.addAction(u"Test de servicio AFIP/ARCA")
-        consultaAction = menu.addAction(u"Consulta de CUIT")
-        constatacionAction = menu.addAction(u"Constatacion de comprobantes")
-        consultaCAE = menu.addAction(u"Consulta de CAE")
-        rindeCaeIndividual = menu.addAction(u"Rinde CAEA Individual")
-        importa = menu.addAction(u"Importa comprobantes AFIP")
-        menu.addAction(u"Volver")
-        action = menu.exec_(QCursor.pos())
+            # -- ARCA / AFIP
+            "diagnostico": self.diagnostico_arca,
+            "consulta-cuit": lambda: self._abrir(ConsultaPadronAfipController,
+                                                 usar_exec=False),
+            "constatacion": lambda: self._abrir(ConstatacionComprobantesController,
+                                               usar_exec=False),
+            "consulta-cae": lambda: self._abrir(ConsultaCAEController),
+            "rinde-caea": lambda: self._abrir(RindeCAEAIndividualController),
 
-        if action == testServicios:
-            diagnostico = DiagnosticoAfip()
-            pasos = diagnostico.ejecutar()
-            Ventanas.showAlert(LeerIni("nombre_sistema"), diagnostico.formatear(pasos))
-        elif action == consultaAction:
-            ventana = ConsultaPadronAfipController()
-            ventana.view.exec_()
-        elif action == constatacionAction:
-            ventana = ConstatacionComprobantesController()
-            ventana.view.exec_()
-        elif action == consultaCAE:
-            ventana = ConsultaCAEController()
-            ventana.view.exec_()
-        elif action == rindeCaeIndividual:
-            ventana = RindeCAEAIndividualController()
-            ventana.exec_()
-        elif action == importa:
-            ventana = ImportaAFIPController()
-            ventana.exec_()
+            # -- Monotributo
+            "categorias-mono": lambda: self._abrir(ABMCategoriaMonoController),
+            "informe-recategorizacion": lambda: self._abrir(InfRecMonotributoController),
 
-    def onClickBtnCompras(self):
-        menu = QMenu(self.view)
-        proveedoresAction = menu.addAction(u"Proveedores")
-        centrocostosAction = menu.addAction(u"Centro de costos")
-        facturasAction = menu.addAction(u"Carga facturas")
-        ivaAction = menu.addAction(u"IVA Compras")
-        rg3685 = menu.addAction(u"RG 3685 AFIP")
-        menu.addAction(u"Volver")
-        action = menu.exec_(QCursor.pos())
+            # -- Catalogos
+            "localidades": lambda: self._abrir(LocalidadesController),
+            "tipo-comprobantes": lambda: self._abrir(TipoComprobantesController,
+                                                     usar_exec=False),
+            "tipo-documentos": lambda: self._abrir(ABMTipoDocumentoController),
+            "tipo-responsable": lambda: self._abrir(ABMTipoResponsableController),
 
-        if action == proveedoresAction:
-            ventana = ProveedoresController()
-            ventana.view.exec_()
-        elif action == centrocostosAction:
-            ventana = CentroCostoController()
-            ventana.view.exec_()
-        elif action == facturasAction:
-            ventana = CargaFacturaProveedorController()
-            ventana.view.exec_()
-        elif action == ivaAction:
-            ventana = IVAComprasController()
-            ventana.view.exec_()
-        elif action == rg3685:
-            ventana = RG3685ComprasController()
-            ventana.view.exec_()
+            # -- Configuracion
+            "configuracion": lambda: self._abrir(ConfiguracionController,
+                                                usar_exec=False),
+            "parametros": lambda: self._abrir(ABMParamSistController),
+            "firma-email": lambda: self._abrir(FirmaCorreoElectronicoController),
+            "certificados": lambda: self._abrir(GeneraCertificadosController),
+        }
 
+    def diagnostico_arca(self):
+        diagnostico = DiagnosticoAfip()
+        pasos = diagnostico.ejecutar()
+        Ventanas.showAlert(LeerIni("nombre_sistema"), diagnostico.formatear(pasos))
+
+    # -- Base de datos -----------------------------------------------------
     @inicializar_y_capturar_excepciones
     def CreaTablas(self, *args, **kwargs):
-        if LeerIni("base") == "mysql": #en caso de que sea mysql y no este creada la base la crea
+        if LeerIni("base") == "mysql":  # en caso de que sea mysql y no este creada la base la crea
             basedatos = LeerIni("basedatos")
             user = LeerIni("usuario")
             # El resolver entiende las tres formas de guardar el secreto
@@ -325,7 +244,7 @@ class Main(ControladorBase):
                 return
             host = LeerIni("host")
             conn = pymysql.connect(host=host, user=user, password=password)
-            conn.cursor().execute(f'CREATE DATABASE IF NOT EXISTS {basedatos}')
+            conn.cursor().execute('CREATE DATABASE IF NOT EXISTS {}'.format(basedatos))
             conn.close()
 
         try:
@@ -345,13 +264,3 @@ class Main(ControladorBase):
     def Migraciones(self):
         migracion = MigracionBaseDatos()
         migracion.Migrar()
-
-
-    def AnimacionEntrada(self):
-        animacion_caja = QPropertyAnimation(self.view.groupBoxBotones, b"geometry")
-        animacion_caja.setDuration(1000)
-        animacion_caja.setStartValue(QRect(0, self.view.lblTitulo.height(), self.view.lblTitulo.height(), 0))
-        animacion_caja.setEndValue(QRect(5, 5, self.view.sizeHint().width()-5, self.view.sizeHint().height()-5))
-        animacion_caja.start()
-        # self.view.
-        self.animacion_caja = animacion_caja
