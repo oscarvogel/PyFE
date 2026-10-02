@@ -13,6 +13,7 @@
 #Utilidades varias necesarias en el sistema
 import argparse
 import calendar
+import configparser
 import platform
 import subprocess
 import tempfile
@@ -72,21 +73,42 @@ def AbrirArchivo(cArchivo=None):
 
 #leo el archivo de configuracion del sistema
 #recibe la clave y el key a leer en caso de que tenga mas de una seccion el archivo
+
+def _leer_config(Config, ruta):
+    """Carga el archivo de configuracion en el ConfigParser, a mano.
+
+    No se usa Config.read() a proposito: pyafipws/utils.py reemplaza ese
+    metodo a nivel global por uno que abre en latin1 y que revienta si el
+    archivo no existe. Como el patch es global, en cuanto se importa
+    cualquier cosa de pyafipws el sistema.ini entero se leia en latin1
+    (los acentos y la enie salian como caracteres raros) y cualquier
+    archivo ausente tiraba FileNotFoundError en vez de devolver vacio.
+    """
+    try:
+        with open(ruta, "r", encoding="utf-8-sig") as archivo:
+            Config.read_file(archivo)
+    except FileNotFoundError:
+        pass
+    except (OSError, UnicodeDecodeError, configparser.Error):
+        # un archivo de configuracion ilegible no puede voltear la app
+        pass
+
+
 def LeerIni(clave=None, key=None, carpeta=''):
     analizador = argparse.ArgumentParser(description='Sistema de Facturacion Electronica.')
     analizador.add_argument("-i", "--inicio", default=os.getcwd(), help="Carpeta de Inicio de sistema.")
     analizador.add_argument("-a", "--archivo", default="sistema.ini", help="Archivo de Configuracion de sistema.")
-    argumento = analizador.parse_args()
+    argumento = analizador.parse_known_args()[0]
     retorno = ''
     Config = ConfigParser()
     archivoini = argumento.archivo
     carpeta = argumento.inicio
     # Config.read("sistema.ini")
     if carpeta:
-        Config.read(join(carpeta, archivoini))
+        _leer_config(Config, join(carpeta, archivoini))
         # logging.debug("Archivo utilizado {}".format(join(carpeta, archivoini)))
     else:
-        Config.read(archivoini)
+        _leer_config(Config, archivoini)
         # logging.debug("Archivo utilizado {}".format(archivoini))
 
     try:
@@ -103,15 +125,18 @@ def GrabarIni(clave=None, key=None, valor='', borrar=False):
     analizador = argparse.ArgumentParser(description='Sistema de Facturacion Electronica.')
     analizador.add_argument("-i", "--inicio", default=os.getcwd(), help="Carpeta de Inicio del sistema.")
     analizador.add_argument("-a", "--archivo", default="sistema.ini", help="Archivo de Configuracion de sistema.")
-    argumento = analizador.parse_args()
+    argumento = analizador.parse_known_args()[0]
     archivoini = argumento.archivo
     carpeta = argumento.inicio
 
     if not clave or not key:
         return
     Config = ConfigParser()
-    Config.read(join(carpeta, archivoini))
-    cfgfile = open(join(carpeta, archivoini), 'w')
+    _leer_config(Config, join(carpeta, archivoini))
+    # utf-8 explicito: con la codificacion por defecto de la plataforma
+    # (cp1252 en Windows) los acentos y la enie del nombre de la empresa
+    # se guardaban con otros bytes y al releerlos no coincidian.
+    cfgfile = open(join(carpeta, archivoini), 'w', encoding='utf-8')
     if not Config.has_section(key):
         Config.add_section(key)
     if borrar:

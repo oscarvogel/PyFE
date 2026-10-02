@@ -139,18 +139,24 @@ def test_ida_y_vuelta_completa():
 
 
 # --- 6. Escribo a un ini real de verdad (integracion) --------------------
+# OJO: LeerIni y GrabarIni resuelven la ruta con os.getcwd(), asi que la
+# unica forma segura de probar la escritura es correr en un directorio
+# temporal. Parchear el argparse NO alcanza: si el parche no aplica, el
+# test escribe sobre el sistema.ini de la maquina y no falla, lo pisa.
+def _ini_temporal(tmp_path, contenido):
+    ruta = tmp_path / "sistema.ini"
+    ruta.write_text(contenido, encoding="utf-8")
+    return ruta
+
+
 def test_grabarini_borra_la_clave(tmp_path, monkeypatch):
-    import os as _os
-    ini = tmp_path / "sistema.ini"
-    ini.write_text("[param]\npassword = x\nkey = y\notra = z\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    _ini_temporal(tmp_path, "[param]\npassword = x\nkey = y\notra = z\n")
 
     import libs.Utiles as U
-    monkeypatch.setattr(U.argparse.ArgumentParser, "parse_args",
-                        lambda self: type("A", (), {
-                            "inicio": str(tmp_path), "archivo": "sistema.ini"})())
-
     U.GrabarIni(clave="key", key="param", borrar=True)
-    texto = ini.read_text(encoding="utf-8")
+
+    texto = (tmp_path / "sistema.ini").read_text(encoding="utf-8")
     assert "key =" not in texto
     # lo demas sigue intacto
     assert "password = x" in texto
@@ -158,13 +164,27 @@ def test_grabarini_borra_la_clave(tmp_path, monkeypatch):
 
 
 def test_grabarini_sigue_escribiendo(tmp_path, monkeypatch):
-    ini = tmp_path / "sistema.ini"
-    ini.write_text("[param]\npassword = x\n", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    _ini_temporal(tmp_path, "[param]\npassword = x\n")
 
     import libs.Utiles as U
-    monkeypatch.setattr(U.argparse.ArgumentParser, "parse_args",
-                        lambda self: type("A", (), {
-                            "inicio": str(tmp_path), "archivo": "sistema.ini"})())
-
     U.GrabarIni(clave="nuevo", key="param", valor="valor")
-    assert "nuevo = valor" in ini.read_text(encoding="utf-8")
+
+    assert "nuevo = valor" in (tmp_path / "sistema.ini").read_text(encoding="utf-8")
+
+
+def test_los_tests_no_tocan_el_ini_de_la_maquina(tmp_path, monkeypatch):
+    """Guardia: escribe en un temporal y comprueba que el archivo real
+    de la instalacion quedo exactamente como estaba."""
+    from libs.instalacion import ruta_config
+    real = ruta_config()
+    import os as _os
+    antes = _os.path.getmtime(real) if _os.path.exists(real) else None
+
+    monkeypatch.chdir(tmp_path)
+    _ini_temporal(tmp_path, "[param]\nbase = sqlite\n")
+    import libs.Utiles as U
+    U.GrabarIni(clave="base", key="param", valor="otro")
+
+    despues = _os.path.getmtime(real) if _os.path.exists(real) else None
+    assert antes == despues, "un test escribio sobre el sistema.ini real"
