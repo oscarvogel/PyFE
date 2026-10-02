@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QDialog, QMessageBox
 from controladores.ControladorBase import ControladorBase
 from controladores.venta_simple_totales import RenglonVenta, calcular_totales
 from libs import Ventanas
-from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones
+from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, a_entero
 from modelos.Articulos import Articulo
 from modelos.Clientes import Cliente
 from vistas.VentaSimple import VentaSimpleAltaArticuloDialog, VentaSimpleAltaClienteDialog, \
@@ -284,7 +284,7 @@ class VentaSimpleController(ControladorBase):
         return renglones
 
     def recalcular_total(self):
-        responsable_inscripto = int(LeerIni(clave="cat_iva", key="WSFEv1")) == 1
+        responsable_inscripto = a_entero(LeerIni(clave="cat_iva", key="WSFEv1"), 0) == 1
         totales = calcular_totales(self.obtener_renglones(), responsable_inscripto)
         self.view.textTotal.setText(str(totales.total))
 
@@ -308,7 +308,7 @@ class VentaSimpleController(ControladorBase):
             if not self.cliente:
                 self.cargar_cliente_desde_busqueda()
             if not self.cliente:
-                Ventanas.showAlert("Venta", "Seleccione un cliente valido")
+                Ventanas.showAlert("Venta", "Seleccione un cliente válido")
                 return
             cliente_id = self.cliente.idcliente
 

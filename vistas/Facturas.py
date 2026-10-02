@@ -12,7 +12,7 @@ from libs.Formulario import Formulario
 from libs.Grillas import Grilla
 from libs.GroupBox import Agrupacion
 from libs.Paginas import Pagina, TabPagina
-from libs.Utiles import imagen, LeerIni
+from libs.Utiles import imagen, LeerIni, icono, a_entero
 from modelos import Clientes, Tiporesp, Tipocomprobantes
 from modelos.Clientes import Cliente
 from modelos.Formaspago import ComboFormapago
@@ -26,13 +26,13 @@ class FacturaView(Formulario):
 
     def setupUi(self, Form):
         self.layoutPpal = QVBoxLayout(Form)
-        self.setWindowTitle("Emision de comprobante electronico")
+        self.setWindowTitle("Emisión de comprobante electrónico")
         self.resize(850, 650)
         self.lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
         self.layoutPpal.addWidget(self.lblTitulo)
         self.layoutCliente = QGridLayout()
         self.agrupaCliente = Agrupacion(titulo="Cliente:")
-        self.lblCodigoCliente = Etiqueta(texto="Codigo Cliente")
+        self.lblCodigoCliente = Etiqueta(texto="Código de cliente")
         self.lblNombreCliente = Etiqueta()
         self.validaCliente = Clientes.Valida()
         self.validaCliente.widgetNombre = self.lblNombreCliente
@@ -61,7 +61,7 @@ class FacturaView(Formulario):
 
         self.layoutComprobante = QHBoxLayout()
         self.lblComprobante = Etiqueta(texto="Comprobante", tamanio=10)
-        self.cboComprobante = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='cat_iva', key='WSFEv1')),
+        self.cboComprobante = Tipocomprobantes.ComboTipoComp(tiporesp=a_entero(LeerIni(clave='cat_iva', key='WSFEv1'), 1),
                                                              tamanio=10)
         self.layoutComprobante.addWidget(self.lblComprobante)
         self.layoutComprobante.addWidget(self.cboComprobante)
@@ -172,7 +172,7 @@ class FacturaView(Formulario):
         self.layoutPpal.addLayout(self.layoutTotales)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnGrabarFactura = Boton(texto="Emitir", imagen=imagen('save.png'), autodefault=False)
+        self.btnGrabarFactura = Boton(texto="Emitir", imagen=icono('guardar'), autodefault=False, estilo='primario')
         self.btnCerrarFormulario = BotonCerrarFormulario(autodefault=False)
         self.layoutBotones.addWidget(self.btnGrabarFactura)
         self.layoutBotones.addWidget(self.btnCerrarFormulario)
@@ -186,7 +186,7 @@ class FacturaView(Formulario):
         ]
         self.gridFactura.ArmaCabeceras(cabeceras=cabeceras)
         self.gridFactura.enabled = True
-        if int(LeerIni(clave='cat_iva', key='WSFEv1')) != 6:
+        if a_entero(LeerIni(clave='cat_iva', key='WSFEv1'), 1) != 6:
             self.gridFactura.columnasHabilitadas = [
                 0, 1, 2, 3, 4
             ]
@@ -202,10 +202,14 @@ class FacturaView(Formulario):
 
         layoutppal.addWidget(self.gridFactura)
         layoutBotones = QHBoxLayout()
-        self.botonAgregaArt = Boton(texto="Agrega", imagen=imagen("new.png"),
+        # Agrega y Borrar NO son la accion principal de esta pantalla: la
+        # principal es Emitir, al pie. Con los tres en azul no hay jerarquia y
+        # el ojo no sabe donde termina la carga de la pantalla y donde se
+        # emite.
+        self.botonAgregaArt = Boton(texto="Agrega", imagen=icono('nuevo'),
                                     tamanio=QSize(16,16), autodefault=False)
-        self.botonBorrarArt = Boton(texto="Borrar", imagen=imagen("delete.png"),
-                                    tamanio=QSize(16,16), autodefault=False)
+        self.botonBorrarArt = Boton(texto="Borrar", imagen=icono('borrar'),
+                                    tamanio=QSize(16,16), autodefault=False, estilo='peligro')
         layoutBotones.addWidget(self.botonAgregaArt)
         layoutBotones.addWidget(self.botonBorrarArt)
         layoutppal.addLayout(layoutBotones)
@@ -220,10 +224,13 @@ class FacturaView(Formulario):
         self.gridAlicuotasIVA.ArmaCabeceras(cabeceras=cabeceras)
         layoutppal.addWidget(self.gridAlicuotasIVA)
         layoutBotones = QHBoxLayout()
-        self.botonAgregaIVA = Boton(texto="Agrega", imagen=imagen("nuevo.png"),
+        # Estos "Agrega" son de las pestañas de alicuotas y de otros tributos:
+        # agregan una fila a una grilla, no son la accion de la pantalla. La
+        # unica que es primaria es "Emitir".
+        self.botonAgregaIVA = Boton(texto="Agrega", imagen=icono('nuevo'),
                                     tamanio=QSize(16,16), autodefault=False)
-        self.botonBorrarIVA = Boton(texto="Borrar", imagen=imagen("delete.png"),
-                                    tamanio=QSize(16,16), autodefault=False)
+        self.botonBorrarIVA = Boton(texto="Borrar", imagen=icono('borrar'),
+                                    tamanio=QSize(16,16), autodefault=False, estilo='peligro')
         layoutBotones.addWidget(self.botonAgregaIVA)
         layoutBotones.addWidget(self.botonBorrarIVA)
         layoutppal.addLayout(layoutBotones)
@@ -238,10 +245,10 @@ class FacturaView(Formulario):
         self.gridAlicuotasTributos.ArmaCabeceras(cabeceras=cabeceras)
         layoutppal.addWidget(self.gridAlicuotasTributos)
         layoutBotones = QHBoxLayout()
-        self.botonAgregaTributos = Boton(texto="Agrega", imagen=imagen("nuevo.png"),
+        self.botonAgregaTributos = Boton(texto="Agrega", imagen=icono('nuevo'),
                                          tamanio=QSize(16,16), autodefault=False)
-        self.botonBorrarTributos = Boton(texto="Borrar", imagen=imagen("delete.png"),
-                                         tamanio=QSize(16,16), autodefault=False)
+        self.botonBorrarTributos = Boton(texto="Borrar", imagen=icono('borrar'),
+                                         tamanio=QSize(16,16), autodefault=False, estilo='peligro')
         layoutBotones.addWidget(self.botonAgregaTributos)
         layoutBotones.addWidget(self.botonBorrarTributos)
         layoutppal.addLayout(layoutBotones)

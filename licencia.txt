@@ -1,4 +1,4 @@
-PyFE: Factura electronica para Argentina utilizando los webservices brindados por PyAfipWS
+Asiento: Factura electronica para Argentina utilizando los webservices brindados por PyAfipWS
 
 PyAfipWS: Interfaces y herramientas para Servicios Web AFIP Copyright (C) 2008-2015 Mariano Reingart <reingart@gmail.com>
 

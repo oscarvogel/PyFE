@@ -90,5 +90,5 @@ class ReImprimeFacturaController(ControladorBase):
             #     if not ok:
             #         Ventanas.showAlert("Sistema", "Ha ocurrido un error al enviar el correo\n{}".format(err_msg))
             #     else:
-            #         Ventanas.showAlert("Sistema", "Comprobante electronico enviado correctamente")
+            #         Ventanas.showAlert("Sistema", "Comprobante electrónico enviado correctamente")
 

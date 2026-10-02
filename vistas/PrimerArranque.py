@@ -17,6 +17,7 @@ from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
                              QScrollArea, QVBoxLayout, QWidget)
 
 from libs.Utiles import validar_cuit
+from libs.Constantes import NOMBRE_PRODUCTO
 
 CATEGORIAS_IVA = [
     ("1 - Responsable Inscripto", "1"),
@@ -35,7 +36,7 @@ class DialogoPrimerArranque(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configuracion inicial de PyFE")
+        self.setWindowTitle("Configuración inicial de {}".format(NOMBRE_PRODUCTO))
         self.setModal(True)
         self.resize(560, 640)
 
@@ -95,7 +96,9 @@ class DialogoPrimerArranque(QDialog):
         formFiscal.addRow("CUIT", self.txtCuit)
 
         self.lblCuit = QLabel("")
-        self.lblCuit.setStyleSheet("color: #b00020;")
+        # El color del mensaje de error lo decide el tema, no esta linea.
+        # Ver QLabel[estado="error"] en temas/pyfe.css.
+        self.lblCuit.setProperty("estado", "error")
         formFiscal.addRow("", self.lblCuit)
 
         self.txtIibb = QLineEdit()
@@ -120,7 +123,7 @@ class DialogoPrimerArranque(QDialog):
         self.txtPtoVta = QLineEdit("1")
         formFact.addRow("Punto de venta", self.txtPtoVta)
 
-        self.txtNombreSistema = QLineEdit("PyFE")
+        self.txtNombreSistema = QLineEdit(NOMBRE_PRODUCTO)
         formFact.addRow("Nombre del sistema", self.txtNombreSistema)
         vertical.addWidget(gbFact)
 
@@ -201,7 +204,7 @@ class DialogoPrimerArranque(QDialog):
         if len(texto) == 13 and validar_cuit(texto):
             self.lblCuit.setText("")
         else:
-            self.lblCuit.setText("El CUIT no es valido (13 digitos con el digito verificador)")
+            self.lblCuit.setText("El CUIT no es válido (13 dígitos con el dígito verificador)")
 
     # -- resultado --------------------------------------------------------
     def datos(self):
@@ -219,7 +222,7 @@ class DialogoPrimerArranque(QDialog):
             "inicio": self.txtInicio.text().strip() or "01/01/2000",
             "cat_iva": self.cmbCatIva.currentData(),
             "pto_vta": self.txtPtoVta.text().strip() or "1",
-            "nombre_sistema": self.txtNombreSistema.text().strip() or "PyFE",
+            "nombre_sistema": self.txtNombreSistema.text().strip() or NOMBRE_PRODUCTO,
             "homo": "S",
             "cert_homo": self.txtCertHomo.text().strip(),
             "cert_prod": self.txtCertProd.text().strip(),

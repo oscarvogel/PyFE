@@ -159,17 +159,118 @@ def ubicacion_sistema():
     return c_ubicacion
 
 def imagen(archivo):
-    archivoImg = ubicacion_sistema() + join("imagenes", archivo)
-    # print("Icono formulario {}".format(archivoImg))
-    if os.path.exists(archivoImg):
-        return archivoImg
-    else:
-        return ""
+    """Ruta de un icono dentro de imagenes/.
+
+    La resolucion real esta en libs.recursos: prueba varias carpetas base y
+    devuelve la primera donde exista el archivo. Antes se armaba la ruta con
+    el `iniciosistema` del ini, que queda desactualizado cuando la instalacion
+    se copia a otra carpeta y por eso dejaba los iconos rotos en el ejecutable
+    compilado.
+    """
+    from libs.recursos import imagen as _imagen
+    return _imagen(archivo)
+
+
+def icono(nombre, alterno=None):
+    """Icono del set nuevo (imagenes/iconos/*.svg), con caida al viejo.
+
+    Los SVG son vectoriales y de un solo trazo, asi que se ven nítidos en
+    cualquier monitor y comparten estilo entre sí. Conviven con los PNG
+    anteriores mientras se migra pantalla por pantalla.
+    """
+    from libs.recursos import icono as _icono
+    return _icono(nombre, alterno)
 
 def icono_sistema():
+    """Icono de la aplicacion: el logo de Vogel Consultoria.
 
-    cIcono = QtGui.QIcon(imagen("Logo S-01.png"))
+    Se usan los .png de imagenes/marca/ en vez de un .ico suelto porque QIcon
+    elige la resolucion que necesita de la lista: en un monitor de alta
+    densidad el icono de la barra de tareas se ve borroso si se le pasa un PNG
+    de 1254 px que se reescala, y con un solo .ico hay que acertar el tamano.
+    Los .ico si se usan para el .exe y el instalador, que los necesita el
+    sistema operativo, no Qt.
+    """
+    cIcono = QtGui.QIcon()
+    from libs.recursos import ruta_recurso
+    for lado in (256, 128, 64, 48, 32, 24, 16):
+        ruta = ruta_recurso("imagenes/marca/logo-{}.png".format(lado))
+        if ruta:
+            cIcono.addFile(ruta)
+    if cIcono.isNull():
+        # Sin los derivados: cae al original completo antes de quedar sin icono.
+        cIcono = QtGui.QIcon(ruta_recurso("imagenes/marca/logo-vogel.png") or "")
     return cIcono
+
+def a_entero(valor, defecto=0):
+    """Convierte a entero sin tirar abajo la pantalla.
+
+    El .ini lo edita la gente, a mano. Una clave vacia, con un typo o con un
+    valor no numerico no puede impedir que se abra una pantalla entera: lo
+    unico razonable es usar el valor por defecto y seguir.
+
+    Antes se usaba a_entero(LeerIni(...), 0) pelado. Con [WSFEv1] cat_iva vacia, la
+    pantalla de Comprobantes, la consulta de CAE y el rind e de CAEA caian
+    con 'invalid literal for int()'.
+    """
+    if valor is None:
+        return defecto
+    if isinstance(valor, (int, float)):
+        return int(valor)
+    texto = str(valor).strip()
+    if not texto:
+        return defecto
+    try:
+        return int(texto)
+    except ValueError:
+        pass
+    try:
+        # "5.0" o "5,0" tambien son numeros validos para un entero.
+        return int(float(texto.replace(",", ".")))
+    except ValueError:
+        return defecto
+
+
+def a_decimal(valor, defecto=None):
+    """Como a_entero, pero para montos.
+
+    El defecto es None a proposito: None significa 'no hay dato', que es
+    distinto de cero. Un importe en 0 y un importe desconocido no son lo mismo.
+    """
+    import decimal
+    if valor is None:
+        return defecto
+    if isinstance(valor, decimal.Decimal):
+        return valor
+    if isinstance(valor, (int, float)):
+        return decimal.Decimal(str(valor))
+    texto = str(valor).strip().replace(",", ".")
+    if not texto:
+        return defecto
+    try:
+        return decimal.Decimal(texto)
+    except decimal.InvalidOperation:
+        return defecto
+
+
+def formato_cuit(valor):
+    """Devuelve el CUIT con guiones: 20179461154 -> 20-17946115-4
+
+    El dato se guarda sin guiones porque es lo que espera AFIP, pero en un
+    comprobante fiscal se muestra con guiones: es como lo pide la norma y
+    como lo lee cualquier persona. El campo de captura de la app ya usa la
+    mascara '99-99999999-9', pero el valor guardado en el .ini nunca pasa por
+    esa mascara y llegaba al PDF crudo.
+    """
+    if not valor:
+        return ""
+    digitos = "".join(c for c in str(valor) if c.isdigit())
+    if len(digitos) != 11:
+        # No lo toco: un CUIT raro o algo que no es un CUIT se muestra tal
+        # cual para que se vea el problema, en vez de recortarlo.
+        return str(valor).strip()
+    return "{}-{}-{}".format(digitos[:2], digitos[2:10], digitos[10:])
+
 
 def hash_password(password):
     # uuid is used to generate a random number

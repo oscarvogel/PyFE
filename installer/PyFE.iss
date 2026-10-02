@@ -17,11 +17,11 @@
 ;  Compilar el instalador:    iscc PyFE.iss
 ; ==============================================================
 
-#define AppName "PyFE"
+#define AppName "Asiento"
 #define AppVersion "0.8.10"
-#define AppPublisher "Servin LGSM"
+#define AppPublisher "Vogel Consultoria"
 #define AppExeName "main.exe"
-#define AppMutex "PyFEInstallerMutex"
+#define AppMutex "AsientoInstallerMutex"
 
 [Setup]
 AppId={{7C2E9A41-5B3D-4F18-9E62-1A8D4C7B0F13}
@@ -33,11 +33,14 @@ DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 OutputDir=..\instaladores
-OutputBaseFilename=PyFE-{#AppVersion}-setup
+OutputBaseFilename=Asiento-{#AppVersion}-setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
+; Icono del instalador, del menu Inicio y del escritorio: el logo de la
+; marca. El .ico sale de tools/generar_marca.py a partir del original.
+SetupIconFile=..\imagenes\marca\logo-vogel.ico
 UninstallDisplayIcon={app}\{#AppExeName}
 UninstallDisplayName={#AppName}
 SetupMutex={#AppMutex}

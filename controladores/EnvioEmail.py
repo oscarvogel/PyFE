@@ -3,7 +3,7 @@ from PyQt5.QtCore import Qt
 from controladores.ControladorBase import ControladorBase
 from controladores.Emailcliente import EmailClienteController
 from libs import Ventanas
-from libs.Utiles import envia_correo, imagen, AbrirMultiplesArchivos
+from libs.Utiles import envia_correo, imagen, AbrirMultiplesArchivos, icono
 from modelos.Clientes import Cliente
 from modelos.CorreosEnviados import CorreoEnviado
 from modelos.Emailcliente import EmailCliente
@@ -95,7 +95,7 @@ class EnvioEmailController(ControladorBase):
 
     def ActualizaListaAdjuntos(self):
         self.view.listaAdjuntos.clear()
-        icono = imagen('attach_file.png')
+        icono = icono('adjuntar')
         for item in self.adjuntos:
             self.view.listaAdjuntos.AgregaItem(item, icon=icono)
 

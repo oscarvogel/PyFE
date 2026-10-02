@@ -29,7 +29,7 @@ from libs.EntradaTexto import EntradaTexto, TextoEnriquecido, EmailCompleter
 from libs.Etiquetas import Etiqueta
 from libs.Grillas import Grilla
 from libs.Listas import Lista
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 from vistas.VistaBase import VistaBase
 
 
@@ -40,7 +40,7 @@ class EnvioEmailView(VistaBase):
         self.setupUi(self)
 
     def setupUi(self, Form):
-        self.setWindowTitle("Envio de correo electronico")
+        self.setWindowTitle("Envío de correo electrónico")
 
         layoutPpal = QVBoxLayout(Form)
 
@@ -78,7 +78,7 @@ class EnvioEmailView(VistaBase):
         layoutPpal.addWidget(self.textMensaje)
 
         layoutBotones = QHBoxLayout()
-        self.btnEnviar = Boton(texto="Enviar", imagen=imagen("email.png"))
+        self.btnEnviar = Boton(texto="Enviar", imagen=icono('email'), estilo='primario')
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnEnviar)
         layoutBotones.addWidget(self.btnCerrar)
@@ -91,7 +91,7 @@ class ListaCorreosView(VistaBase):
         self.setupUi(self)
 
     def setupUi(self, Form):
-        self.setWindowTitle("Seleccion de correos electronico")
+        self.setWindowTitle("Selección de correos electrónico")
         self.resize(650, 350)
         layoutPpal = QVBoxLayout(self)
 
@@ -114,8 +114,8 @@ class ListaCorreosView(VistaBase):
         layoutPpal.addWidget(self.gridCorreos)
 
         layoutBotones = QHBoxLayout()
-        self.btnSeleccionar = Boton(texto="&Selecciona", imagen=imagen("check.png"))
-        self.btnAgregar = Boton(texto="&Agregar correo", imagen=imagen("email.png"))
+        self.btnSeleccionar = Boton(texto="&Selecciona", imagen=icono('check'))
+        self.btnAgregar = Boton(texto="&Agregar correo", imagen=icono('email'))
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnSeleccionar)
         layoutBotones.addWidget(self.btnAgregar)

@@ -51,7 +51,10 @@ class ConfiguracionController(ControladorBase):
             self.view.controles['crt'].setText(LeerIni(clave='cert_homo', key='WSAA'))
             self.view.controles['key'].setText(LeerIni(clave='privatekey_homo', key='WSAA'))
 
-        self.view.controles['tema'].setIndex(ParamSist.ObtenerParametro("TEMA"))
+        # Ya no se carga el parametro TEMA: el selector de tema se elimino de
+        # la pantalla (ver vistas/Configuracion.py) porque los 7 .css que
+        # ofrecia nunca se aplicaban. El tema real es temas/pyfe.css y lo
+        # aplica libs/tema.py al arrancar.
 
     @inicializar_y_capturar_excepciones
     def GrabaParametros(self, *args, **kwargs):
@@ -85,6 +88,7 @@ class ConfiguracionController(ControladorBase):
             GrabarIni(clave='cert_homo', key='WSAA', valor=self.view.controles['crt'].text())
             GrabarIni(clave='privatekey_homo', key='WSAA', valor=self.view.controles['key'].text())
 
-        ParamSist.GuardarParametro(parametro="TEMA", valor=self.view.controles['tema'].text())
+        # El parametro TEMA ya no se guarda: el selector se elimino de la
+        # pantalla. Ver la nota en la carga de datos, mas arriba.
         self.view.EstablecerTema()
         Ventanas.showAlert(LeerIni('nombre_sistema'), 'Configuracion guardada con exito')

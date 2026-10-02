@@ -4,8 +4,8 @@ from PyQt5.QtCore import Qt
 from controladores.FPDFv1 import FEPDFv1
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1, PyQRv1
-from libs import Ventanas
-from libs.Utiles import DeCodifica, FechaMysql, FormatoFecha, LeerIni, getFileName, imagen, inicializar_y_capturar_excepciones, ubicacion_sistema
+from libs import Ventanas, Constantes
+from libs.Utiles import DeCodifica, FechaMysql, FormatoFecha, LeerIni, getFileName, imagen, inicializar_y_capturar_excepciones, ubicacion_sistema, formato_cuit, a_entero
 from modelos.Articulos import Articulo
 from modelos.ParametrosSistema import ParamSist
 from modelos.Remitos import DetalleRemito, Remito
@@ -267,7 +267,11 @@ class RemitoController(ControladorBase):
         ok = pyfpdf.AgregarDato("MEMBRETE1", "Domicilio Comercial: {}".format(
             DeCodifica(LeerIni(clave='membrete1', key='FACTURA'))))
         ok = pyfpdf.AgregarDato("MEMBRETE2", DeCodifica(LeerIni(clave='membrete2', key='FACTURA')))
-        ok = pyfpdf.AgregarDato("CUIT", 'CUIT: {}'.format(LeerIni(clave='cuit', key='WSFEv1')))
+        # Pie de la pagina: credito de quien hizo el programa.
+        # Va aca y no en el bloque del emisor, porque el bloque del
+        # emisor identifica a QUIEN FACTURA, y ese es el cliente.
+        ok = pyfpdf.AggregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
+        ok = pyfpdf.AgregarDato("CUIT", formato_cuit(LeerIni(clave='cuit', key='WSFEv1')))
         ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='iibb', key='FACTURA'))
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))
         ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='inicio', key='FACTURA')))
@@ -302,7 +306,7 @@ class RemitoController(ControladorBase):
         papel = "A4" #o "letter" para carta, "legal" para oficio
         orientacion = "portrait" #o landscape(apaisado)
         ok = pyfpdf.CrearPlantilla(papel, orientacion)
-        num_copias = int(LeerIni(clave='num_copias', key='FACTURA')) #original, duplicado y triplicado
+        num_copias = a_entero(LeerIni(clave='num_copias', key='FACTURA'), 1) #original, duplicado y triplicado
         lineas_max = 24 #cantidad de linas de items porp�gina
         qty_pos = "izq" #(cantidad a la izquierda de la descripci�n del art�culo)
         #Proceso la plantilla

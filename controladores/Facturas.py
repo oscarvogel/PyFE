@@ -11,8 +11,9 @@ from controladores.FCE import WsFECred
 from controladores.FE import FEv1, PyQRv1
 from controladores.FacturaBranding import aplicar_marca_factura, cargar_config_marca_factura, obtener_formato_factura
 from libs import Ventanas, Constantes
-from libs.Utiles import LeerIni, validar_cuit, FechaMysql, ubicacion_sistema, inicializar_y_capturar_excepciones, \
-    DeCodifica, imagen, getFileName, FormatoFecha
+from libs.Utiles import (LeerIni, validar_cuit, FechaMysql, ubicacion_sistema,
+                         inicializar_y_capturar_excepciones, DeCodifica, imagen,
+                         getFileName, FormatoFecha, formato_cuit, a_entero)
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Clientes import Cliente
@@ -82,7 +83,7 @@ class FacturaController(ControladorBase):
             else:
                 self.view.lineEditDocumento.setText(str(cliente.dni))
                 self.view.lineEditDocumento.setInputMask("99999999")
-            if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1: #si es Resp insc el contribuyente veo si teiene que emitira A o B
+            if a_entero(LeerIni(clave='cat_iva', key='WSFEv1'), 1) == 1: #si es Resp insc el contribuyente veo si teiene que emitira A o B
                 if cliente.tiporesp.idtiporesp == 2: #resp inscripto
                     self.view.cboComprobante.setText('Factura A')
                 else:
@@ -97,7 +98,7 @@ class FacturaController(ControladorBase):
 
     def ObtieneNumeroFactura(self):
         self.view.layoutFactura.lineEditPtoVta.setText(LeerIni(clave='pto_vta', key='WSFEv1').zfill(4))
-        # tipos = Tipocomprobantes.ComboTipoComp(tiporesp=int(LeerIni(clave='cat_iva', key='WSFEv1')))
+        # tipos = Tipocomprobantes.ComboTipoComp(tiporesp=a_entero(LeerIni(clave='cat_iva', key='WSFEv1'), 1))
         # tipo_cpte = [k for (k, v) in tipos.valores.iteritems() if v == self.view.cboComprobante.text()][0]
         tipo_cpte = self.view.cboComprobante.text()
         nro = FEv1().UltimoComprobante(tipo=tipo_cpte,
@@ -180,7 +181,7 @@ class FacturaController(ControladorBase):
             impuesto = decimal.Decimal.from_float(0.)
         for x in range(self.view.gridFactura.rowCount()):
             art = None
-            if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 6:
+            if a_entero(LeerIni(clave='cat_iva', key='WSFEv1'), 1) == 6:
                 self.view.gridFactura.ModificaItem(valor=21, fila=x, col='IVA')
             detalle = self.view.gridFactura.ObtenerItem(fila=x, col='Detalle')
             unitario = float(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
@@ -203,8 +204,8 @@ class FacturaController(ControladorBase):
             unitario = float(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
             iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
             total = float(cantidad) * float(unitario)
-            if int(LeerIni(clave='cat_iva',
-                           key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
+            if a_entero(LeerIni(clave='cat_iva',
+                           key='WSFEv1'), 1) == 1:  # si es Resp insc el contribuyente
                 if self.tipo_cpte in [6, 7, 8]:
                     neto = round(total / ((iva / 100) + 1), 3)
                     try:
@@ -227,8 +228,8 @@ class FacturaController(ControladorBase):
                     pass
                 totalgral += total
 
-            # if int(LeerIni(clave='cat_iva',
-            #                key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
+            # if a_entero(LeerIni(clave='cat_iva',
+            #                key='WSFEv1'), 1) == 1:  # si es Resp insc el contribuyente
             #     ivagral += total * iva / 100
             # totalgral += total
             subtotal += total
@@ -236,8 +237,8 @@ class FacturaController(ControladorBase):
             self.view.gridFactura.ModificaItem(valor=total, fila=x, col='SubTotal')
 
 
-        if int(LeerIni(clave='cat_iva',
-                       key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
+        if a_entero(LeerIni(clave='cat_iva',
+                       key='WSFEv1'), 1) == 1:  # si es Resp insc el contribuyente
             dgrgral = totalgral * impuesto / 100
 
         if dgrgral > 0:
@@ -351,8 +352,8 @@ class FacturaController(ControladorBase):
         cbt_hasta = cbt_desde
         imp_total = self.view.lineEditTotal.text()
         imp_tot_conc = "0.00"
-        if int(LeerIni(clave='cat_iva',
-                       key='WSFEv1')) == 1:  # si es Resp insc el contribuyente
+        if a_entero(LeerIni(clave='cat_iva',
+                       key='WSFEv1'), 1) == 1:  # si es Resp insc el contribuyente
             imp_neto = str(round(float(self.view.lineEditTotal.text()) - \
                 float(self.view.lineEditTributos.text()) - \
                 float(self.view.lineEditTotalIVA.text()), 2))
@@ -418,7 +419,7 @@ class FacturaController(ControladorBase):
             wsfev1.AgregarTributo(tributo_id=idimp, desc=detalle, base_imp=base_imp,
                                   alic=alicuota, importe=importe)
 
-        if int(LeerIni(clave='cat_iva', key='WSFEv1')) == 1: #◘unicamente si es RI se informa los IVA
+        if a_entero(LeerIni(clave='cat_iva', key='WSFEv1'), 1) == 1: #◘unicamente si es RI se informa los IVA
             #agrego todos los iva
             for k,v in self.netos.items():
                 if v != 0:
@@ -687,7 +688,19 @@ class FacturaController(ControladorBase):
         ok = pyfpdf.AgregarDato("MEMBRETE1", "Domicilio Comercial: {}".format(
             DeCodifica(LeerIni(clave='membrete1', key='FACTURA'))))
         ok = pyfpdf.AgregarDato("MEMBRETE2", DeCodifica(LeerIni(clave='membrete2', key='FACTURA')))
-        ok = pyfpdf.AgregarDato("CUIT", 'CUIT: {}'.format(LeerIni(clave='cuit', key='WSFEv1')))
+        # El CUIT del emisor va SOLO, sin el rotulo pegado y con guiones.
+        #
+        # Antes se imprimia 'CUIT: 20179461154' en un unico campo. Mal por dos
+        # motivos: el rotulo mezclado con el dato hace que el campo no se pueda
+        # leer como numero (y hay gente que los copia de la factura), y el
+        # numero sin guiones no es como se muestra un CUIT en un comprobante
+        # fiscal. El rotulo ahora va en su propio campo del formato (CUIT.L),
+        # como ya pasa con Fecha, Direccion, Localidad, etc.
+        # Pie de la pagina: credito de quien hizo el programa.
+        # Va aca y no en el bloque del emisor, porque el bloque del
+        # emisor identifica a QUIEN FACTURA, y ese es el cliente.
+        ok = pyfpdf.AggregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
+        ok = pyfpdf.AgregarDato("CUIT", formato_cuit(LeerIni(clave='cuit', key='WSFEv1')))
         ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='iibb', key='FACTURA'))
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))
         ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='inicio', key='FACTURA')))
@@ -737,7 +750,7 @@ class FacturaController(ControladorBase):
         papel = "A4" #o "letter" para carta, "legal" para oficio
         orientacion = "portrait" #o landscape(apaisado)
         ok = pyfpdf.CrearPlantilla(papel, orientacion)
-        num_copias = int(LeerIni(clave='num_copias', key='FACTURA')) #original, duplicado y triplicado
+        num_copias = a_entero(LeerIni(clave='num_copias', key='FACTURA'), 1) #original, duplicado y triplicado
         lineas_max = 24 #cantidad de linas de items porp�gina
         qty_pos = "izq" #(cantidad a la izquierda de la descripci�n del art�culo)
         #Proceso la plantilla
