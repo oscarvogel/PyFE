@@ -19,16 +19,25 @@ def test_venta_simple_controller_se_puede_construir(monkeypatch):
     controller.view.Cerrar()
 
 
-def test_venta_simple_inicia_con_forma_pago_efectivo(monkeypatch):
+def test_venta_simple_inicia_con_la_forma_de_pago_por_defecto(monkeypatch):
     monkeypatch.setattr(sys, "argv", [sys.argv[0]])
     app = QApplication.instance() or QApplication([])
 
     from controladores.VentaSimple import VentaSimpleController
+    from modelos.Formaspago import Formapago
 
     controller = VentaSimpleController()
 
+    # La vista elige la forma de pago por id (findData("1")), que es lo que
+    # consume el controlador al emitir. El detalle visible ("EFECTIVO",
+    # "CONTADO", ...) es dato maestro de la base local, que no se versiona
+    # porque *.db esta en .gitignore, asi que se compara contra la propia
+    # base y no contra un texto fijo.
     assert controller.view.cboFormaPago.text() == "1"
-    assert controller.view.cboFormaPago.currentText().strip().upper() == "EFECTIVO"
+    assert (
+        controller.view.cboFormaPago.currentText().strip().upper()
+        == Formapago.get_by_id(1).detalle.strip().upper()
+    )
     controller.view.Cerrar()
 
 
