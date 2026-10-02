@@ -294,8 +294,20 @@ class FacturaController(ControladorBase):
         ok = self.CreaFE()
         if ok:
             print("Graba factura")
-            self.GrabaFE()
-        self.view.Cerrar()
+            ok = self.GrabaFE()
+        if ok:
+            self.view.Cerrar()
+        else:
+            self.view.btnGrabarFactura.setEnabled(True)
+            Ventanas.showAlert("Sistema", self._mensaje_error_emision())
+
+    def _mensaje_error_emision(self):
+        detalle = DeCodifica(getattr(self, "Excepcion", "") or "").strip()
+        if not detalle:
+            detalle = DeCodifica(getattr(self, "Traceback", "") or "").strip()
+        if detalle:
+            return "No se pudo emitir o guardar la factura.\n\n{}".format(detalle)
+        return "No se pudo emitir o guardar la factura. Revise el log de errores."
 
     @inicializar_y_capturar_excepciones
     def CreaFE(self, *args, **kwargs):
@@ -529,6 +541,7 @@ class FacturaController(ControladorBase):
             cpbte.numero = self.view.layoutCpbteRelacionado.numero
             cpbte.save()
         self.ImprimeFactura(idcabecera=cabfact.idcabfact)
+        return True
 
     @inicializar_y_capturar_excepciones
     def ImprimeFactura(self, idcabecera = None, mostrar = True, *args, **kwargs):
@@ -748,6 +761,7 @@ class FacturaController(ControladorBase):
             pyfpdf.MostrarPDF(salida, imprimir)
 
         self.facturaGenerada = salida
+        return True
 
     def Validacion(self):
         retorno = True

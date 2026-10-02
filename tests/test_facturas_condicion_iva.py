@@ -48,3 +48,42 @@ def test_crear_factura_wsfe_envia_condicion_iva_receptor(monkeypatch):
     assert ok is True
     assert wsfe.kwargs["cancela_misma_moneda_ext"] == "N"
     assert wsfe.kwargs["condicion_iva_receptor_id"] == 5
+
+
+def test_graba_factura_muestra_error_si_creafe_falla(monkeypatch):
+    monkeypatch.setattr(sys, "argv", [sys.argv[0]])
+
+    from controladores.Facturas import FacturaController
+    from controladores import Facturas
+
+    avisos = []
+    monkeypatch.setattr(Facturas.Ventanas, "showAlert", lambda titulo, mensaje: avisos.append((titulo, mensaje)))
+
+    class Boton:
+        habilitado = True
+
+        def setEnabled(self, valor):
+            self.habilitado = valor
+
+    class View:
+        def __init__(self):
+            self.btnGrabarFactura = Boton()
+            self.cerrada = False
+
+        def Cerrar(self):
+            self.cerrada = True
+
+    controller = object.__new__(FacturaController)
+    controller.view = View()
+    controller.Excepcion = "TypeError: prueba"
+    controller.Traceback = ""
+    controller.Validacion = lambda: True
+    controller.SumaTodo = lambda: None
+    controller.CreaFE = lambda: False
+    controller.GrabaFE = lambda: True
+
+    controller.GrabaFactura()
+
+    assert controller.view.btnGrabarFactura.habilitado is True
+    assert controller.view.cerrada is False
+    assert avisos == [("Sistema", "No se pudo emitir o guardar la factura.\n\nTypeError: prueba")]
