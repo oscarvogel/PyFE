@@ -38,24 +38,59 @@ def ruta_config():
     return os.path.join(carpeta, args.archivo)
 
 
+def _instalacion_ya_configurada():
+    """True si la configuracion tiene datos reales, no los de la plantilla.
+
+    Se usa para las instalaciones anteriores al marcador 'configurado':
+    si ya tenian base y empresa cargadas no hay que volver a preguntarles
+    nada, solo marcar la instalacion como configurada.
+    """
+    base = LeerIni(clave="base")
+    empresa = LeerIni(clave="empresa", key=SECCION_FISCAL)
+
+    if not base or not empresa:
+        return False
+
+    # La plantilla trae estos textos de ejemplo. Si siguen sin tocar, la
+    # instalacion esta sin configurar.
+    if empresa.strip().lower() in ("", "razon social", "nombre de la empresa"):
+        return False
+    if base.strip().lower() not in ("sqlite", "mysql"):
+        return False
+    return True
+
+
 def es_primer_arranque():
     """True si la instalacion todavia no fue configurada.
 
+    No se deduce solo de los valores: la plantilla trae 'base = sqlite' y
+    'empresa = Razon Social' de ejemplo, asi que si uno se guiara por eso
+    creeria que una instalacion nueva ya esta configurada.
+
     El mecanismo es un marcador explicito ([param] configurado = S) que
-    escribe el asistente. No se deduce de los valores: la plantilla trae
-    'base = sqlite' y 'empresa = Razon Social' de ejemplo, asi que si uno
-    se guiara por los valores creeria que una instalacion nueva ya esta
-    configurada y se saltaria el asistente.
+    escribe el asistente. Las instalaciones anteriores a este cambio no
+    lo tienen, asi que seAcceptedan tal cual si ya tienen datos reales,
+    para no volver a mostrarles el asistente.
     """
     if not os.path.exists(ruta_config()):
         return True
-    if not str(LeerIni(clave="configurado", key="param")).strip().upper() == "S":
-        return True
-    if not LeerIni(clave="base"):
-        return True
-    if not LeerIni(clave="empresa", key=SECCION_FISCAL):
-        return True
-    return False
+
+    if str(LeerIni(clave="configurado", key="param")).strip().upper() == "S":
+        return False
+
+    return not _instalacion_ya_configurada()
+
+
+def marcar_instalacion_configurada():
+    """Pone el marcador en una instalacion que ya venia funcionando.
+
+    Se llama al arrancar: asi las instalaciones viejas quedan marcadas
+    y el asistente no vuelve a aparecer nunca mas.
+    """
+    try:
+        GrabarIni(clave="configurado", key="param", valor="S")
+    except Exception:
+        pass
 
 
 def _es_mysql(base):

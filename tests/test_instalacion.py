@@ -65,6 +65,44 @@ def test_una_plantura_recien_instalada_todavia_es_primer_arranque(tmp_path, monk
     assert instalacion.es_primer_arranque() is True
 
 
+# -- Retrocompatibilidad: instalaciones anteriores al marcador -------------
+def test_instalacion_vieja_sin_marcador_no_vuelve_a_preguntar(tmp_path, monkeypatch):
+    """Las instalaciones que ya tenian base y empresa cargadas no tienen
+    el marcador 'configurado = S'. Si se exigiera el marcador, el
+    asistente volveria a aparecerle a todo el mundo."""
+    monkeypatch.chdir(tmp_path)
+    _ini(tmp_path,
+         "[param]\nbase = sqlite\niniciosistema = C:/x/\n\n"
+         "[FACTURA]\nempresa = Servin - Sistema Factura Electronica\n")
+    assert instalacion.es_primer_arranque() is False
+
+
+def test_instalacion_vieja_mysql_tampoco(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _ini(tmp_path,
+         "[param]\nbase = mysql\n\n[FACTURA]\nempresa = ARNHOLD TEODORO\n")
+    assert instalacion.es_primer_arranque() is False
+
+
+def test_la_plantura_no_cuenta_como_configurada(tmp_path, monkeypatch):
+    """Con el marcador ausente, los datos de ejemplo de la plantilla
+    siguen sin alcanzar para decir que esta configurada."""
+    monkeypatch.chdir(tmp_path)
+    _ini(tmp_path, "[param]\nbase = sqlite\n\n[FACTURA]\nempresa = Razon Social\n")
+    assert instalacion.es_primer_arranque() is True
+
+
+def test_marcar_instalacion_configurada_escribe_el_marcador(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _ini(tmp_path, "[param]\nbase = sqlite\n\n[FACTURA]\nempresa = Mi Empresa\n")
+    assert instalacion.es_primer_arranque() is False
+    instalacion.marcar_instalacion_configurada()
+    import libs.Utiles as U
+    assert U.LeerIni(clave="configurado") == "S"
+    # y sigue sin ser primer arranque
+    assert instalacion.es_primer_arranque() is False
+
+
 # -- Guardado ---------------------------------------------------------------
 class GraboFalso:
     def __init__(self):

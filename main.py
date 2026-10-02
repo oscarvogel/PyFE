@@ -1,5 +1,6 @@
 # coding=utf-8
 import logging
+import os
 import sys
 
 from PyQt5.QtWidgets import QApplication, QDialog
@@ -20,9 +21,13 @@ def _configurar_instalacion_nueva():
     import arma la conexion a la base. Devuelve False si el usuario
     cancela, para no seguir arrancando a ciegas.
     """
-    from libs.instalacion import es_primer_arranque, guardar_config_inicial
+    from libs.instalacion import (es_primer_arranque, guardar_config_inicial,
+                                  marcar_instalacion_configurada)
 
     if not es_primer_arranque():
+        # Instalacion previa a este cambio: se marca para que el asistente
+        # no vuelva a aparecer. No se le pide nada al usuario.
+        marcar_instalacion_configurada()
         return True
 
     print("No se encontro una configuracion previa, se inicia el asistente.")
@@ -82,28 +87,43 @@ def _pedir_password_base():
     return True
 
 
-def _asegurar_iniciosistema():
-    """Deja iniciosistema apuntando a una carpeta escribible.
+def _carpeta_de_la_app():
+    """Donde esta instalado el programa."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(os.path.abspath(sys.executable))
+    return os.path.dirname(os.path.abspath(__file__))
 
-    El instalador lo setea, pero si alguien corre la app sin instalar (o
-    si el instalador no lo hizo) queda vacio y los logs se intentan
-    escribir en el directorio de trabajo, que en Program Files no tiene
-    permiso de escritura.
+
+def _asegurar_carpeta_de_trabajo():
+    """Deja la carpeta de trabajo apuntando a la instalacion.
+
+    LeerIni y GrabarIni resuelven sistema.ini con os.getcwd(). Con un
+    ejecutable de una sola pieza, el cwd es desde donde el usuario hizo
+    doble clic, que puede ser el escritorio: el sistema.ini terminaria
+    en cualquier lado y en 'Program Files' no habria permiso de escritura.
+
+    Asi que, siTodavia no hay una carpeta de trabajo configurada, se fija
+    a la carpeta de la app, se cambia el cwd y se guarda. Esto tambien
+    deja que el instalador no tenga que escribir el sistema.ini: lo crea
+    la propia app con los datos del asistente.
     """
-    import os
-
     from libs.Utiles import GrabarIni, LeerIni
 
     actual = LeerIni(clave="iniciosistema")
-    if actual and os.path.isdir(actual):
+    if actual and os.path.isdir(actual) and os.path.abspath(actual) != os.path.abspath(os.getcwd()):
         return actual
 
-    if getattr(sys, "frozen", False):
-        carpeta = os.path.dirname(os.path.abspath(sys.executable))
-    else:
-        carpeta = os.path.dirname(os.path.abspath(__file__))
+    carpeta = _carpeta_de_la_app().rstrip("/\\") + "/"
 
-    carpeta = carpeta.rstrip("/\\") + "/"
+    # Antes de tocar nada de configuracion: si no, el archivo se escribe
+    # en el cwd equivocado.
+    try:
+        if os.path.abspath(carpeta) != os.path.abspath(os.getcwd()):
+            os.chdir(carpeta)
+    except OSError as e:
+        print("No se pudo cambiar a la carpeta del programa: {}".format(e))
+        return actual or carpeta
+
     try:
         GrabarIni(clave="iniciosistema", key="param", valor=carpeta)
     except Exception as e:
@@ -112,19 +132,23 @@ def _asegurar_iniciosistema():
 
 
 def inicio():
+    # 0) Carpeta de trabajo. Tiene que ser lo primero: LeerIni resuelve
+    #    sistema.ini con os.getcwd(), y en un ejecutable de una sola pieza
+    #    el cwd es desde donde el usuario hizo doble clic. Sin esto, el
+    #    archivo se escribe en el escritorio y no hay permiso en
+    #    'Program Files'.
+    carpeta = _asegurar_carpeta_de_trabajo()
+
     args = []
     #args = ['', '-style', 'Cleanlooks']
     app = QApplication(args)
 
-    # 1) Instalacion nueva: asistente. Va primero porque escribe la config
-    #    que todo lo demas necesita.
+    # 1) Instalacion nueva: asistente. Crea el sistema.ini con los datos
+    #    que da el usuario, asi que va antes que todo lo demas.
     if not _configurar_instalacion_nueva():
         return
 
-    # 2) Carpeta de trabajo, antes de tocar el logger.
-    carpeta = _asegurar_iniciosistema()
-
-    # 3) Logger
+    # 2) Logger
     initialize_logger(carpeta)
 
     if LeerIni(clave='homo') == 'S':

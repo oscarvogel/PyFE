@@ -51,8 +51,12 @@ RestartApplications=no
 Name: "spanish"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Crear acceso directo en el escritorio"; GroupDescription: "Accesos directos:"; Flags: unchecked
-Name: "startmenuicon"; Description: "Crear acceso directo en el menu Inicio"; GroupDescription: "Accesos directos:"; Flags: checked
+; Solo el escritorio es opcional. El acceso del menu Inicio se crea
+; siempre (ver [Icons]) y no como tarea: en Inno Setup 6.7.3 los flags
+; 'checkedonly' y 'uncheckedonly' no existen y el script no compila
+; (comprobado con ISCC), asi que no hay forma de marcar una tarea como
+; seleccionada por defecto. El menu Inicio es obligatorio igual.
+Name: "desktopicon"; Description: "Crear acceso directo en el escritorio"; GroupDescription: "Accesos directos:"
 
 [Files]
 ; El ejecutable y lo que genera compila.bat en dist\
@@ -84,63 +88,8 @@ Filename: "{app}\{#AppExeName}"; Description: "Iniciar {#AppName}"; \
 Type: filesandordirs; Name: "{app}\error.log"
 Type: filesandordirs; Name: "{app}\all.log"
 
-[Code]
-{ ------------------------------------------------------------------------
-  Prepara el sistema.ini: parte de la plantilla y le pone la ruta real de
-  instalacion. No escribe ningun secreto, y deja el modo en homologacion
-  a proposito: instalar en produccion por error es el peor default.
-  ------------------------------------------------------------------------ }
-procedure CurStepChanged(CurStep: TSetupStep);
-var
-  DestIni: String;
-  Template: String;
-  Contenido: String;
-  partie, ligne: String;
-  F: Integer;
-begin
-  if CurStep = ssPostInstall then
-  begin
-    DestIni := ExpandConstant('{app}\sistema.ini');
-    Template := ExpandConstant('{app}\sistema.ini.example');
-
-    if FileExists(DestIni) then
-    begin
-      { Upgrade: no se pisa una configuracion que ya existe. }
-      Log('sistema.ini ya existe, se respeta');
-    end
-    else if FileExists(Template) then
-    begin
-      F := FileOpen(Template, fmOpenRead);
-      try
-        Contenido := '';
-        while not FileEOF(F) do
-        begin
-          ReadLn(F, ligne);
-          Contenido := Contenido + ligne + LineEnding;
-        end;
-      finally
-        FileClose(F);
-      end;
-
-      { reemplazo del valor que si depende de la maquina }
-      StringChangeEx(Contenido, 'iniciosistema = /PyFE/',
-        'iniciosistema = ' + AddBackslash(ExpandConstant('{app}')), True);
-      { homo = S ya viene en homologacion en la plantilla y no se toca:
-        instalar en produccion por error es el peor default posible }
-
-      F := FileOpen(DestIni, fmCreate);
-      try
-        FileWrite(F, Contenido);
-      finally
-        FileClose(F);
-      end;
-      Log('sistema.ini creado desde la plantilla');
-    end
-    else
-      Log('no se encontro sistema.ini.example');
-
-    { aviso en el log de la instalacion, no al usuario: el asistente
-      aparece solo en el primer arranque }
-    Log('La conexion y los datos fiscales los pide el asistente del primer arranque');
-  end;
-end;
+; Nota: el instalador NO escribe sistema.ini.
+; La app lo crea sola en el primer arranque, con los datos que da el
+; asistente, y se posiciona en la carpeta donde quedo instalada. Asi el
+; instalador no tiene que escribir configuracion ni manipulating
+; encodings, que es donde se pondrian complicados.
