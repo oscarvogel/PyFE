@@ -99,9 +99,9 @@ def LeerIni(clave=None, key=None, carpeta=''):
     # print("archivo {} clave {} key {} carpeta {} valor {}".format(archivoini, clave, key, carpeta, retorno))
     return retorno
 
-def GrabarIni(clave=None, key=None, valor=''):
+def GrabarIni(clave=None, key=None, valor='', borrar=False):
     analizador = argparse.ArgumentParser(description='Sistema de Facturacion Electronica.')
-    analizador.add_argument("-i", "--inicio", default=os.getcwd(), help="Carpeta de Inicio de sistema.")
+    analizador.add_argument("-i", "--inicio", default=os.getcwd(), help="Carpeta de Inicio del sistema.")
     analizador.add_argument("-a", "--archivo", default="sistema.ini", help="Archivo de Configuracion de sistema.")
     argumento = analizador.parse_args()
     archivoini = argumento.archivo
@@ -114,7 +114,12 @@ def GrabarIni(clave=None, key=None, valor=''):
     cfgfile = open(join(carpeta, archivoini), 'w')
     if not Config.has_section(key):
         Config.add_section(key)
-    Config.set(key, clave, valor)
+    if borrar:
+        # Saca la clave en vez de dejarla vacia. Se usa cuando un secreto
+        # migra a otro backend y la clave vieja deja de servir.
+        Config.remove_option(key, clave)
+    else:
+        Config.set(key, clave, valor)
     Config.write(cfgfile)
     cfgfile.close()
 

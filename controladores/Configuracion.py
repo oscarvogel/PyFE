@@ -33,9 +33,13 @@ class ConfiguracionController(ControladorBase):
         self.view.controles['HOMO'].setIndex(LeerIni(clave='homo', key='param'))
         self.view.controles['Base'].setText(LeerIni(clave='base', key='param'))
         #unicamente levanto la contraseña cuando tiene algo
-        if LeerIni(clave='password', key='param'):
-            self.view.controles['password'].setText(
-                desencriptar(LeerIni(clave='password', key='param'), LeerIni(clave='key', key='param')))
+        # El resolver acepta las tres formas a la vez: 'dpapi:v1:',
+        # 'fernet:v1:' y el esquema viejo. Si algo esta roto, se muestra
+        # vacio en vez de romper la pantalla de configuracion.
+        from libs.secretos import resolver_password_base
+        _password = resolver_password_base()
+        if _password:
+            self.view.controles['password'].setText(_password)
         self.view.controles['num_copias'].setText(LeerIni(clave='num_copias', key='FACTURA'))
         self.view.controles['cat_iva'].setIndex(LeerIni(clave='cat_iva', key='WSFEv1'))
         self.view.controles['cbufce'].setText(LeerIni(clave='cbufce', key='FACTURA'))
@@ -65,10 +69,12 @@ class ConfiguracionController(ControladorBase):
         GrabarIni(clave='HOMO', key='param', valor=self.view.controles['HOMO'].text())
         GrabarIni(clave='Base', key='param', valor=self.view.controles['Base'].text())
         #si tiene una contraseña la guardo de lo contrario no
+        # Al guardar se migra sola: con Windows queda en 'dpapi:v1:' y se
+        # borra la clave Fernet vieja, que ya no sirve y seria otro secreto
+        # dando vueltas en el archivo.
         if self.view.controles['password'].text():
-            password, key = encriptar(bytes(self.view.controles['password'].text(), encoding='utf8'))
-            GrabarIni(clave='password', key='param', valor=password.decode('utf-8'))
-            GrabarIni(clave='key', key='param', valor=key.decode('utf-8'))
+            from libs.secretos import persistir_password_base
+            persistir_password_base(self.view.controles['password'].text())
         GrabarIni(clave='cat_iva', key='WSFEv1', valor=self.view.controles['cat_iva'].text())
         GrabarIni(clave='cbufce', key='FACTURA', valor=self.view.controles['cbufce'].text())
         GrabarIni(clave='aliasfce', key='FACTURA', valor=self.view.controles['aliasfce'].text())

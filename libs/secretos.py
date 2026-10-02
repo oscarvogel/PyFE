@@ -227,6 +227,92 @@ def esta_legible(valor, clave_fernet=None):
 
 
 # --------------------------------------------------------------------------
+# Resolucion y persistencia del password de la base
+# --------------------------------------------------------------------------
+# Estas dos son las que usa el resto de la app. Aceptan funciones de
+# lectura/escritura inyectadas para poder testearlas sin tocar el
+# sistema.ini real.
+
+
+def resolver_password_base(leer=None):
+    """Devuelve el password de la base, o None si hay que pedirlo.
+
+    Orden de resolucion:
+      1. lo que se tipeo en este arranque (cache de sesion)
+      2. sistema.ini, detectando el backend por el prefijo del valor
+      3. None
+
+    El paso 2 acepta las tres formas a la vez, que es lo que hace que la
+    migracion sea gradual y no rompa a nadie:
+      'dpapi:v1:...'  -> DPAPI (Windows)
+      'fernet:v1:...' -> Fernet con la clave 'key' del ini
+      'gAAAA...'      -> esquema historico: Fernet con la 'key' del ini
+    Si el valor no se puede leer, devuelve None en vez de romper, para que
+    el que llama pueda pedirlo.
+    """
+    from libs.Utiles import LeerIni
+
+    if leer is None:
+        leer = LeerIni
+
+    en_sesion = obtener_de_sesion("password_base")
+    if en_sesion is not None:
+        return en_sesion
+
+    valor = leer(clave="password", key="param")
+    if valor is None or not str(valor).strip():
+        return None
+
+    clave = leer(clave="key", key="param")
+    try:
+        return descifrar(valor, clave)
+    except SecretoIlegible:
+        return None
+
+
+def persistir_password_base(texto, escribir=None, borrar=None):
+    """Guarda el password migrandolo al backend mas seguro disponible.
+
+    Con DPAPI (Windows) escribe 'dpapi:v1:...' y BORRA la clave Fernet
+    vieja, que ya no sirve para nada y seria un secreto mas dando vueltas
+    en el archivo. Si DPAPI no esta o falla, cae a 'fernet:v1:...' con su
+    clave al lado, que es el esquema portable.
+
+    Devuelve 'dpapi' o 'fernet' segun lo que quedo guardado.
+    """
+    if escribir is None or borrar is None:
+        from libs.Utiles import GrabarIni
+
+        if escribir is None:
+            escribir = lambda clave, key, valor: GrabarIni(  # noqa: E731
+                clave=clave, key=key, valor=valor)
+        if borrar is None:
+            borrar = lambda clave, key: GrabarIni(  # noqa: E731
+                clave=clave, key=key, borrar=True)
+
+    if disponible_dpapi():
+        try:
+            bruto = _dpapi_proteger(texto.encode()
+                                    if isinstance(texto, str) else texto)
+            escribir("password", "param",
+                     PREFIXO_DPAPI + base64.b64encode(bruto).decode("ascii"))
+            borrar("key", "param")
+            return "dpapi"
+        except Exception:
+            # Regla 1: se cae a Fernet sin abortar.
+            pass
+
+    from cryptography.fernet import Fernet
+
+    clave = Fernet.generate_key()
+    bruto = _fernet_cifrar(texto, clave)
+    escribir("password", "param",
+             PREFIXO_FERNET + base64.b64encode(bruto).decode("ascii"))
+    escribir("key", "param", clave.decode("ascii"))
+    return "fernet"
+
+
+# --------------------------------------------------------------------------
 # Cache de la sesion
 # --------------------------------------------------------------------------
 # El password de la base se necesita una vez, para abrir la conexion. Cachearlo

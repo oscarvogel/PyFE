@@ -315,7 +315,14 @@ class Main(ControladorBase):
         if LeerIni("base") == "mysql": #en caso de que sea mysql y no este creada la base la crea
             basedatos = LeerIni("basedatos")
             user = LeerIni("usuario")
-            password = desencriptar(LeerIni('password').encode(), LeerIni('key').encode())
+            # El resolver entiende las tres formas de guardar el secreto
+            # (dpapi:v1:, fernet:v1: y el esquema viejo), asi que aca no se
+            # descifra a mano y no se rompe cuando el valor ya migro.
+            from libs.secretos import resolver_password_base
+            password = resolver_password_base()
+            if not password:
+                print("No se pudo obtener el password de la base, no se crea.")
+                return
             host = LeerIni("host")
             conn = pymysql.connect(host=host, user=user, password=password)
             conn.cursor().execute(f'CREATE DATABASE IF NOT EXISTS {basedatos}')
