@@ -6,7 +6,7 @@ from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Fechas import Fecha
 from libs.Formulario import Formulario
 from libs.Grillas import Grilla
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 from modelos import Clientes
 
 
@@ -17,7 +17,7 @@ class ReImprimeFacturaView(Formulario):
         self.setupUi(self)
 
     def setupUi(self, Form):
-        self.setWindowTitle("Re impresion de facturas")
+        self.setWindowTitle("Reimpresión de facturas")
         self.verticalLayoutDatos = QVBoxLayout(Form)
 
         self.lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
@@ -36,9 +36,9 @@ class ReImprimeFacturaView(Formulario):
         self.verticalLayoutDatos.addWidget(self.gridDatos)
         self.gridDatos.ArmaCabeceras(cabeceras=cabeceras)
         self.layoutBotones = QHBoxLayout()
-        self.btnImprimir = Boton(texto="Imprimir", imagen=imagen('print.png'))
-        self.btnCargar = Boton(texto="Cargar", imagen=imagen("if_SEO_usability_audit_search__969250.png"))
-        self.envioCorreo = Boton(texto="Enviar por correo", imagen=imagen('email.png'))
+        self.btnImprimir = Boton(texto="Imprimir", imagen=icono('imprimir'))
+        self.btnCargar = Boton(texto="Cargar", imagen=icono('buscar'))
+        self.envioCorreo = Boton(texto="Enviar por correo", imagen=icono('email'))
         self.btnCerrar = BotonCerrarFormulario()
         self.layoutBotones.addWidget(self.btnCargar)
         self.layoutBotones.addWidget(self.btnImprimir)

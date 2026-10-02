@@ -6,7 +6,7 @@ from libs.Etiquetas import Etiqueta, EtiquetaTitulo
 from libs.Fechas import Fecha
 from libs.Grillas import Grilla
 from libs.GroupBox import Agrupacion
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 from modelos import Clientes
 from modelos import Tipocomprobantes
 from modelos.Formaspago import ComboFormapago
@@ -47,7 +47,7 @@ class RemitoView(VistaBase):
         layout_parametros.addWidget(lbl_tipo_cpte, 1, 2)
         
         self.numero = Factura()
-        layout_parametros.addWidget(Etiqueta(texto="Numero"), 1, 3)
+        layout_parametros.addWidget(Etiqueta(texto="Número"), 1, 3)
         layout_parametros.addLayout(self.numero, 1, 4)
 
         self.forma_pago = ComboFormapago()
@@ -79,9 +79,9 @@ class RemitoView(VistaBase):
         layout_ppal.addLayout(layout_totales)
         
         layout_botones = QHBoxLayout()
-        self.btn_guardar = Boton(texto="Guardar", imagen=imagen("save.png"), autodefault=False)
-        self.btn_borrar = Boton(texto="Borrar", imagen=imagen("delete.png"), autodefault=False)
-        self.btn_cerrar = Boton(texto="Cerrar", imagen=imagen("close.png"), autodefault=False)
+        self.btn_guardar = Boton(texto="Guardar", imagen=icono('guardar'), autodefault=False, estilo='primario')
+        self.btn_borrar = Boton(texto="Borrar", imagen=icono('borrar'), autodefault=False, estilo='peligro')
+        self.btn_cerrar = Boton(texto="Cerrar", imagen=icono('cerrar'), autodefault=False)
         layout_botones.addWidget(self.btn_guardar)
         layout_botones.addWidget(self.btn_borrar)
         layout_botones.addWidget(self.btn_cerrar)

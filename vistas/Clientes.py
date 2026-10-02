@@ -10,7 +10,7 @@ from libs.Etiquetas import Etiqueta, EtiquetaTitulo
 from libs.Fechas import Fecha, RangoFechas
 from libs.Grillas import Grilla
 from libs.Spinner import Spinner
-from libs.Utiles import inicializar_y_capturar_excepciones, imagen
+from libs.Utiles import inicializar_y_capturar_excepciones, imagen, icono
 from modelos import Localidades, Tipodoc, Tiporesp, Impuestos
 from modelos.Clientes import Cliente, Valida
 from vistas.ABM import ABM
@@ -28,7 +28,7 @@ class ClientesView(ABM):
 
     @inicializar_y_capturar_excepciones
     def ArmaCarga(self, *args, **kwargs):
-        self.layoutID = self.ArmaEntrada("idcliente", texto="Codigo")
+        self.layoutID = self.ArmaEntrada("idcliente", texto="Código")
         self.ArmaEntrada("nombre", boxlayout=self.layoutID)
         self.layoutDomi = self.ArmaEntrada("domicilio")
         self.ArmaEntrada("telefono", boxlayout=self.layoutDomi)
@@ -125,7 +125,7 @@ class ClientesView(ABM):
         self.btnEmail = Boton(
             self.tabLista,
             texto="Email Cliente",
-            imagen=imagen("email.png"),
+            imagen=icono('email'),
             tamanio=QSize(32, 32),
             tooltip="Agrega email del cliente",
         )
@@ -134,7 +134,7 @@ class ClientesView(ABM):
         self.btn_ficha = Boton(
             self.tabLista,
             texto="Ficha",
-            imagen=imagen("document-copy.png"),
+            imagen=icono('documento'),
             tamanio=QSize(32, 32),
             tooltip="Ficha del cliente",
         )
@@ -167,13 +167,13 @@ class ListaFichaClienteView(VistaBase):
 
         layout_botones = QHBoxLayout()
         self.btn_cargar = Boton(
-            texto="Cargar", imagen=imagen("if_product-sales-report_49607.png")
+            texto="Cargar", imagen=icono('productos')
         )
-        self.btn_agregar = Boton(texto="Agregar", imagen=imagen("new.png"))
-        self.btn_editar = Boton(texto="Editar", imagen=imagen("edit.png"))
-        self.btn_borrar = Boton(texto="Borrar", imagen=imagen("delete.png"))
-        self.btn_impresion = Boton(texto="Imprimir", imagen=imagen("print.png"))
-        self.btn_cerrar = Boton(texto="Cerrar", imagen=imagen("close.png"))
+        self.btn_agregar = Boton(texto="Agregar", imagen=icono('nuevo'))
+        self.btn_editar = Boton(texto="Editar", imagen=icono('editar'))
+        self.btn_borrar = Boton(texto="Borrar", imagen=icono('borrar'), estilo='peligro')
+        self.btn_impresion = Boton(texto="Imprimir", imagen=icono('imprimir'))
+        self.btn_cerrar = Boton(texto="Cerrar", imagen=icono('cerrar'))
         layout_botones.addWidget(self.btn_cargar)
         layout_botones.addWidget(self.btn_agregar)
         layout_botones.addWidget(self.btn_editar)
@@ -219,8 +219,8 @@ class FichaClienteView(VistaBase):
         layoutPpal.addLayout(layoutDatos)
 
         layout_botones = QHBoxLayout()
-        self.btn_guardar = Boton(texto="Guardar", imagen=imagen("save.png"))
-        self.btn_cerrar = Boton(texto="Cerrar", imagen=imagen("close.png"))
+        self.btn_guardar = Boton(texto="Guardar", imagen=icono('guardar'), estilo='primario')
+        self.btn_cerrar = Boton(texto="Cerrar", imagen=icono('cerrar'))
         layout_botones.addWidget(self.btn_guardar)
         layout_botones.addWidget(self.btn_cerrar)
         layoutPpal.addLayout(layout_botones)

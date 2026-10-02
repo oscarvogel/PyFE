@@ -6,7 +6,7 @@ from libs.ComboBox import ComboConstComp
 from libs.EntradaTexto import EntradaTexto, CUIT, Factura
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Fechas import Fecha
-from libs.Utiles import imagen, LeerIni
+from libs.Utiles import imagen, LeerIni, icono
 from modelos import Tipocomprobantes, Tipodoc
 from vistas.VistaBase import VistaBase
 
@@ -18,7 +18,7 @@ class ConstatacionComprobanteView(VistaBase):
         self.setupUi(self)
 
     def setupUi(self, Form):
-        self.setWindowTitle("Constatacion de comprobantes")
+        self.setWindowTitle("Constatación de comprobantes")
 
         self.layoutPpal = QVBoxLayout(Form)
         self.lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
@@ -74,8 +74,8 @@ class ConstatacionComprobanteView(VistaBase):
         self.layoutPpal.addWidget(self.lblResultado)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnConsultar = Boton(texto="Consultar", imagen=imagen('if_SEO_usability_audit_search__969250.png'))
-        self.btnImprimir = Boton(texto="Imprimir", imagen=imagen("print.png"))
+        self.btnConsultar = Boton(texto="Consultar", imagen=icono('buscar'), estilo='primario')
+        self.btnImprimir = Boton(texto="Imprimir", imagen=icono('imprimir'))
         self.btnImprimir.setEnabled(False)
         self.btnCerrar = BotonCerrarFormulario()
         self.layoutBotones.addWidget(self.btnConsultar)

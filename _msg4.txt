@@ -1,0 +1,56 @@
+Red de seguridad: tests de interfaz y herramientas de trabajo
+
+Un restyle sin tests se rompe en silencio: un selector mal escrito en el QSS no
+da error, el control queda sin estilo, y eso no se detecta hasta que lo mira un
+cliente. La suite pasa de 120 a 153 tests.
+
+tests/test_recursos_ui.py
+  Escanea el árbol de sintaxis de los 152 .py: ninguna referencia a un icono
+  inexistente, ninguna ruta escrita a mano, y que el set nuevo esté completo.
+  Un test mide además el avance de la migración de iconos.
+
+tests/test_smoke_ui.py
+  Monta 7 pantallas offscreen y verifica que se construyan, que no desboden
+  1024x768 y que el tema esté realmente aplicado. Incluye el contraste WCAG de
+  la paleta recalculado desde los colores del tema: no como número anotado a
+  mano, sino para que si alguien cambia un token sin mirar el contraste, el
+  test diga cuál fue el culpable.
+
+tests/test_navegacion.py
+  El que importa: toda clave declarada tiene que tener destino en el
+  controlador, ningún destino sobra, ninguna clave se repite, todo ícono existe
+  y se ve en la vista armada, y los cinco módulos de Compras tienen que seguir
+  expuestos. Ese test existe por un bug concreto: los botones de la barra se
+  creaban, se dibujaban y no hacían nada, porque faltaba el clicked.connect.
+  No aparecía ningún error, y en un render offscreen tampoco se ve.
+
+  También hay pruebas que hacen clic de verdad sobre los 36 botones, porque
+  montar la vista no alcanza para encontrar un problema de cableado.
+
+tests/test_config_ini.py
+  Ninguna conversión de configuración sin proteger, una sola clave por
+  concepto (el punto de venta tenía dos nombres), y que toda clave que el
+  código convierte a número exista en el sistema.ini.
+
+Herramientas en tools/
+  render_ui.py      Monta pantallas sin base de datos ni ARCA y las guarda en
+                    PNG. Avisa si una ventana necesita más ancho del pedido, que
+                    es el bug que tenía la pantalla principal.
+  armar_sandbox.py  Arma una instalación de prueba aislada, en homologación y
+                    con base vacía y migrada, con el código enlazado por
+                    junctions para no duplicar 126 MB ni desincronizar el
+                    código. Permite levantar la app sin tocar la base real.
+  listar_claves_ini.py  Las claves del sistema.ini que el código lee de verdad.
+                    La lista sale de acá; a mano se equivoca uno, como pasó con
+                    cat_iva, y la pantalla se cae.
+  generar_*.py      Los recursos del tema, los iconos y los derivados de la
+                    marca, desde un original cada uno.
+  revisar_caracteres.py  Caracteres fuera de lugar en comentarios. El primero
+                    que encontró estaba en un script mío que decía "todo OK"
+                    revisando una carpeta vacía.
+
+docs/
+  PLAN_MODERNIZACION_UI.md  El plan con las fases.
+  ETAPA-1-FUNDACIONES.md    Qué se hizo, qué bugs salió y qué quedó pendiente.
+  ETAPA-2-NAVEGACION.md      Ídem, más el rediseño de la pantalla de emisión,
+                            que quedó anotado como issue #32.

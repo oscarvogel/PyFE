@@ -1,14 +1,14 @@
 # coding=utf-8
 from PyQt5.QtCore import QSize
-from PyQt5.QtWidgets import QCheckBox, QDialogButtonBox, QGridLayout, QHBoxLayout, QListWidget, QVBoxLayout
+from PyQt5.QtWidgets import QCheckBox, QGridLayout, QHBoxLayout, QListWidget, QVBoxLayout
 
-from libs.Botones import Boton, BotonCerrarFormulario
+from libs.Botones import Boton, BotonCerrarFormulario, botonera_dialogo
 from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import Etiqueta, EtiquetaTitulo
 from libs.Formulario import Formulario
 from libs.Grillas import Grilla
 from libs.GroupBox import Agrupacion
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 from modelos.Formaspago import ComboFormapago
 
 
@@ -37,7 +37,7 @@ class VentaSimpleCantidadPrecioDialog(Formulario):
         self.layoutDatos.addWidget(self.textPrecio, 1, 1)
         self.layoutPpal.addLayout(self.layoutDatos)
 
-        self.botones = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.botones = botonera_dialogo()
         self.botones.accepted.connect(self.accept)
         self.botones.rejected.connect(self.reject)
         self.layoutPpal.addWidget(self.botones)
@@ -77,7 +77,7 @@ class VentaSimpleAltaClienteDialog(Formulario):
         self.layoutDatos.addWidget(self.textDomicilio, 2, 1)
         self.layoutPpal.addLayout(self.layoutDatos)
 
-        self.botones = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.botones = botonera_dialogo()
         self.botones.accepted.connect(self.accept)
         self.botones.rejected.connect(self.reject)
         self.layoutPpal.addWidget(self.botones)
@@ -113,7 +113,7 @@ class VentaSimpleAltaArticuloDialog(Formulario):
         self.textNombre = EntradaTexto(placeholderText="Nombre")
         self.textPrecio = EntradaTexto(placeholderText="Precio")
         self.textIva = EntradaTexto(placeholderText="IVA")
-        self.textCodigoBarra = EntradaTexto(placeholderText="Codigo de barras")
+        self.textCodigoBarra = EntradaTexto(placeholderText="Código de barras")
         self.textPrecio.setText("0.00")
         self.textIva.setText("21")
         self.layoutDatos.addWidget(Etiqueta(texto="Nombre"), 0, 0)
@@ -122,11 +122,11 @@ class VentaSimpleAltaArticuloDialog(Formulario):
         self.layoutDatos.addWidget(self.textPrecio, 1, 1)
         self.layoutDatos.addWidget(Etiqueta(texto="IVA"), 2, 0)
         self.layoutDatos.addWidget(self.textIva, 2, 1)
-        self.layoutDatos.addWidget(Etiqueta(texto="Codigo barras"), 3, 0)
+        self.layoutDatos.addWidget(Etiqueta(texto="Código barras"), 3, 0)
         self.layoutDatos.addWidget(self.textCodigoBarra, 3, 1)
         self.layoutPpal.addLayout(self.layoutDatos)
 
-        self.botones = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.botones = botonera_dialogo()
         self.botones.accepted.connect(self.accept)
         self.botones.rejected.connect(self.reject)
         self.layoutPpal.addWidget(self.botones)
@@ -169,7 +169,7 @@ class VentaSimpleSeleccionClienteDialog(Formulario):
         self.listaClientes.itemDoubleClicked.connect(self.accept)
         self.layoutPpal.addWidget(self.listaClientes)
 
-        self.botones = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.botones = botonera_dialogo()
         self.botones.accepted.connect(self.accept)
         self.botones.rejected.connect(self.reject)
         self.layoutPpal.addWidget(self.botones)
@@ -210,10 +210,10 @@ class VentaSimpleView(Formulario):
 
         self.agrupaArticulo = Agrupacion(titulo="Agregar producto")
         self.layoutArticulo = QGridLayout()
-        self.textArticulo = EntradaTexto(placeholderText="Codigo, nombre o codigo de barras")
+        self.textArticulo = EntradaTexto(placeholderText="Código, nombre o código de barras")
         self.textCantidad = EntradaTexto(placeholderText="Cantidad")
         self.textCantidad.setText("1")
-        self.btnAgregar = Boton(texto="Agregar", imagen=imagen("new.png"), tamanio=QSize(16, 16), autodefault=False)
+        self.btnAgregar = Boton(texto="Agregar", imagen=icono('nuevo'), tamanio=QSize(16, 16), autodefault=False)
         self.layoutArticulo.addWidget(Etiqueta(texto="Producto"), 0, 0)
         self.layoutArticulo.addWidget(self.textArticulo, 0, 1)
         self.layoutArticulo.addWidget(Etiqueta(texto="Cantidad"), 0, 2)
@@ -226,6 +226,7 @@ class VentaSimpleView(Formulario):
         self.gridVenta.ArmaCabeceras(cabeceras=["Cant.", "Codigo", "Detalle", "Unitario", "IVA", "SubTotal"])
         self.gridVenta.enabled = True
         self.gridVenta.columnasHabilitadas = [0, 1, 2, 3, 4]
+        self.gridVenta.textoVacio = "Todavía no hay productos en la venta.\nBuscá uno arriba y presioná Agregar."
         self.layoutPpal.addWidget(self.gridVenta)
 
         self.layoutTotales = QHBoxLayout()
@@ -240,12 +241,19 @@ class VentaSimpleView(Formulario):
         self.layoutPpal.addLayout(self.layoutTotales)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnEmitir = Boton(texto="Emitir factura", imagen=imagen("save.png"), autodefault=False)
-        self.btnPresupuesto = Boton(texto="Guardar presupuesto", imagen=imagen("new.png"), autodefault=False)
-        self.btnBorrar = Boton(texto="Borrar renglon", imagen=imagen("delete.png"), tamanio=QSize(32, 32), autodefault=False)
+        # Jerarquia de la barra de accion: emitir es lo que el usuario vino a
+        # hacer, borrar un renglon es lo que no quiere tocar por error y cerrar
+        # es salir sin hacer nada. Antes los tres se veian iguales.
+        self.btnEmitir = Boton(texto="Emitir factura", imagen=icono('guardar'),
+                               autodefault=False, estilo="primario")
+        self.btnPresupuesto = Boton(texto="Guardar presupuesto", imagen=icono('nuevo'),
+                                    autodefault=False)
+        self.btnBorrar = Boton(texto="Borrar renglón", imagen=icono('borrar'),
+                               tamanio=QSize(32, 32), autodefault=False, estilo="peligro")
         self.btnCerrar = BotonCerrarFormulario(autodefault=False)
         self.layoutBotones.addWidget(self.btnEmitir)
         self.layoutBotones.addWidget(self.btnPresupuesto)
+        self.layoutBotones.addStretch(1)
         self.layoutBotones.addWidget(self.btnBorrar)
         self.layoutBotones.addWidget(self.btnCerrar)
         self.layoutPpal.addLayout(self.layoutBotones)

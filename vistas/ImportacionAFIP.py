@@ -7,7 +7,7 @@ from libs.Checkbox import CheckBox
 from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import Etiqueta
 from libs.Fechas import Fecha
-from libs.Utiles import imagen, InicioMes, FinMes
+from libs.Utiles import imagen, InicioMes, FinMes, icono
 from vistas.VistaBase import VistaBase
 
 
@@ -27,7 +27,7 @@ class ImportaAFIPView(VistaBase):
         layout_archivo_cab = QHBoxLayout()
         lblArchivo = Etiqueta(texto="Archivo cabecera")
         self.textArchivo = EntradaTexto(placeholderText="Ubicacion cabecera")
-        self.btnArchivo = Boton(imagen=imagen("folder_search.png"))
+        self.btnArchivo = Boton(imagen=icono('buscar'))
         layout_archivo_cab.addWidget(lblArchivo)
         layout_archivo_cab.addWidget(self.textArchivo)
         layout_archivo_cab.addWidget(self.btnArchivo)
@@ -36,7 +36,7 @@ class ImportaAFIPView(VistaBase):
         layout_archivo_det = QHBoxLayout()
         lblArchivo_det = Etiqueta(texto="Archivo IVA")
         self.textArchivo_det = EntradaTexto(placeholderText="Ubicacion IVA")
-        self.btnArchivo_det = Boton(imagen=imagen("folder_search.png"))
+        self.btnArchivo_det = Boton(imagen=icono('buscar'))
         layout_archivo_det.addWidget(lblArchivo_det)
         layout_archivo_det.addWidget(self.textArchivo_det)
         layout_archivo_det.addWidget(self.btnArchivo_det)
@@ -61,7 +61,7 @@ class ImportaAFIPView(VistaBase):
         layoutPpal.addLayout(layoutParametros)
 
         layoutBotones = QHBoxLayout()
-        self.btnImportar = Boton(texto="Importar", imagen=imagen("importar.png"))
+        self.btnImportar = Boton(texto="Importar", imagen=icono('documento'), estilo='primario')
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnImportar)
         layoutBotones.addWidget(self.btnCerrar)

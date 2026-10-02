@@ -5,7 +5,7 @@ from libs.Botones import Boton, BotonCerrarFormulario
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Fechas import Fecha
 from libs.Grillas import Grilla
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 from modelos import Clientes
 from vistas.VistaBase import VistaBase
 
@@ -16,7 +16,7 @@ class EmiteReciboView(VistaBase):
         self.setupUi(self)
 
     def setupUi(self, Form):
-        self.setWindowTitle("Emision de recibos de cta cte")
+        self.setWindowTitle("Emisión de recibos de cuenta corriente")
         self.resize(750, 550)
         self.verticalLayoutDatos = QVBoxLayout(Form)
         self.lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
@@ -53,9 +53,9 @@ class EmiteReciboView(VistaBase):
 
         self.layoutPagos = self.ArmaEntrada('pagos', enabled=False)
         self.layoutBotones = QHBoxLayout()
-        self.btnGraba = Boton(texto='Aceptar', imagen=imagen('Accept.png'), autodefault=False)
+        self.btnGraba = Boton(texto='Aceptar', imagen=icono('check'), autodefault=False)
         self.btnCerra = BotonCerrarFormulario(autodefault=False)
-        self.btnAgrega = Boton(texto='Agrega Pago', imagen=imagen('Add_create_new.png'), autodefault=False)
+        self.btnAgrega = Boton(texto='Agrega Pago', imagen=icono('agregar'), autodefault=False)
         self.layoutBotones.addWidget(self.btnAgrega)
         self.layoutBotones.addWidget(self.btnGraba)
         self.layoutBotones.addWidget(self.btnCerra)

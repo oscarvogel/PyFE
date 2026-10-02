@@ -1,11 +1,23 @@
 import os
 import sys
+import unicodedata
 
 import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt5.QtWidgets import QApplication
+
+
+def _sin_acentos(texto):
+    """Saca tildes: 'Configuración' -> 'Configuracion'.
+
+    Se usa para comparar textos de interfaz sin que un ajuste de ortografia
+    rompa un test que en realidad solo quiere verificar que la pantalla
+    existe.
+    """
+    descompuesto = unicodedata.normalize("NFD", texto)
+    return "".join(c for c in descompuesto if not unicodedata.combining(c))
 
 
 @pytest.fixture(scope="module")
@@ -49,7 +61,11 @@ def test_los_argumentos_propios_seguen_funcionando(monkeypatch, tmp_path):
 def test_el_asistente_se_puede_construir(app):
     from vistas.PrimerArranque import DialogoPrimerArranque
     d = DialogoPrimerArranque()
-    assert "Configuracion inicial" in d.windowTitle()
+    # Sin tildes ni mayusculas: el titulo se corrigio en la modernizacion de
+    # la interfaz ("Configuracion" -> "Configuración") y este test verifica
+    # que el asistente existe y se titula asi, no como se escribe cada letra.
+    titulo = _sin_acentos(d.windowTitle()).lower()
+    assert "configuracion inicial" in titulo
     d.close()
 
 

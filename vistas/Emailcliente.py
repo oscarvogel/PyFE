@@ -5,7 +5,7 @@ from libs.Botones import Boton, BotonCerrarFormulario
 from libs.Etiquetas import EtiquetaTitulo
 from libs.Formulario import Formulario
 from libs.Grillas import Grilla
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 
 
 class EmailClienteView(Formulario):
@@ -33,10 +33,10 @@ class EmailClienteView(Formulario):
         self.verticalLayoutDatos.addWidget(self.gridEmail)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnGraba = Boton(texto='Graba', imagen=imagen('save.png'))
+        self.btnGraba = Boton(texto='Graba', imagen=icono('guardar'))
         self.btnCerrar = BotonCerrarFormulario()
-        self.btnAgregar = Boton(texto="Agregar", imagen=imagen('new.png'))
-        self.btnBorrar = Boton(texto="Borrar", imagen=imagen('delete.png'))
+        self.btnAgregar = Boton(texto="Agregar", imagen=icono('nuevo'), estilo='primario')
+        self.btnBorrar = Boton(texto="Borrar", imagen=icono('borrar'), estilo='peligro')
         self.layoutBotones.addWidget(self.btnAgregar)
         self.layoutBotones.addWidget(self.btnGraba)
         self.layoutBotones.addWidget(self.btnBorrar)

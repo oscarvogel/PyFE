@@ -5,7 +5,7 @@ from libs.Botones import Boton, BotonCerrarFormulario
 from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Grillas import Grilla
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 from vistas.VistaBase import VistaBase
 
 
@@ -39,10 +39,10 @@ class ConsultaPadronAFIPView(VistaBase):
         self.layoutPpal.addWidget(self.gridDatos)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnConsulta = Boton(texto="Consulta", imagen=imagen("if_SEO_usability_audit_search__969250.png"))
-        self.btnImprimir = Boton(texto="Imprimir Constancia", imagen=imagen("print.png"))
+        self.btnConsulta = Boton(texto="Consulta", imagen=icono('buscar'))
+        self.btnImprimir = Boton(texto="Imprimir Constancia", imagen=icono('imprimir'))
         self.btnCerrar = BotonCerrarFormulario()
-        self.btnAgregaCliente = Boton(texto="Agrega Cliente", imagen=imagen('new.png'))
+        self.btnAgregaCliente = Boton(texto="Agrega Cliente", imagen=icono('nuevo'))
         self.layoutBotones.addWidget(self.btnConsulta)
         self.layoutBotones.addWidget(self.btnImprimir)
         self.layoutBotones.addWidget(self.btnAgregaCliente)

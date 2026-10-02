@@ -2,10 +2,10 @@
 from PyQt5.QtWidgets import QVBoxLayout, QLineEdit, QHBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario, BotonArchivo
-from libs.ComboBox import ComboSINO, ComboTipoBaseDatos, ComboTipoRespIVA, ComboCopiasFE, ComboTema
+from libs.ComboBox import ComboSINO, ComboTipoBaseDatos, ComboTipoRespIVA, ComboCopiasFE
 from libs.Etiquetas import EtiquetaTitulo
 from libs.Formulario import Formulario
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 
 
 class ConfiguracionView(Formulario):
@@ -15,7 +15,7 @@ class ConfiguracionView(Formulario):
         self.setupUi(self)
 
     def setupUi(self, Form):
-        self.setWindowTitle("Configuracion de sistema")
+        self.setWindowTitle("Configuración de sistema")
         self.verticalLayoutDatos = QVBoxLayout(Form)
 
         self.lblTituloEmpresa = EtiquetaTitulo(texto='Datos empresa')
@@ -32,8 +32,12 @@ class ConfiguracionView(Formulario):
 
         self.lblTituloParametros = EtiquetaTitulo(texto='Parametros')
         self.verticalLayoutDatos.addWidget(self.lblTituloParametros)
-        layoutNombreSistema = self.ArmaEntrada('nombre_sistema', texto='Nombre del sistema')
-        self.ArmaEntrada('tema', texto='Tema', boxlayout=layoutNombreSistema, control=ComboTema())
+        self.ArmaEntrada('nombre_sistema', texto='Nombre del sistema')
+        # El selector de tema se saco. Ofrecia 7 archivos .css que nunca se
+        # llegaban a aplicar (no habia codigo que los cargara), asi que un
+        # usuario que elegia "dark" no pasaba nada y se pensaba que la app
+        # estaba rota. Ahora hay un solo tema, pyfe.css, que se aplica solo al
+        # arrancar. Ver libs/tema.py.
 
         layoutBaseDatos = self.ArmaEntrada('BaseDatos', texto='Base de datos')
         self.ArmaEntrada('Host', boxlayout=layoutBaseDatos)
@@ -59,7 +63,7 @@ class ConfiguracionView(Formulario):
         layoutCertificadoKEY.addWidget(self.btnArchivoKEY)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnGrabar = Boton(texto="Grabar", imagen=imagen('save.png'))
+        self.btnGrabar = Boton(texto="Grabar", imagen=icono('guardar'), estilo='primario')
         self.btnCerrar = BotonCerrarFormulario()
         self.layoutBotones.addWidget(self.btnGrabar)
         self.layoutBotones.addWidget(self.btnCerrar)
