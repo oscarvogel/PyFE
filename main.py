@@ -143,6 +143,19 @@ def inicio():
     #args = ['', '-style', 'Cleanlooks']
     app = QApplication(args)
 
+    # Estilo, fuente y colores, antes de construir ninguna ventana. Se aplica
+    # sobre la QApplication entera para que las 30+ vistas hereden el mismo
+    # tema sin tener que pedirlo una por una. Antes no habia ninguna capa de
+    # estilo: la app corria con el aspecto crudo del sistema.
+    from libs.tema import aplicar_tema
+    tema = aplicar_tema(app)
+    if not tema.get("css"):
+        print("No se encontro el tema en {}. Se usa el estilo base.".format(
+            tema.get("ruta_css") or "temas/pyfe.css"))
+    else:
+        print("Tema aplicado: {} (fuente {}, estilo {})".format(
+            tema["ruta_css"], tema["fuente"], tema["estilo"]))
+
     # 1) Instalacion nueva: asistente. Crea el sistema.ini con los datos
     #    que da el usuario, asi que va antes que todo lo demas.
     if not _configurar_instalacion_nueva():

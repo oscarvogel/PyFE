@@ -14,6 +14,7 @@ import sys
 CARPETAS_ESPERADAS = {
     "conf": ["afip_ca_info.crt"],
     "imagenes": None,          # cualquiera, pero tiene que haber
+    "temas": ["pyfe.css"],     # sin esto la app arranca sin ningun estilo
     "plantillas": None,
     "certificados": None,      # vacia esta bien: la llena el asistente
     "excel": None,
@@ -22,6 +23,14 @@ CARPETAS_ESPERADAS = {
 ARCHIVOS_ESPERADOS = [
     "main.exe",
     "sistema.ini.example",
+]
+
+# Archivos que el tema necesita para verse bien. Los dibuja
+# tools/generar_recursos_tema.py y van dentro de temas/recursos/.
+RECURSOS_TEMA = [
+    os.path.join("temas", "recursos", "chevron-abajo.png"),
+    os.path.join("temas", "recursos", "chevron-derecha.png"),
+    os.path.join("temas", "recursos", "buscar.png"),
 ]
 
 
@@ -46,6 +55,13 @@ def verificar(dist):
                     problemas.append("falta {}/{}".format(carpeta, r))
         elif not archivos and carpeta not in ("certificados", "excel"):
             avisos.append("{}/ esta vacia".format(carpeta))
+
+    # Los graficos del tema van dentro de temas/recursos/: si faltan, los
+    # controles se ven igual pero sin flecha en los desplegables, y eso es
+    # un detalle que nadie detecta hasta que un cliente lo ve.
+    for relativo in RECURSOS_TEMA:
+        if not os.path.isfile(os.path.join(dist, relativo)):
+            problemas.append("falta el recurso del tema {}".format(relativo.replace("\\", "/")))
 
     return problemas, avisos
 

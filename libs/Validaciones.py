@@ -91,15 +91,17 @@ class Validaciones(EntradaTexto):
         data = self.modelo.select().where(self.campoRetorno == self.text()).dicts()
         if data:
             self.valido = True
-            self.setStyleSheet("background-color: Dodgerblue")
+            from libs.tema import marcar_estado
+            marcar_estado(self, "ok")
             self.cursor = data
             if self.widgetNombre:
                 for d in data:
                     self.widgetNombre.setText(d[self.campoNombre.column_name].strip())
         else:
             self.valido = False
-            self.setStyleSheet("background-color: yellow")
-            #Ventanas.showAlert("Error", "Codigo no encontrado en el sistema")
+            from libs.tema import marcar_estado
+            marcar_estado(self, "error")
+            #Ventanas.showAlert("Error", "Código no encontrado en el sistema")
 
 
 class ValidaConNombre(QHBoxLayout):

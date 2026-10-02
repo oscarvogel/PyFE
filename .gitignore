@@ -149,3 +149,8 @@ Thumbs.db
 
 # Scripts temporales de depuracion
 /_debug_*.py
+
+# Salidas de las herramientas de modernizacion de la UI
+docs/ui/
+_sandbox_prueba/
+_prueba_exe/

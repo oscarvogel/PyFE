@@ -3,7 +3,7 @@ from PyQt5.QtCore import Qt, QMimeData, QByteArray
 from PyQt5.QtGui import QIcon, QDrag
 from PyQt5.QtWidgets import QListWidget, QListWidgetItem, QAbstractItemView
 
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 
 
 class Lista(QListWidget):
@@ -66,7 +66,7 @@ class Lista(QListWidget):
             links = []
             for url in event.mimeData().urls():
                 links.append(str(url.toLocalFile()))
-                icono = imagen('attach_file.png')
+                icono = icono('adjuntar')
                 self.AgregaItem(str(url.toLocalFile()), icon=icono)
             # self.emit(QtCore.SIGNAL("dropped"), links)
             self.itemDropped.emit(links)

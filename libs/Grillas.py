@@ -7,7 +7,7 @@ import xlsxwriter
 from PyQt5 import QtCore
 from PyQt5.QtCore import QAbstractTableModel, Qt, QVariant
 from PyQt5.QtGui import QFont, QColor
-from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QFileDialog, QAbstractItemView
+from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QFileDialog, QAbstractItemView, QLabel
 
 from openpyxl.reader.excel import load_workbook
 
@@ -77,6 +77,23 @@ class Grilla(QTableWidget):
             self.setSortingEnabled(kwargs['habilitarorden'])
         else:
             self.setSortingEnabled(True)
+
+        # Estado vacio: una tabla sin filas es un rectangulo blanco enorme, y
+        # no dice si esta cargando, si fallo la consulta o si de verdad no hay
+        # nada. El cartel se pone y se saca solo segun la cantidad de filas,
+        # asi que ningun controlador tiene que acordarse de updatedarlo.
+        self._textoVacio = ""
+        self._etiquetaVacia = QLabel(self.viewport())
+        self._etiquetaVacia.setAlignment(Qt.AlignCenter)
+        self._etiquetaVacia.setWordWrap(True)
+        self._etiquetaVacia.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self._etiquetaVacia.setStyleSheet(
+            "color: #8A97A4; background: transparent; font-size: 13px;")
+
+        if 'textoVacio' in kwargs:
+            self.textoVacio = kwargs['textoVacio']
+        else:
+            self._actualiza_vacio()
         # self.itemClicked.connect(self.handleItemClicked)
         self.setEditTriggers(QAbstractItemView.AllEditTriggers)#para que se pueda editar el contenido con solo un click
         
@@ -84,8 +101,48 @@ class Grilla(QTableWidget):
             self.enabled = kwargs['enabled']
         else:
             self.enabled = True
-        
+
         self.setEnabled(self.enabled)
+
+        # Filas alternadas: es la regla que define el tema para poder
+        # distinguir una fila de otra al leer many columnas. Sin esto el color
+        # del tema no se ve.
+        self.setAlternatingRowColors(True)
+        # Encabezado fijo: en tablas largas de datos fiscales, perder de vista
+        # cual es cada columna al bajar es el problema clasico.
+        self.verticalHeader().setVisible(False)
+
+    def _actualiza_vacio(self):
+        vacia = (self.rowCount() == 0 and bool(self.textoVacio))
+        self._etiquetaVacia.setText(self.textoVacio if vacia else "")
+        self._etiquetaVacia.setVisible(vacia)
+        if vacia:
+            self._etiquetaVacia.setGeometry(self.viewport().rect())
+
+    # Texto del estado vacio. Es una propiedad y no un atributo a proposito:
+    # casi todas las vistas lo asignan DESPUES de crear la grilla (ArmaCabeceras
+    # y demas van antes), y con un atributo comun el cartel se calcularia con
+    # el texto todavia vacio y no volveria a actualizarse.
+    @property
+    def textoVacio(self):
+        return self._textoVacio
+
+    @textoVacio.setter
+    def textoVacio(self, valor):
+        self._textoVacio = valor
+        if hasattr(self, "_etiquetaVacia"):
+            self._actualiza_vacio()
+
+    def setRowCount(self, filas):
+        # Todo lo que carga o borra filas pasa por aca, asi que es el punto
+        # unico donde hay que decidir si corresponde el cartel de vacio.
+        QTableWidget.setRowCount(self, filas)
+        self._actualiza_vacio()
+
+    def resizeEvent(self, *args, **kwargs):
+        QTableWidget.resizeEvent(self, *args, **kwargs)
+        if self._etiquetaVacia.isVisible():
+            self._etiquetaVacia.setGeometry(self.viewport().rect())
 
 
     def ArmaCabeceras(self, cabeceras=None):
@@ -104,7 +161,14 @@ class Grilla(QTableWidget):
         self.OcultaColumnas()
 
     def AgregaItem(self, items=None,
-                   backgroundColor=QColor(255, 255, 255), readonly=False):
+                   backgroundColor=None, readonly=False):
+        """Agrega una fila.
+
+        `backgroundColor` va en None a proposito. Antes el default era blanco
+        y se pintaba celda por celda, lo que tapaba el color alternado que
+        define el tema y hacia que cualquier tema distinto del actual se
+        viera igual. Quien quiera un color de fondo lo pide explicitamente.
+        """
 
         if items:
             col = 0

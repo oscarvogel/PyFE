@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import QLineEdit, QHBoxLayout, QTextEdit, QWidget, QToolBar
 
 from libs import Ventanas
 from libs.Etiquetas import Etiqueta
-from libs.Utiles import validar_cuit, imagen, GuardarArchivo
+from libs.Utiles import validar_cuit, imagen, GuardarArchivo, icono
 
 FONT_SIZES = [7, 8, 9, 10, 11, 12, 13, 14, 18, 24, 36, 48, 64, 72, 96, 144, 288]
 IMAGE_EXTENSIONS = ['.jpg','.png','.bmp']
@@ -82,11 +82,11 @@ class EntradaTexto(QLineEdit):
     def focusOutEvent(self, QFocusEvent):
         if self.relleno > 0:
             self.setText(self.text().zfill(self.relleno))
-
-        if self.text():
-            self.setStyleSheet("background-color: Dodgerblue")
-        else:
-            self.setStyleSheet("background-color: white")
+        # Antes aca se ponia el fondo azul (Dodgerblue) en todo campo que
+        # tuviera texto, y blanco en el vacio. Era una "senal" de que el campo
+        # estaba cargado, pero dejaba la pantalla llena de rectangles azul
+        # fuerte que rompian la lectura. El estado de foco y de error los
+        # maneja el tema (temas/pyfe.css), que es lo unico que se ve bien.
         QLineEdit.focusOutEvent(self, QFocusEvent)
 
     def focusInEvent(self, QFocusEvent):
@@ -131,7 +131,7 @@ class Factura(QHBoxLayout):
         self.lineEditPtoVta.setEnabled(self.enabled)
         self.addWidget(self.lineEditPtoVta)
 
-        self.lineEditNumero = EntradaTexto(layout, placeholderText="Numero", tamanio=self.tamanio)
+        self.lineEditNumero = EntradaTexto(layout, placeholderText="Número", tamanio=self.tamanio)
         self.lineEditNumero.setObjectName("lineEditNumero")
         self.lineEditNumero.setEnabled(self.enabled)
         self.addWidget(self.lineEditNumero)
@@ -270,35 +270,38 @@ class TextoEnriquecido(QWidget):
         edit_toolbar = QToolBar("Editar")
         edit_toolbar.setIconSize(QSize(16, 16))
 
-        self.undo_action = QAction(QIcon(imagen('arrow-curve-180-left.png')), "Deshacer", self)
+        # Los iconos de esta barra son propios del set nuevo y distintos entre
+        # si: "copiar" y "pegar" no pueden ser el mismo icono generico de
+        # documento, porque en un editor la accion es lo que se distingue.
+        self.undo_action = QAction(QIcon(icono('deshacer')), "Deshacer", self)
         self.undo_action.setStatusTip("Deshacer ultimo cambio")
         edit_toolbar.addAction(self.undo_action)
 
-        self.redo_action = QAction(QIcon(imagen('arrow-curve.png')), "Rehacer", self)
+        self.redo_action = QAction(QIcon(icono('rehacer')), "Rehacer", self)
         self.redo_action.setStatusTip("Rehacer ultimo cambio")
         edit_toolbar.addAction(self.redo_action)
 
-        self.cut_action = QAction(QIcon(imagen('scissors.png')), "Cortar", self)
+        self.cut_action = QAction(QIcon(icono('cortar')), "Cortar", self)
         self.cut_action.setStatusTip("Cortar texto seleccionado")
         self.cut_action.setShortcut(QKeySequence.Cut)
         edit_toolbar.addAction(self.cut_action)
 
-        self.copy_action = QAction(QIcon(imagen('document-copy.png')), "Copiar", self)
+        self.copy_action = QAction(QIcon(icono('copiar')), "Copiar", self)
         self.copy_action.setStatusTip("Copia texto seleccionado")
         self.copy_action.setShortcut(QKeySequence.Copy)
         edit_toolbar.addAction(self.copy_action)
 
-        self.paste_action = QAction(QIcon(imagen('clipboard-paste-document-text.png')), "Pegar", self)
+        self.paste_action = QAction(QIcon(icono('pegar')), "Pegar", self)
         self.paste_action.setStatusTip("Pegar desde ")
         self.paste_action.setShortcut(QKeySequence.Paste)
         edit_toolbar.addAction(self.paste_action)
 
-        self.select_action = QAction(QIcon(imagen('selection-input.png')), "Seleccionar todo", self)
+        self.select_action = QAction(QIcon(icono('seleccionar-todo')), "Seleccionar todo", self)
         self.select_action.setStatusTip("Seleccionar todo el texto")
         self.select_action.setShortcut(QKeySequence.SelectAll)
         edit_toolbar.addAction(self.select_action)
 
-        self.wrap_action = QAction(QIcon(imagen('arrow-continue.png')), "Ajusta el texto a la ventana", self)
+        self.wrap_action = QAction(QIcon(icono('ajustar-texto')), "Ajusta el texto a la ventana", self)
         self.wrap_action.setStatusTip("Ajusta/desajusta el texto a la ventana")
         self.wrap_action.setCheckable(True)
         self.wrap_action.setChecked(True)
@@ -316,40 +319,40 @@ class TextoEnriquecido(QWidget):
         self.fontsize.addItems([str(s) for s in FONT_SIZES])
         toolbar_formato.addWidget(self.fontsize)
 
-        self.bold_action = QAction(QIcon(imagen('edit-bold.png')), "Negrita", self)
+        self.bold_action = QAction(QIcon(icono('negrita')), "Negrita", self)
         self.bold_action.setStatusTip("Negrita")
         self.bold_action.setShortcut(QKeySequence.Bold)
         self.bold_action.setCheckable(True)
         toolbar_formato.addAction(self.bold_action)
 
-        self.italic_action = QAction(QIcon(imagen('edit-italic.png')), "Italica", self)
-        self.italic_action.setStatusTip("Italica")
+        self.italic_action = QAction(QIcon(icono('cursiva')), "Itálica", self)
+        self.italic_action.setStatusTip("Itálica")
         self.italic_action.setShortcut(QKeySequence.Italic)
         self.italic_action.setCheckable(True)
         toolbar_formato.addAction(self.italic_action)
 
-        self.underline_action = QAction(QIcon(imagen('edit-underline.png')), "Subrayado", self)
+        self.underline_action = QAction(QIcon(icono('subrayado')), "Subrayado", self)
         self.underline_action.setStatusTip("Subrayado")
         self.underline_action.setShortcut(QKeySequence.Underline)
         self.underline_action.setCheckable(True)
         toolbar_formato.addAction(self.underline_action)
 
-        self.alignl_action = QAction(QIcon(imagen('edit-alignment.png')), "Alinear izquierda", self)
+        self.alignl_action = QAction(QIcon(icono('alinear-izquierda')), "Alinear izquierda", self)
         self.alignl_action.setStatusTip("Alinear texto a la izquierda")
         self.alignl_action.setCheckable(True)
         toolbar_formato.addAction(self.alignl_action)
 
-        self.alignc_action = QAction(QIcon(imagen('edit-alignment-center.png')), "Alinear centrado", self)
-        self.alignc_action.setStatusTip("Alineacion centrada del texto")
+        self.alignc_action = QAction(QIcon(icono('alinear-centro')), "Alinear centrado", self)
+        self.alignc_action.setStatusTip("Alineación centrada del texto")
         self.alignc_action.setCheckable(True)
         toolbar_formato.addAction(self.alignc_action)
 
-        self.alignr_action = QAction(QIcon(imagen('edit-alignment-right.png')), "Alinear derecha", self)
+        self.alignr_action = QAction(QIcon(icono('alinear-derecha')), "Alinear derecha", self)
         self.alignr_action.setStatusTip("Alinear texto a la derecha")
         self.alignr_action.setCheckable(True)
         toolbar_formato.addAction(self.alignr_action)
 
-        self.alignj_action = QAction(QIcon(imagen('edit-alignment-justify.png')), "Justificar", self)
+        self.alignj_action = QAction(QIcon(icono('alinear-justificado')), "Justificar", self)
         self.alignj_action.setStatusTip("Texto justificado")
         self.alignj_action.setCheckable(True)
         toolbar_formato.addAction(self.alignj_action)

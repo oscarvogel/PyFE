@@ -243,16 +243,17 @@ class ComboActividadMono(Combo):
         })
 
 class ComboTema(Combo):
+    """Obsoleto: el selector de tema se elimino.
+
+    Ofrecia 7 archivos de temas/*.css, pero ningun codigo leia la seleccion:
+    la aplicacion corria con el estilo crudo del sistema. Un usuario que
+    elegia "dark" no veía ningun cambio y se pensaba que la app estaba rota.
+
+    Ahora hay un solo tema, temas/pyfe.css, que se aplica al arrancar sobre la
+    QApplication (ver libs/tema.py y main.py). Se deja la clase para no romper
+    a nadie que la importe, pero no la usa ninguna pantalla.
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.CargaDatosValores(data={
-            '':'sin estilo',
-            'temas/qdark.css': 'dark',
-            'temas/darkblue.css': 'dark blue',
-            'temas/darkgray.css': 'dark gray',
-            'temas/darkorange.css': 'dark orange',
-            'temas/aqua.css': 'aqua',
-            'temas/ubuntu.css': 'ubuntu',
-            'temas/blender.css': 'blender',
-        })
+        self.CargaDatosValores(data={'pyfe.css': 'Asiento'})
