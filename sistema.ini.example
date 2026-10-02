@@ -45,3 +45,11 @@ venta = grilla
 [WSCDC]
 cuit = 00000000000
 url_prod = https://servicios1.afip.gov.ar/WSCDC/service.asmx?WSDL
+
+; Respaldo por FTP de la base y de sistema.ini. Si se deja vacio, el
+; resguardo queda desactivado. No versionar estas claves: sistema.ini
+; esta en .gitignore justamente por esto.
+[RESPALDO]
+servidor =
+usuario =
+clave =
