@@ -40,15 +40,29 @@ def test_sin_empresa_es_primer_arranque(tmp_path, monkeypatch):
 def test_configuracion_completa_no_es_primer_arranque(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     _ini(tmp_path,
-         "[param]\nbase = sqlite\n\n[FACTURA]\nempresa = Mi Empresa\n")
+         "[param]\nbase = sqlite\nconfigurado = S\n\n[FACTURA]\nempresa = Mi Empresa\n")
     assert instalacion.es_primer_arranque() is False
 
 
 def test_configuracion_mysql_tampoco_es_primer_arranque(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     _ini(tmp_path,
-         "[param]\nbase = mysql\n\n[FACTURA]\nempresa = Mi Empresa\n")
+         "[param]\nbase = mysql\nconfigurado = S\n\n[FACTURA]\nempresa = Mi Empresa\n")
     assert instalacion.es_primer_arranque() is False
+
+
+def test_una_plantura_recien_instalada_todavia_es_primer_arranque(tmp_path, monkeypatch):
+    """Regresion: la plantilla trae 'base = sqlite' y 'empresa = Razon
+    Social' de ejemplo. Si la deteccion se guiara por los valores, una
+    instalacion nueva creeria que ya estaba configurada y se saltaria el
+    asistente. Por eso el marcador 'configurado = S'."""
+    import shutil
+
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    shutil.copy(os.path.join(repo, "sistema.ini.example"),
+                tmp_path / "sistema.ini")
+    monkeypatch.chdir(tmp_path)
+    assert instalacion.es_primer_arranque() is True
 
 
 # -- Guardado ---------------------------------------------------------------
@@ -65,7 +79,7 @@ class GraboFalso:
 
 
 def _datos_minimos():
-    return {"base": "sqlite", "empresa": "Mi Empresa", "cuit": "20-12345678-9"}
+    return {"base": "sqlite", "empresa": "Mi Empresa", "cuit": "20-12345678-6"}
 
 
 def test_guarda_lo_minimo_para_que_deje_de_ser_primer_arranque(tmp_path, monkeypatch):
@@ -73,7 +87,9 @@ def test_guarda_lo_minimo_para_que_deje_de_ser_primer_arranque(tmp_path, monkeyp
     instalacion.guardar_config_inicial(_datos_minimos(), escribir=g)
     assert g.datos["param|base"] == "sqlite"
     assert g.datos["FACTURA|empresa"] == "Mi Empresa"
-    assert g.datos["FACTURA|cuit"] == "20-12345678-9"
+    assert g.datos["FACTURA|cuit"] == "20-12345678-6"
+    # el marcador es lo que hace que no vuelva a pedir la configuracion
+    assert g.datos["param|configurado"] == "S"
 
 
 def test_sqlite_no_escribe_datos_de_servidor(tmp_path, monkeypatch):

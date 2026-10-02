@@ -41,12 +41,15 @@ def ruta_config():
 def es_primer_arranque():
     """True si la instalacion todavia no fue configurada.
 
-    Tres senales, por si alguna falla:
-      - no existe el archivo de configuracion (instalador que no lo copio)
-      - no esta el tipo de base (no se eligió sqlite ni mysql)
-      - no esta la empresa (no se completaron los datos fiscales)
+    El mecanismo es un marcador explicito ([param] configurado = S) que
+    escribe el asistente. No se deduce de los valores: la plantilla trae
+    'base = sqlite' y 'empresa = Razon Social' de ejemplo, asi que si uno
+    se guiara por los valores creeria que una instalacion nueva ya esta
+    configurada y se saltaria el asistente.
     """
     if not os.path.exists(ruta_config()):
+        return True
+    if not str(LeerIni(clave="configurado", key="param")).strip().upper() == "S":
         return True
     if not LeerIni(clave="base"):
         return True
@@ -73,6 +76,10 @@ def guardar_config_inicial(datos, escribir=None):
             clave=clave, key=key, valor=valor)
 
     base = datos.get("base", "sqlite")
+
+    # Marcador de 'ya configurado'. Sin esto el asistente se volveria a
+    # mostrar en cada arranque.
+    escribir("configurado", "param", "S")
 
     escribir("base", "param", base)
     escribir("nombre_sistema", "param", datos.get("nombre_sistema", "PyFE"))
