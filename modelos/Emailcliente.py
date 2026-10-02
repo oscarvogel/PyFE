@@ -7,6 +7,6 @@ from modelos.ModeloBase import ModeloBase
 
 class EmailCliente(ModeloBase):
 
-    idemailcliente = AutoField(db_column='idemailcliente')
-    idcliente = ForeignKeyField(Cliente, db_column='idcliente')
+    idemailcliente = AutoField(column_name='idemailcliente')
+    idcliente = ForeignKeyField(Cliente, column_name='idcliente')
     email = CharField(max_length=200, default='')

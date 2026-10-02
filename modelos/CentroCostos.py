@@ -7,7 +7,7 @@ from modelos.ModeloBase import ModeloBase
 
 class CentroCosto(ModeloBase):
 
-    idctrocosto = AutoField(db_column='idctrocosto')
+    idctrocosto = AutoField(column_name='idctrocosto')
     nombre = CharField(max_length=100)
 
     class Meta:

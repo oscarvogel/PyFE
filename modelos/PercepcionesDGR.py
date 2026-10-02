@@ -9,7 +9,7 @@ class PercepDGR(ModeloBase):
 
     idpercepdgr = AutoField()
     codjur = IntegerField()
-    idpcabecera = ForeignKeyField(CabFactProv, db_column='idpcabecera')
+    idpcabecera = ForeignKeyField(CabFactProv, column_name='idpcabecera')
     monto = DecimalField(max_digits=12, decimal_places=4, default=0)
 
     class Meta:
