@@ -296,6 +296,24 @@ def desencriptar(encrypted_data, key):
     return plain_text.decode('utf-8')
 
 
+def _parametro_smtp(nombre, defecto=""):
+    """Un valor de Parametros del sistema, o el que le paso.
+
+    Los datos de correo estan guardados en la base, no en el codigo, para que
+    cada instalacion pueda tener los suyos sin tocar el programa. Si la base
+    todavia no esta (por ejemplo, en el primer arranque, o justo en el error que
+    estamos reportando) se devuelve el valor por defecto.
+    """
+    try:
+        from modelos.ParametrosSistema import ParamSist
+        valor = ParamSist.ObtenerParametro(nombre)
+        if valor and str(valor).strip():
+            return str(valor).strip()
+    except Exception:
+        pass
+    return defecto or ""
+
+
 def inicializar_y_capturar_excepciones(func):
     "Decorador para inicializar y capturar errores"
     @wraps(func)
@@ -319,28 +337,36 @@ def inicializar_y_capturar_excepciones(func):
             if not getattr(self, "SilenciarError", False):
                 Ventanas.showAlert("Error", "Se ha producido un error \n{}".format(self.Excepcion))
             if LeerIni('debug') == 'N':
-                pyemail = PyEmail()
-                remitente = 'fe@servinlgsm.com.ar'
-                destinatario = 'fe@servinlgsm.com.ar'
-                mensaje = "{} {} Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar".format(
-                    self.Traceback, self.Excepcion
+                # A quien se le avisa sale de Parametros del sistema, y si no
+                # esta configurado, de las constantes. Antes estaba fijo en el
+                # codigo con la direccion del desarrollador anterior, y el
+                # reporte automatico de errores de los clientes seguia yendo
+                # ahi: o se perdia, o llegaba a un buzon que ya no es de nadie
+                # de este proyecto.
+                remitente = _parametro_smtp("USUARIO_SMTP", Constantes.USUARIO_SMTP)
+                destinatario = _parametro_smtp("DESTINO_ERRORES", remitente)
+                if not remitente or not destinatario:
+                    # Sin destinatario no hay a quien reportar. Se deja Constante
+                    # y se sigue: el traceback ya quedo en el log.
+                    remitente = Constantes.USUARIO_SMTP
+                    destinatario = Constantes.USUARIO_SMTP
+                mensaje = "{} {}\n\nEnviado desde {}. {}".format(
+                    self.Traceback, self.Excepcion,
+                    Constantes.NOMBRE_PRODUCTO, Constantes.CREDITO_SOFTWARE
                 )
                 motivo = "Se envia informe de errores de {}".format(LeerIni(clave='empresa', key='FACTURA'))
-                # servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
-                # clave = ParamSist.ObtenerParametro("CLAVE_SMTP")
-                # usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
-                # puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
-                #
-                pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
-                                 usuario=Constantes.USUARIO_SMTP,
-                                 clave=Constantes.CLAVE_SMTP,
-                                 puerto=Constantes.PUERTO_SMTP)
+                pyemail = PyEmail()
+                pyemail.Conectar(servidor=_parametro_smtp("SERVER_SMTP", Constantes.SERVER_SMTP),
+                                 usuario=remitente,
+                                 clave=_parametro_smtp("CLAVE_SMTP", Constantes.CLAVE_SMTP),
+                                 puerto=_parametro_smtp("PUERTO_SMTP", Constantes.PUERTO_SMTP) or 587)
 
                 ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje)
                 if not ok:
-                    Ventanas.showAlert("Error", "{} {}".format(
-                        pyemail.Excepcion, pyemail.Traceback
-                    ))
+                    # Que falle el reporte no puede tapar el error original:
+                    # queda en el log y el dialogo ya se mostraria antes.
+                    logging.error("No se pudo enviar el reporte de errores: %s %s",
+                                  pyemail.Excepcion, pyemail.Traceback)
                 # envia_correo(from_address=remitente, to_address=destinatario,
                 #              message=mensaje, subject=motivo)
             else:

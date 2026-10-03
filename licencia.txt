@@ -9,7 +9,7 @@ Adicionalmente se debe conservar y mostrar las atribuciones de autoría y avisos
 estando prohibida la tergiversación del origen de este material.
 
 Para solicitar soporte comercial (pago), excepciones a la licencia GPLv3 o información adicional y descargas ver:
-http://www.servinlgsm.com.ar/
+https://www.vogelconsultoria.com.ar/
 
 Este programa utiliza bibliotecas de Software Libre / Código Abierto (Python, OpenSSL, httplib2, PyAfipWS, etc.)
 gobernadas por sus respectivas licencias.

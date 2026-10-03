@@ -8,8 +8,18 @@ CODIGO_RI = 1
 
 COMPROBANTES_FCE = [201,202,203,206,207,208,211,212,213]
 
-SERVER_SMTP = 'mail.servinlgsm.com.ar'
-USUARIO_SMTP = 'fe@servinlgsm.com.ar'
+# -- Envio de correo --------------------------------------------------------
+#
+# Son los valores por defecto. Cada instalacion puede cambiarlos desde
+# Parametros del sistema (SERVER_SMTP, USUARIO_SMTP, CLAVE_SMTP, PUERTO_SMTP),
+# y esos mandan sobre estos. Antes estaban fijos en el codigo, con la direccion
+# del desarrollador anterior, y el reporte automatico de errores seguia yendo a
+# un servidor que ya no era de nadie de este proyecto.
+#
+# OJO: el host y la casilla reales hay que confirmarlos con quien corresponde.
+# Lo que hay aca es el dominio, no una cuenta verificada.
+SERVER_SMTP = 'mail.vogelconsultoria.com.ar'
+USUARIO_SMTP = 'soporte@vogelconsultoria.com.ar'
 CLAVE_SMTP = ''
 PUERTO_SMTP = ''
 

@@ -4,6 +4,8 @@ from fpdf import FPDF, Template
 
 from pyafipws.pyfepdf import FEPDF
 
+from libs.Constantes import SITIO_EMPRESA
+
 HOMO = False
 __version__ = '1.0'
 
@@ -57,7 +59,9 @@ class FEPDFv1(FEPDF):
             author="CUIT %s" % self.CUIT,
             subject="CAE %s" % fact["cae"],
             keywords="AFIP Factura Electrónica",
-            creator="PyFEPDF %s (http://www.servinlgsm.com.ar)" % __version__,
+            # El creator va a la metadata del PDF, que se ve en las
+            # propiedades del archivo. Va la marca actual, no la anterior.
+            creator="Asiento (https://{})".format(SITIO_EMPRESA),
         )
         self.template = t
         return True

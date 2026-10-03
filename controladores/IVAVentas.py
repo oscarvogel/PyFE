@@ -163,8 +163,8 @@ class IVAVentasController(ControladorBase):
             destinatario = str(text).strip()
             archivo = self.cArchivoGenerado
 
-            mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar \n\n" \
-                      "No responder este email"
+            mensaje = "Enviado desde {}. {}\n\nNo responder este email".format(
+                Constantes.NOMBRE_PRODUCTO, Constantes.CREDITO_SOFTWARE)
             motivo = "Se envia informe de ventas de {}".format(LeerIni(clave='empresa', key='FACTURA'))
             servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
             clave = ParamSist.ObtenerParametro("CLAVE_SMTP")
