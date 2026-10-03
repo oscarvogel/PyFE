@@ -9,6 +9,7 @@ from controladores.PadronAfip import PadronAfip
 from controladores.WSConstComp import WSConstComp
 from libs import Ventanas
 from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, FechaMysql, AbrirArchivo
+from libs.instalacion import cuit_emisor
 from modelos.CabFacProv import CabFactProv
 from modelos.DetFactProv import DetFactProv
 from modelos.PercepcionesDGR import PercepDGR
@@ -177,7 +178,7 @@ class CargaFacturaProveedorController(ControladorBase):
         # else:
         self.imp_total = str(self.view.textTotal.text())  # importe total
         self.doc_tipo_receptor = "80"  # CUIT (obligatorio Facturas A o M)
-        self.doc_nro_receptor = LeerIni(clave='cuit', key='WSFEv1')  # numero de CUIT del cliente
+        self.doc_nro_receptor = cuit_emisor()  # numero de CUIT del cliente
 
         ok = WSCDC.Comprobar(cbte_modo=self.cbte_modo, cuit_emisor=self.cuit_emisor,
                              pto_vta=self.pto_vta, cbte_tipo=self.cbte_tipo,

@@ -6,6 +6,7 @@ from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1, PyQRv1
 from libs import Ventanas, Constantes
 from libs.Utiles import DeCodifica, FechaMysql, FormatoFecha, LeerIni, getFileName, imagen, inicializar_y_capturar_excepciones, ubicacion_sistema, formato_cuit, a_entero
+from libs.instalacion import cuit_emisor
 from modelos.Articulos import Articulo
 from modelos.ParametrosSistema import ParamSist
 from modelos.Remitos import DetalleRemito, Remito
@@ -173,7 +174,7 @@ class RemitoController(ControladorBase):
         print("imprimir Remito {}".format(cabrem.numero))
         pyfpdf = FEPDFv1()
         #cuit del emisor
-        pyfpdf.CUIT = LeerIni(clave='cuit', key='WSFEv1')
+        pyfpdf.CUIT = cuit_emisor()
         #establezco formatos (cantidad de decimales):
         pyfpdf.FmtCantidad = "0.4"
         pyfpdf.FmtPrecio = "0.2"
@@ -271,7 +272,7 @@ class RemitoController(ControladorBase):
         # Va aca y no en el bloque del emisor, porque el bloque del
         # emisor identifica a QUIEN FACTURA, y ese es el cliente.
         ok = pyfpdf.AggregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
-        ok = pyfpdf.AgregarDato("CUIT", formato_cuit(LeerIni(clave='cuit', key='WSFEv1')))
+        ok = pyfpdf.AgregarDato("CUIT", formato_cuit(cuit_emisor()))
         ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='iibb', key='FACTURA'))
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))
         ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='inicio', key='FACTURA')))
@@ -282,7 +283,7 @@ class RemitoController(ControladorBase):
         fecha = FormatoFecha(cabrem.fecha, formato='afip')
         cuit = ParamSist.ObtenerParametro("CUIT_EMPRESA").replace('-', '')
         if not cuit:
-            cuit = LeerIni(clave='cuit', key='WSFEv1').replace('-', '')
+            cuit = cuit_emisor()
         pto_vta = punto_vta
         tipo_cmp = tipo_cbte
         nro_cmp = cbte_nro

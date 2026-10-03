@@ -41,6 +41,7 @@ from PyQt5.QtWidgets import QApplication, QWidget  # noqa: E402
 app = QApplication.instance() or QApplication(sys.argv)
 
 from libs.Utiles import LeerIni  # noqa: E402
+from libs.instalacion import cuit_emisor  # noqa: E402
 from controladores.Facturas import FacturaController  # noqa: E402
 
 
@@ -120,7 +121,7 @@ datos = {
     "alias": "",
     "percepcion_detalle": "",
     "percepcion_alicuota": 0,
-    "cuit": LeerIni(clave="cuit", key="WSFEv1"),
+    "cuit": cuit_emisor(),
     "concepto": "PRODUCTOS",
     "fecha_serv_desde": "",
     "fecha_serv_hasta": "",

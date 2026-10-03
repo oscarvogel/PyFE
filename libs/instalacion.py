@@ -15,7 +15,7 @@ para poder subirse en medio de esa secuencia.
 import os
 import sys
 
-from libs.Utiles import GrabarIni, LeerIni
+from libs.Utiles import GrabarIni, LeerIni, formato_cuit, validar_cuit
 from libs.Constantes import NOMBRE_PRODUCTO
 
 # Claves de la seccion [param]
@@ -96,6 +96,108 @@ def marcar_instalacion_configurada():
 
 def _es_mysql(base):
     return str(base or "").strip().lower() == "mysql"
+
+
+# -- El CUIT emisor, en un solo lugar ----------------------------------------
+#
+# Por que existe
+# --------------
+# El CUIT vivia duplicado en dos claves: [FACTURA] cuit, que es la que ve y
+# edita el usuario en Configuracion, y [WSFEv1] cuit, que es la que viaja a
+# ARCA en Auth.Cuit (pyafipws/wsfev1.py). El asistente escribia la primera y
+# NADIE escribia la segunda, asi que en una instalacion nueva quedaba
+# '00000000000', que es lo que trae sistema.ini.example: el usuario completaba
+# el asistente y despues no podia emitir. El diagnostico tampoco lo veia,
+# porque 00000000000 no esta vacio.
+#
+# La regla: [FACTURA] cuit es la clave canonica (es la que el usuario
+# controla) y todo lector pasa por cuit_emisor(). La clave vieja se completa
+# una sola vez, y solo si no tiene nada real, para no romper instalaciones
+# que hoy funcionan.
+
+
+def _cuit_digitos(valor):
+    """11 dígitos, o '' si el valor no tiene forma de CUIT."""
+    digitos = "".join(c for c in str(valor or "") if c.isdigit())
+    return digitos if len(digitos) == 11 else ""
+
+
+def cuit_es_real(valor):
+    """True si el valor parece un CUIT de verdad.
+
+    11 dígitos, no todos ceros, y el dígito verificador cierra. El 'todos
+    ceros' va aparte porque 00000000000 tiene dígito verificador válido y
+    sin esta comprobación pasaría por un CUIT real: es justamente el valor
+    con el que queda una instalación sin configurar.
+    """
+    digitos = _cuit_digitos(valor)
+    if not digitos or digitos == "0" * 11:
+        return False
+    return validar_cuit(formato_cuit(digitos))
+
+
+def cuit_emisor(leer=None):
+    """El CUIT con el que se emite, sólo dígitos (lo que espera ARCA).
+
+    Devuelve '' si no hay ningún CUIT utilizable, para que el chequeo de
+    instalación lo reporte en vez de mandar ceros a ARCA.
+    """
+    if leer is None:
+        leer = LeerIni
+
+    de_empresa = leer(clave="cuit", key=SECCION_FISCAL)
+    de_facturacion = leer(clave="cuit", key=SECCION_FACTURACION)
+
+    if cuit_es_real(de_empresa):
+        return _cuit_digitos(de_empresa)
+    if cuit_es_real(de_facturacion):
+        return _cuit_digitos(de_facturacion)
+    return ""
+
+
+def normalizar_cuit_emisor(grabar=None, leer=None):
+    """Deja de acuerdo las dos claves del CUIT. Se corre una vez al arrancar.
+
+    No pisa ningún dato: escribe sólo en la clave que está vacía o tiene un
+    valor de relleno. Si las dos tienen un CUIT real y distinto, no toca
+    ninguna y lo avisa, porque elegir una en ese caso es descartar la otra y
+    no hay forma de saber cuál es la correcta sin preguntarle al usuario.
+
+    Devuelve un dict con lo que hizo, para poder avisar y para testear:
+    ``{'estado': 'ok'|'discrepan'|'falta'|'nada', 'cuit': str}``.
+    """
+    if grabar is None:
+        grabar = lambda clave, key, valor: GrabarIni(  # noqa: E731
+            clave=clave, key=key, valor=valor)
+    if leer is None:
+        leer = LeerIni
+
+    de_empresa = leer(clave="cuit", key=SECCION_FISCAL)
+    de_facturacion = leer(clave="cuit", key=SECCION_FACTURACION)
+
+    real_empresa = cuit_es_real(de_empresa)
+    real_facturacion = cuit_es_real(de_facturacion)
+
+    if real_empresa and real_facturacion:
+        if _cuit_digitos(de_empresa) == _cuit_digitos(de_facturacion):
+            return {"estado": "nada", "cuit": _cuit_digitos(de_empresa)}
+        # Dos CUIT reales y distintos: no se elige uno. Se avisa.
+        return {"estado": "discrepan",
+                "cuit": _cuit_digitos(de_empresa),
+                "conflicto": "{} vs {}".format(
+                    _cuit_digitos(de_empresa), _cuit_digitos(de_facturacion))}
+
+    if real_empresa:
+        grabar("cuit", SECCION_FACTURACION, _cuit_digitos(de_empresa))
+        return {"estado": "ok", "cuit": _cuit_digitos(de_empresa),
+                "completada": SECCION_FACTURACION}
+
+    if real_facturacion:
+        grabar("cuit", SECCION_FISCAL, formato_cuit(_cuit_digitos(de_facturacion)))
+        return {"estado": "ok", "cuit": _cuit_digitos(de_facturacion),
+                "completada": SECCION_FISCAL}
+
+    return {"estado": "falta", "cuit": ""}
 
 
 def guardar_config_inicial(datos, escribir=None):

@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from os.path import abspath
 
 from controladores.FE import FEv1
-from libs.Utiles import LeerIni
+from libs.Utiles import LeerIni, formato_cuit
+from libs.instalacion import cuit_emisor, cuit_es_real
 
 
 @dataclass
@@ -69,7 +70,7 @@ class DiagnosticoAfip:
 
         pasos = []
         modo = "Homologacion" if self.leer_ini(clave="homo") == "S" else "Produccion"
-        cuit = self.leer_ini(clave="cuit", key="WSFEv1")
+        cuit = cuit_emisor(leer=self.leer_ini)
 
         avisar(ETAPAS_DIAGNOSTICO[0])
         pasos.append(self._validar_configuracion(modo, cuit))
@@ -149,7 +150,11 @@ class DiagnosticoAfip:
     def _validar_configuracion(self, modo, cuit):
         faltantes = []
         if not cuit:
-            faltantes.append("WSFEv1.cuit")
+            faltantes.append("el CUIT del emisor")
+        elif not cuit_es_real(cuit):
+            faltantes.append(
+                "el CUIT del emisor no es valido (se encontro {!r})"
+                .format(cuit))
 
         if modo == "Homologacion":
             cert = self.leer_ini(clave="cert_homo", key="WSAA")
@@ -184,7 +189,8 @@ class DiagnosticoAfip:
         return PasoDiagnosticoAfip(
             "Configuracion",
             True,
-            "Modo: {} | CUIT: {} | WSAA: {} | WSFE: {}".format(modo, cuit, url_wsaa, url_wsfe),
+            "Modo: {} | CUIT: {} | WSAA: {} | WSFE: {}".format(
+                modo, formato_cuit(cuit), url_wsaa, url_wsfe),
         )
 
     def _conectar_wsfe(self, fe):

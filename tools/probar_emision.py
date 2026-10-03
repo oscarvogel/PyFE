@@ -62,6 +62,7 @@ from PyQt5.QtWidgets import QApplication  # noqa: E402
 APLICACION = QApplication.instance() or QApplication(sys.argv)
 
 from libs.Utiles import LeerIni  # noqa: E402
+from libs.instalacion import cuit_emisor  # noqa: E402
 from controladores.Facturas import FacturaController  # noqa: E402
 from controladores.FE import FEv1  # noqa: E402
 from libs.Utiles import DeCodifica  # noqa: E402
@@ -78,7 +79,7 @@ if LeerIni("homo") != "S":
           "tiene homo = {}, y en produccion eso factura de verdad.".format(modo))
     sys.exit(1)
 
-cuit = LeerIni(clave="cuit", key="WSFEv1")
+cuit = cuit_emisor()
 pto = args.pto or int(LeerIni(clave="pto_vta", key="WSFEv1") or 1)
 cat_iva = int(LeerIni(clave="cat_iva", key="WSFEv1") or 6)
 

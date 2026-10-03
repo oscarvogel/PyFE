@@ -12,7 +12,10 @@ from os.path import abspath
 import qrcode
 
 from libs import Ventanas
-from libs.Utiles import LeerIni, ubicacion_sistema, inicializar_y_capturar_excepciones
+from libs.Utiles import (LeerIni, ubicacion_sistema,
+                         inicializar_y_capturar_excepciones)
+from libs.instalacion import cuit_emisor
+
 from controladores.pyqr import PyQR
 from pyafipws.wsaa import WSAA, sign_tra_openssl
 from pyafipws.wscdc import WSCDC
@@ -89,7 +92,7 @@ class FEv1(WSFEv1):
 
         ta = self.Autenticar()
         self.SetTicketAcceso(ta)
-        self.Cuit = LeerIni(clave="cuit", key='WSFEv1')
+        self.Cuit = cuit_emisor()
         ultimo = self.CompUltimoAutorizado(tipo_cbte=tipo, punto_vta=ptovta)
         return ultimo
 
@@ -145,7 +148,7 @@ class FEv1(WSFEv1):
     @inicializar_y_capturar_excepciones
     def ConstatarComprobantes(self, *args, **kwargs):
         cbte_modo =  kwargs['cbte_modo'] # modalidad de emision: CAI, CAE, CAEA
-        cuit_emisor = LeerIni(clave='cuit', key='WSFEv1')  # proveedor
+        cuit_proveedor = cuit_emisor()  # CUIT de quien emite
         pto_vta = kwargs['pto_vta']  # punto de venta habilitado en AFIP
         cbte_tipo = kwargs['cbte_tipo']  # 1: factura A (ver tabla de parametros)
         cbte_nro = kwargs['cbte_nro']  # numero de factura
@@ -157,9 +160,9 @@ class FEv1(WSFEv1):
         wscdc = WSCDC()
         ta = self.Autenticar()
         wscdc.SetTicketAcceso(ta_string=ta)
-        wscdc.SetParametros(cuit=LeerIni(clave='cuit', key='WSFEv1'),
+        wscdc.SetParametros(cuit=cuit_proveedor,
                             token=self.Token, sign=self.Sign)
-        ok = wscdc.ConstatarComprobante(cbte_modo, cuit_emisor, pto_vta, cbte_tipo,
+        ok = wscdc.ConstatarComprobante(cbte_modo, cuit_proveedor, pto_vta, cbte_tipo,
                                         cbte_nro, cbte_fch, imp_total, cod_autorizacion,
                                         doc_tipo_receptor, doc_nro_receptor)
         if not ok:
@@ -179,7 +182,7 @@ class FEv1(WSFEv1):
     @inicializar_y_capturar_excepciones
     def ConsultarCAE(self, tipocbte, puntoventa, numero):
         self.CAE = ""
-        self.Cuit = LeerIni(clave="cuit", key='WSFEv1')
+        self.Cuit = cuit_emisor()
         ta = self.Autenticar()
         self.SetTicketAcceso(ta_string=ta)
         if LeerIni(clave='homo') == 'S':  # homologacion

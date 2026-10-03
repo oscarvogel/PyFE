@@ -22,12 +22,14 @@ def _configurar_instalacion_nueva():
     cancela, para no seguir arrancando a ciegas.
     """
     from libs.instalacion import (es_primer_arranque, guardar_config_inicial,
-                                  marcar_instalacion_configurada)
+                                  marcar_instalacion_configurada,
+                                  normalizar_cuit_emisor)
 
     if not es_primer_arranque():
         # Instalacion previa a este cambio: se marca para que el asistente
         # no vuelva a aparecer. No se le pide nada al usuario.
         marcar_instalacion_configurada()
+        _avisar_cuit_discrepante(normalizar_cuit_emisor())
         return True
 
     print("No se encontro una configuracion previa, se inicia el asistente.")
@@ -42,7 +44,29 @@ def _configurar_instalacion_nueva():
     print("Configuracion guardada. Base: {}{}".format(
         resultado["base"],
         " (password protegido con DPAPI)" if resultado.get("modo_secreto") == "dpapi" else ""))
+
+    # El asistente escribe [FACTURA] cuit. Esta llamada deja de acuerdo
+    # [WSFEv1] cuit, que es la que viaja a ARCA: sin esto, una instalacion
+    # nueva queda con 00000000000 y no puede emitir. Ver libs/instalacion.py.
+    normalizado = normalizar_cuit_emisor()
+    if normalizado["estado"] == "falta":
+        print("El CUIT de la empresa no quedo bien. Hay que corregirlo en "
+              "Configuracion antes de emitir.")
     return True
+
+
+def _avisar_cuit_discrepante(resultado):
+    """Dos CUIT reales y distintos en las dos claves: hay que elegir uno.
+
+    No se puede decidir solo: la clave de Configuracion puede ser la buena y
+    la de facturacion la de una instalacion vieja, o al reves. Por eso se
+    avisa y no se escribe nada.
+    """
+    if resultado.get("estado") != "discrepan":
+        return
+    print("AVISO: hay dos CUIT de emisor distintos ({}). Se usa el de "
+          "Configuracion. Corregilo desde Configuracion > Datos empresa."
+          .format(resultado.get("conflicto", "")))
 
 
 def _pedir_password_base():

@@ -1,5 +1,6 @@
 from controladores.ControladorBase import ControladorBase
-from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones
+from libs.Utiles import (LeerIni, formato_cuit, inicializar_y_capturar_excepciones)
+from libs.instalacion import cuit_emisor
 from pyafipws.wsaa import WSAA
 from vistas.GenerarCertificados import GeneraCertificadoView
 
@@ -17,7 +18,7 @@ class GeneraCertificadosController(ControladorBase):
         self.view.btnGenera.clicked.connect(self.onClickBtnGenera)
 
     def CargaDatos(self):
-        self.view.controles['cuit'].setText(LeerIni(clave='cuit', key='WSFEv1'))
+        self.view.controles['cuit'].setText(formato_cuit(cuit_emisor()))
         self.view.controles['empresa'].setText(LeerIni(clave='empresa', key='FACTURA'))
         self.view.controles['nombre'].setText(LeerIni(clave='empresa', key='FACTURA'))
 

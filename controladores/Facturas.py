@@ -16,6 +16,7 @@ from controladores.FE import FEv1, PyQRv1
 from controladores.FacturaBranding import aplicar_marca_factura, cargar_config_marca_factura, obtener_formato_factura
 from libs import Ventanas, Constantes
 from libs import fpdf_compat
+from libs.instalacion import cuit_emisor
 from libs.Utiles import (LeerIni, validar_cuit, FechaMysql, ubicacion_sistema,
                          inicializar_y_capturar_excepciones, DeCodifica, imagen,
                          getFileName, FormatoFecha, formato_cuit, a_entero)
@@ -121,7 +122,7 @@ class FacturaController(ControladorBase):
                 self.view.lineEditDocumento.setInputMask("99-99999999-9")
                 if ParamSist.ObtenerParametro("EMITE_FCE") == "S":
                     wsfecred = WsFECred()
-                    obligado, minimo = wsfecred.ConsultarMontoObligado(cliente.cuit.replace('-',''), LeerIni('cuit', key='WSFEv1'))
+                    obligado, minimo = wsfecred.ConsultarMontoObligado(cliente.cuit.replace('-',''), cuit_emisor())
                     if obligado and not self.informo:
                         Ventanas.showAlert("Sistema", "Se debe emitir FCE al cliente desde un monto de {}".format(minimo))
                 self.informo = True
@@ -573,7 +574,7 @@ class FacturaController(ControladorBase):
             "alias": LeerIni("ALIASFCE", key='FACTURA'),
             "percepcion_detalle": percepcion_detalle,
             "percepcion_alicuota": percepcion_alicuota,
-            "cuit": LeerIni(clave='cuit', key='WSFEv1'),
+            "cuit": cuit_emisor(),
         }
 
         if concepto_productos and concepto_servicios:
@@ -897,7 +898,7 @@ class FacturaController(ControladorBase):
         print("imprimir factura {}".format(cabfact.numero))
         pyfpdf = FEPDF()
         #cuit del emisor
-        pyfpdf.CUIT = LeerIni(clave='cuit', key='WSFEv1')
+        pyfpdf.CUIT = cuit_emisor()
         #establezco formatos (cantidad de decimales):
         pyfpdf.FmtCantidad = "0.4"
         pyfpdf.FmtPrecio = "0.2"
@@ -1045,7 +1046,7 @@ class FacturaController(ControladorBase):
         # Va aca y no en el bloque del emisor, porque el bloque del
         # emisor identifica a QUIEN FACTURA, y ese es el cliente.
         ok = pyfpdf.AggregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
-        ok = pyfpdf.AgregarDato("CUIT", formato_cuit(LeerIni(clave='cuit', key='WSFEv1')))
+        ok = pyfpdf.AgregarDato("CUIT", formato_cuit(cuit_emisor()))
         ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='iibb', key='FACTURA'))
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))
         ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='inicio', key='FACTURA')))
@@ -1056,7 +1057,7 @@ class FacturaController(ControladorBase):
         fecha = FormatoFecha(cabfact.desde, formato='afip')
         cuit = ParamSist.ObtenerParametro("CUIT_EMPRESA").replace('-', '')
         if not cuit:
-            cuit = LeerIni(clave='cuit', key='WSFEv1').replace('-', '')
+            cuit = cuit_emisor()
         pto_vta = punto_vta
         tipo_cmp = tipo_cbte
         nro_cmp = cbte_nro
