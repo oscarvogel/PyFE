@@ -223,7 +223,14 @@ class VentaSimpleView(Formulario):
         self.layoutPpal.addWidget(self.agrupaArticulo)
 
         self.gridVenta = Grilla(tamanio=10)
-        self.gridVenta.ArmaCabeceras(cabeceras=["Cant.", "Codigo", "Detalle", "Unitario", "IVA", "SubTotal"])
+        # Se declara que hay en cada columna. Sirve para dos cosas: alinear el
+        # encabezado igual que los datos (una columna de importes con el
+        # titulo a la izquierda y los numeros a la derecha se ve rota) y
+        # mostrar cada tipo con sus decimales. "Cant." queda angosta porque el
+        # ancho se reparte segun el encabezado, y antes se comia media fila.
+        self.gridVenta.ArmaCabeceras(
+            cabeceras=["Cant.", "Codigo", "Detalle", "Unitario", "IVA", "SubTotal"],
+            formatos=["Cantidad", "String", "String", "Moneda", "Entero", "Moneda"])
         self.gridVenta.enabled = True
         self.gridVenta.columnasHabilitadas = [0, 1, 2, 3, 4]
         self.gridVenta.textoVacio = "Todavía no hay productos en la venta.\nBuscá uno arriba y presioná Agregar."

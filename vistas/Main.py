@@ -21,9 +21,10 @@ tests/test_navegacion.py). Es el mismo bug que hoy esconde a Compras.
 import os
 
 from PyQt5.QtCore import QEvent, QObject, QSize, Qt, pyqtSignal
+from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout,
-                             QLabel, QPushButton, QScrollArea, QSizePolicy,
-                             QVBoxLayout, QWidget)
+                             QLabel, QLineEdit, QPushButton, QScrollArea,
+                             QShortcut, QSizePolicy, QVBoxLayout, QWidget)
 
 from libs.Etiquetas import Etiqueta, EtiquetaTitulo
 from libs.Constantes import NOMBRE_PRODUCTO
@@ -236,6 +237,11 @@ class MainView(VistaBase):
         raiz.addLayout(cuerpo, 1)
         raiz.addWidget(self._construir_barra_estado())
 
+        # Ctrl+K lleva al buscador. Con 36 acciones es el atajo que mas se
+        # usa, y buscar con el raton obliga a scrollear la barra lateral.
+        self._atajo_buscador = QShortcut(QKeySequence("Ctrl+K"), self)
+        self._atajo_buscador.activated.connect(self.enfocar_buscador)
+
         # El encabezado y la barra de estado muestran configuracion, no logica
         # de negocio: se leen aca para que la vista se sostenga sola y para que
         # se pueda renderizar y probar sin levantar los controladores. El
@@ -369,11 +375,28 @@ class MainView(VistaBase):
         lateral.setFixedWidth(228)
 
         vertical = QVBoxLayout(lateral)
-        vertical.setContentsMargins(0, 12, 0, 12)
+        vertical.setContentsMargins(0, 10, 0, 12)
         vertical.setSpacing(0)
 
-        self.grupoBotones = QButtonGroup(self)
-        self.grupoBotones.setExclusive(True)
+        # Buscador. Con 36 acciones, scrollear la barra lateral es la unica
+        # forma de encontrar algo que no este en las cuatro primeras lineas.
+        self.txtBuscar = QLineEdit()
+        self.txtBuscar.setObjectName("buscadorLateral")
+        self.txtBuscar.setPlaceholderText("Buscar…")
+        self.txtBuscar.setClearButtonEnabled(True)
+        self.txtBuscar.addAction(
+            self._lupa(), QLineEdit.LeadingPosition)
+        self.txtBuscar.textChanged.connect(self._filtrar_lateral)
+        self.txtBuscar.returnPressed.connect(self._ir_al_primer_resultado)
+        lateral_buscador = QWidget()
+        layout_buscador = QVBoxLayout(lateral_buscador)
+        layout_buscador.setContentsMargins(10, 0, 10, 8)
+        layout_buscador.addWidget(self.txtBuscar)
+        self.lblSinResultados = QLabel("")
+        self.lblSinResultados.setObjectName("sinResultados")
+        self.lblSinResultados.setVisible(False)
+        layout_buscador.addWidget(self.lblSinResultados)
+        vertical.addWidget(lateral_buscador)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -386,7 +409,14 @@ class MainView(VistaBase):
         self.layoutLateral.setContentsMargins(10, 0, 10, 10)
         self.layoutLateral.setSpacing(2)
 
+        self.grupoBotones = QButtonGroup(self)
+        self.grupoBotones.setExclusive(True)
+
+        # Se guarda la seccion de cada boton para poder esconder la seccion
+        # entera cuando ninguno de sus botones coincide con la busqueda.
+        self._seccion_de = {}
         self.botonesNav = {}
+
         for titulo, _icono_seccion, items in SECCIONES:
             encabezado = QLabel(titulo)
             encabezado.setObjectName("tituloSeccion")
@@ -401,14 +431,77 @@ class MainView(VistaBase):
                 # Esto es lo que hace que el boton funcione. Sin el connect, el
                 # boton se dibuja y cambia de color al verlo marcado, pero no
                 # abre nada: el error es invisible hasta que alguien lo prueba.
-                boton.clicked.connect(lambda _=False, c=clave: self.navegar.emit(c))
+                boton.clicked.connect(
+                    lambda _=False, c=clave: self.navegar.emit(c))
                 self.botonesNav[clave] = boton
+                self._seccion_de[clave] = encabezado
                 self.layoutLateral.addWidget(boton)
 
         self.layoutLateral.addStretch(1)
         scroll.setWidget(contenido)
         vertical.addWidget(scroll)
         return lateral
+
+    def _lupa(self):
+        from PyQt5.QtGui import QIcon
+        from libs.recursos import ruta_recurso
+        return QIcon(ruta_recurso("imagenes/iconos/buscar.svg"))
+
+    def _normalizar(self, texto):
+        """Minúsculas y sin tildes, para que buscar 'configuracion' encuentre
+        'Configuración'."""
+        import unicodedata
+        descompuesto = unicodedata.normalize("NFD", str(texto).lower())
+        return "".join(c for c in descompuesto if not unicodedata.combining(c))
+
+    def _filtrar_lateral(self, texto):
+        """Muestra solo los botones que coinciden, y esconde las secciones que
+        se quedan sin ninguno."""
+        consulta = self._normalizar(texto).strip()
+
+        if not consulta:
+            for boton in self.botonesNav.values():
+                boton.setVisible(True)
+            for clave in self.botonesNav:
+                self._seccion_de[clave].setVisible(True)
+            self.lblSinResultados.setVisible(False)
+            return
+
+        secciones_con_algo = set()
+        encontrados = 0
+        for clave, boton in self.botonesNav.items():
+            coincide = (consulta in self._normalizar(boton.text())
+                        or consulta in self._normalizar(clave)
+                        or consulta in self._normalizar(
+                            self._seccion_de[clave].text()))
+            boton.setVisible(coincide)
+            if coincide:
+                encontrados += 1
+                secciones_con_algo.add(id(self._seccion_de[clave]))
+
+        for clave, boton in self.botonesNav.items():
+            self._seccion_de[clave].setVisible(
+                id(self._seccion_de[clave]) in secciones_con_algo)
+
+        self.lblSinResultados.setText(
+            "Sin resultados para\n«{}»".format(texto.strip()))
+        self.lblSinResultados.setVisible(encontrados == 0)
+
+    def _ir_al_primer_resultado(self):
+        """Enter lleva al primer resultado, para poder emitir con el teclado."""
+        for clave, boton in self.botonesNav.items():
+            if boton.isVisible():
+                boton.setFocus()
+                return
+
+    def enfocar_buscador(self):
+        self.txtBuscar.setFocus()
+        self.txtBuscar.selectAll()
+
+    def buscar(self, texto):
+        """Busca y deja el foco en el primer resultado. Lo usa el atajo."""
+        self.txtBuscar.setText(texto)
+        self._ir_al_primer_resultado()
 
     # -- Barra de estado ---------------------------------------------------
     def _construir_barra_estado(self):

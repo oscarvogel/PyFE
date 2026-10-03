@@ -151,9 +151,15 @@ def test_agregar_articulo_pide_cantidad_y_precio(monkeypatch):
 
     controller.agregar_articulo()
 
-    assert controller.view.gridVenta.ObtenerItem(fila=0, col="Cant.") == "3"
-    assert controller.view.gridVenta.ObtenerItem(fila=0, col="Unitario") == "150.00"
-    assert controller.view.gridVenta.ObtenerItem(fila=0, col="SubTotal") == "450.00"
+    # En una columna numerica ObtenerItem devuelve el numero, no el texto de
+    # la celda: el texto lleva el formato de presentacion (1.250,50) y el valor
+    # crudo es el que sirve para calcular. El texto se puede comprobar aparte
+    # con .text() de la celda.
+    assert controller.view.gridVenta.ObtenerItem(fila=0, col="Cant.") == Decimal("3")
+    assert controller.view.gridVenta.ObtenerItem(fila=0, col="Unitario") == Decimal("150.00")
+    assert controller.view.gridVenta.ObtenerItem(fila=0, col="SubTotal") == Decimal("450.00")
+    assert controller.view.gridVenta.item(0, 0).text() == "3"
+    assert controller.view.gridVenta.item(0, 3).text() == "150,00"
     assert controller.view.textTotal.text() == "450.00"
     controller.view.Cerrar()
 
@@ -188,7 +194,7 @@ def test_articulo_no_encontrado_propone_alta_y_lo_agrega(monkeypatch):
 
     assert controller.view.gridVenta.ObtenerItem(fila=0, col="Codigo") == "12"
     assert controller.view.gridVenta.ObtenerItem(fila=0, col="Detalle") == "Articulo nuevo"
-    assert controller.view.gridVenta.ObtenerItem(fila=0, col="SubTotal") == "160.00"
+    assert controller.view.gridVenta.ObtenerItem(fila=0, col="SubTotal") == Decimal("160.00")
     controller.view.Cerrar()
 
 

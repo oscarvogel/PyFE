@@ -7,12 +7,104 @@ import xlsxwriter
 from PyQt5 import QtCore
 from PyQt5.QtCore import QAbstractTableModel, Qt, QVariant
 from PyQt5.QtGui import QFont, QColor
-from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QFileDialog, QAbstractItemView, QLabel
+from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QFileDialog, QAbstractItemView, QHeaderView, QLabel
 
 from openpyxl.reader.excel import load_workbook
 
 from libs import Ventanas
 from libs.Utiles import EsVerdadero, AbrirArchivo, saveFileDialog
+
+
+def _a_numero_texto(texto):
+    """Convierte a float un numero escrito como lo muestra la grilla.
+
+    Necesario porque las celdas se van a mostrar con separador de miles y coma
+    decimal (1.234.567,89), que es como se lee un importe en Argentina, y el
+    codigo que needs convertirlas a float tiene que entender las dos formas.
+
+    Antes se hacia con re.sub("[^0123456789\\.]", "", texto), que con un
+    separador de miles converts "1.234,56" en 1.23456 sin avisar: todos los
+    totales de la factura quedaban mal y no se veía ningun error.
+    """
+    if texto is None:
+        return 0
+    if isinstance(texto, (int, float)):
+        return float(texto)
+    limpio = str(texto).strip()
+    if not limpio:
+        return 0
+    limpio = limpio.replace(" ", "").replace("$", "").replace("%", "")
+
+    tiene_coma = "," in limpio
+    tiene_punto = "." in limpio
+
+    if tiene_coma and tiene_punto:
+        # El ultimo separador que aparece es el decimal.
+        if limpio.rfind(",") > limpio.rfind("."):
+            limpio = limpio.replace(".", "").replace(",", ".")
+        else:
+            limpio = limpio.replace(",", "")
+    elif tiene_coma:
+        # Solo coma: puede ser miles ("1,234") o decimal ("1,5"). Con mas de
+        # tres digitos despues es miles, que es el caso normal en Argentina.
+        partes = limpio.split(",")
+        if len(partes) == 2 and len(partes[1]) == 3:
+            limpio = limpio.replace(",", "")
+        else:
+            limpio = limpio.replace(",", ".")
+    elif tiene_punto:
+        # Solo punto, sin coma. En el formato argentino el punto es el separador
+        # de miles, asi que "1.234" son mil doscientos treinta y cuatro.
+        # Y no hay ambiguedad con 1.234 decimal porque el formateador escribe
+        # ese caso como "1,23", con coma.
+        partes = limpio.split(".")
+        if len(partes) == 2 and len(partes[1]) == 3:
+            limpio = limpio.replace(".", "")
+    return float(limpio)
+
+
+def _formato_importe(valor, decimales=2):
+    """Muestra un importe como se lee en Argentina: 1.234.567,89.
+
+    Solo es presentacion. El valor real queda guardado aparte en la celda, asi
+    que los calculos no cambian.
+    """
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return str(valor)
+
+    negativo = numero < 0
+    absoluto = abs(numero)
+    # Se separa la parte entera de la decimal a mano porque aca el separador
+    # de miles es el punto y el decimal la coma, al reves del formato de Python.
+    entero = int(absoluto)
+    resto = absoluto - entero
+    con_miles = "{:,.0f}".format(entero)
+    con_miles = con_miles.replace(",", ".")
+    fraccion = "{:.{}f}".format(resto, decimales).split(".")[1]
+    return "{}{},{}".format("-" if negativo else "", con_miles, fraccion)
+
+
+def _formato_cantidad(valor, decimales=2):
+    """Muestra una cantidad sin ceros de mas: 2, 1,5 y 150.
+
+    Una cantidad con los dos decimales siempre ("2,00", "150,00") es ruido:
+    el usuario tiene que mirar si hay algo detras de la coma para saber si
+    es entera o no. Los importes si llevan los dos decimales siempre, que es
+    como se escriben los montos.
+    """
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return str(valor)
+    texto = "{:.{}f}".format(abs(numero), decimales)
+    if "." in texto:
+        texto = texto.rstrip("0").rstrip(".")
+        if not texto:
+            texto = "0"
+        texto = texto.replace(".", ",")
+    return ("-" if numero < 0 else "") + texto
 
 
 class Grilla(QTableWidget):
@@ -68,6 +160,20 @@ class Grilla(QTableWidget):
     def __init__(self, *args, **kwargs):
 
         QTableWidget.__init__(self, *args)
+
+        # Los diccionarios y listas de clase son COMPARTIDOS entre todas las
+        # grillas. Con formatos como atributo de clase, la tabla de la venta
+        # dejaba sus tipos (Cantidad, Moneda...) en la de proveedores, que
+        # abria despues en la misma corrida: ahi una columna de texto se
+        # alineaba como numero. Se copian a la instancia para que cada tabla
+        # tenga lo suyo.
+        self.formatos = dict(self.formatos)
+        self.cabeceras = list(self.cabeceras)
+        self.columnasOcultas = list(self.columnasOcultas)
+        self.columnasHabilitadas = list(self.columnasHabilitadas)
+        self.widgetCol = dict(self.widgetCol)
+        self.backgroundColorCol = dict(self.backgroundColorCol)
+
         if 'tamanio' in kwargs:
             self.tamanio = kwargs['tamanio']
         font = QFont()
@@ -145,7 +251,7 @@ class Grilla(QTableWidget):
             self._etiquetaVacia.setGeometry(self.viewport().rect())
 
 
-    def ArmaCabeceras(self, cabeceras=None):
+    def ArmaCabeceras(self, cabeceras=None, formatos=None):
 
         if not cabeceras:
             cabeceras = self.cabeceras
@@ -156,9 +262,109 @@ class Grilla(QTableWidget):
             self.setHorizontalHeaderItem(col, QTableWidgetItem(cabeceras[col]))
 
         self.resizeRowsToContents()
-        self.resizeColumnsToContents()
+        # NO se usa resizeColumnsToContents: con la tabla vacia (que es como
+        # nace, antes de cargar los datos) calcula anchos minimos y el
+        # encabezado queda arrancajo a la izquierda, con un mar de blanco al
+        # lado. Se reparten los anchos segun el contenido de las cabeceras.
+        self._reparte_anchos(cabeceras)
+        self._estirar_la_mas_larga(cabeceras)
+
+        # `formatos` es opcional y dice que hay en cada columna, para alinear
+        # el encabezado igual que los datos: una columna de importes con el
+        # encabezado a la izquierda y los numeros a la derecha se ve rota.
+        if formatos:
+            for col, tipo in enumerate(formatos):
+                if col < len(formatos) and tipo:
+                    self.formatos[col] = tipo
+            self._alinea_encabezados()
+
         self.cabeceras = cabeceras
         self.OcultaColumnas()
+
+    def _reparte_anchos(self, cabeceras):
+        """Ancho minimo razonable por columna y el sobrante en la primera.
+
+        Se calcula sobre el texto del encabezado, que es lo unico que se
+        conoce antes de cargar los datos.
+        """
+        total = max(self.viewport().width(), 200)
+        pesos = [max(60, min(200, len(str(c)) * 9 + 30)) for c in cabeceras]
+        suma = float(sum(pesos)) or 1.0
+        anchos = [max(56, int(total * p / suma)) for p in pesos]
+        # La diferencia se la queda la ultima columna, que suele ser la
+        # descripcion larga.
+        anchos[-1] += total - sum(anchos)
+        for col, ancho in enumerate(anchos):
+            if ancho > 0:
+                self.setColumnWidth(col, ancho)
+
+    # Columnas cuyo contenido se alinea a la derecha porque se lee como
+    # numero. Incluye los tipos declarados al armar el encabezado y los que se
+    # descubren al cargar la primera fila.
+    TIPOS_NUMERICOS = ('Decimal', 'Cantidad', 'Moneda', 'Importe',
+                       'Porcentaje', 'Entero', 'Date', 'Time')
+
+    def _estirar_la_mas_larga(self, cabeceras):
+        """El ancho sobrante va a la columna de texto mas larga.
+
+        estirar la ultima columna (que es lo que hace setStretchLastSection)
+        deja una columna de importe ocupando media tabla, que es al reves de lo
+        que conviene: los importes se comparan entre si en una columna angosta
+        y el que se lee es el detalle.
+        """
+        ancho = self.horizontalHeader()
+        ancho.setStretchLastSection(False)
+        candidatas = [i for i, c in enumerate(cabeceras)
+                      if self.formatos.get(i) not in self.TIPOS_NUMERICOS]
+        if not candidatas:
+            ancho.setStretchLastSection(True)
+            return
+        elegida = max(candidatas, key=lambda i: len(str(cabeceras[i])))
+        for i in range(len(cabeceras)):
+            ancho.setSectionResizeMode(
+                i, QHeaderView.Stretch if i == elegida else QHeaderView.Interactive)
+
+    def _alinea_encabezados(self):
+        for col, tipo in self.formatos.items():
+            if col >= self.columnCount():
+                continue
+            encabezado = self.horizontalHeaderItem(col)
+            if encabezado is None:
+                continue
+            if tipo in self.TIPOS_NUMERICOS:
+                encabezado.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            else:
+                encabezado.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+    # Decimales por tipo de columna. Una cantidad y un importe no se muestran
+    # igual, y mostrarlos con los mismos decimales hace que el usuario tenga
+    # que contar los ceros para saber qué es.
+    DECIMALES_POR_TIPO = {
+        'Cantidad': 2,
+        'Moneda': 2,
+        'Importe': 2,
+        'Decimal': 2,
+        'Porcentaje': 2,
+        'Entero': 0,
+    }
+
+    def _texto_celda(self, col, valor):
+        """Como se muestra el valor, segun el tipo declarado de la columna."""
+        tipo = self.formatos.get(col, 'Decimal')
+        if tipo == 'Entero':
+            try:
+                return "{:,.0f}".format(float(valor)).replace(",", ".")
+            except (TypeError, ValueError):
+                return str(valor)
+        if tipo == 'Cantidad':
+            # Sin ceros de mas: "2" y no "2,00".
+            return _formato_cantidad(valor, self.DECIMALES_POR_TIPO['Cantidad'])
+        if tipo in ('Moneda', 'Importe'):
+            # Los importes llevan los dos decimales siempre.
+            return _formato_importe(valor, self.DECIMALES_POR_TIPO.get(tipo, 2))
+        if tipo in ('Decimal', 'Porcentaje'):
+            return _formato_importe(valor, self.DECIMALES_POR_TIPO.get(tipo, 2))
+        return str(valor)
 
     def AgregaItem(self, items=None,
                    backgroundColor=None, readonly=False):
@@ -176,6 +382,19 @@ class Grilla(QTableWidget):
             self.setRowCount(cantFilas)
             for x in items:
                 flags = QtCore.Qt.ItemIsSelectable
+                # Si la columna declara un tipo numerico y el valor llega como
+                # texto, se convierte. Hace falta porque casi todos los
+                # controladores arman la fila con str(...): sin esto la
+                # columna queda como texto, sin alineacion a la derecha y sin
+                # separador de miles, por mas que el encabezado diga que es un
+                # importe.
+                if col in self.formatos and self.formatos[col] in self.TIPOS_NUMERICOS \
+                        and isinstance(x, str) and not isinstance(x, bytes):
+                    try:
+                        x = decimal.Decimal(x)
+                    except decimal.InvalidOperation:
+                        pass
+
                 if isinstance(x, bool):
                     item = QTableWidgetItem(x)
                     if x:
@@ -184,9 +403,20 @@ class Grilla(QTableWidget):
                         item.setCheckState(QtCore.Qt.Unchecked)
                     self.formatos[col] = 'Bool'
                 elif isinstance(x, (int, float, decimal.Decimal)):
-                    item = QTableWidgetItem(str(x))
-                    item.setTextAlignment(Qt.AlignRight)
-                    self.formatos[col] = 'Decimal'
+                    # El tipo se resuelve ANTES de armar el texto, o la
+                    # primera fila se formatearia con el tipo por defecto y
+                    # las siguientes con el declarado, y una columna
+                    # quedaria con "21,00" arriba y "21" abajo.
+                    if col not in self.formatos:
+                        self.formatos[col] = 'Decimal'
+                    # El texto de la celda es para MIRAR. El valor real se
+                    # guarda aparte en UserRole, porque hay codigo que lee la
+                    # celda para sumar: si se guardara solo el texto formateado
+                    # con puntos de miles, "1.234,56" se leeria como 1.23456 y
+                    # todos los totales quedarian mal sin dar ningun error.
+                    item = QTableWidgetItem(self._texto_celda(col, x))
+                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                    item.setData(QtCore.Qt.UserRole, x)
                 # en caso de que sea formato de fecha
                 elif isinstance(x, (datetime.date)):
                     fecha = x.strftime('%d/%m/%Y')
@@ -236,7 +466,17 @@ class Grilla(QTableWidget):
                     # self.setCellWidget(cantFilas - 1, col, widgetColumna)
                 col += 1
             self.resizeRowsToContents()
-            self.resizeColumnsToContents()
+            # El ancho se ajusta UNA vez, cuando entra la primera fila. Con
+            # datos ya cargados tiene sentido que las columnas midan lo que
+            # necesitan; recalcular en cada fila hace que la tabla "tiemble"
+            # mientras se carga y ralentiza con muchas filas.
+            if cantFilas == 1:
+                self.resizeColumnsToContents()
+                # Con la primera fila ya se sabe que hay en cada columna, asi
+                # que se pueden alinear los encabezados aunque la tabla no haya
+                # declarado los tipos: asi todas las tablas de la app quedan
+                # bien sin tocar las 30 pantallas una por una.
+                self._alinea_encabezados()
 
     def OcultaColumnas(self):
         for x in self.columnasOcultas:
@@ -249,15 +489,21 @@ class Grilla(QTableWidget):
         :param valor: valor a modificar
         :type col: entero en caso de indicar un numero de columna y string si quiero el nombre
         """
-        if isinstance(valor, (int, float, decimal.Decimal)):
-            item = QTableWidgetItem(str(valor))
-        else:
-            item = QTableWidgetItem(valor)
-
         if not isinstance(col, int):
             numCol = self.cabeceras.index(col)
         else:
             numCol = col
+
+        if isinstance(valor, (int, float, decimal.Decimal)):
+            # Igual que en AgregaItem: el texto es para mirar y el numero real
+            # va aparte, para que los calculos no dependan del formato.
+            if numCol not in self.formatos:
+                self.formatos[numCol] = 'Decimal'
+            item = QTableWidgetItem(self._texto_celda(numCol, valor))
+            item.setData(QtCore.Qt.UserRole, valor)
+            item.setTextAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        else:
+            item = QTableWidgetItem(valor)
 
         if numCol in self.columnasHabilitadas:
             item.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsEditable)
@@ -280,15 +526,17 @@ class Grilla(QTableWidget):
             numCol = self.cabeceras.index(col)
 
         try:
-            item = self.item(fila, numCol).text()
-        except:
-            item = ''
-        # model = self.model()
-        # index = model.index(fila, numCol)
-        #
-        # print(model.data(index))
-        #return model.data(index).replace(',','.') if model.data(index) else ''
-        return item.replace(',','.') if item else 0
+            celda = self.item(fila, numCol)
+            # Se lee el valor crudo que se guardo al cargar, no el texto: el
+            # texto lleva separador de miles y coma decimal, para que se lea
+            # bien, y parsearlo a mano es justo lo que antes dabia malos
+            # totales sin avisar.
+            crudo = celda.data(QtCore.Qt.UserRole)
+            if crudo is not None:
+                return crudo
+            return celda.text()
+        except Exception:
+            return 0
 
     def ObtenerItemNumerico(self, fila, col):
 
@@ -298,19 +546,17 @@ class Grilla(QTableWidget):
             numCol = self.cabeceras.index(col)
 
         try:
-            item = self.item(fila, numCol)
-            if item.checkState() == QtCore.Qt.Checked:
-                item = True
-            else:
-                item = item.text()
-                item = re.sub("[^0123456789\.]","",item)
-
-            item = float(item)
-        except:
-            item = 0
-
-        # return item.replace(',','.') if item else 0
-        return item
+            celda = self.item(fila, numCol)
+            if celda is None:
+                return 0
+            if celda.checkState() == QtCore.Qt.Checked:
+                return True
+            crudo = celda.data(QtCore.Qt.UserRole)
+            if crudo is not None:
+                return float(crudo)
+            return _a_numero_texto(celda.text())
+        except Exception:
+            return 0
 
     def CargaDatos(self, avance=None):
 
@@ -375,22 +621,33 @@ class Grilla(QTableWidget):
         for row in range(self.rowCount()):
             col = 0
             for c in columnas:
+                indice = c if isinstance(c, int) else self.cabeceras.index(c)
+
+                if self.formatos.get(indice) == 'Date':
+                    # Las fechas se guardan como texto; para Excel hay que
+                    # pasarlas como fecha, no como numero.
+                    texto = self.item(row, indice).text()
+                    worksheet.write_datetime(
+                        fila, col,
+                        datetime.datetime.strptime(texto, '%d/%m/%Y').date(),
+                        formato_fecha)
+                    col += 1
+                    continue
+
                 dato = self.ObtenerItem(fila=row, col=c)
                 if isinstance(dato, bool):
-                    dato = 'SI' if dato else 'NO'
+                    worksheet.write(fila, col, 'SI' if dato else 'NO')
+                elif isinstance(dato, (int, float, decimal.Decimal)):
+                    # Numero: se escribe como numero, que en Excel se puede
+                    # sumar. Antes se escribia el texto y la celda quedaba
+                    # como texto.
+                    worksheet.write(fila, col, float(dato))
                 else:
-                    dato = dato.strip()
-                try:
-                    dato = float(dato)
-                except:
-                    if dato.isdigit():
-                        dato = int(dato)
-                if self.formatos[col] == 'Date':
-
-                    worksheet.write_datetime(fila, col, datetime.datetime.strptime(dato, '%d/%m/%Y').date(),
-                                             formato_fecha)
-                else:
-                    worksheet.write(fila, col, dato)
+                    texto = str(dato).strip()
+                    try:
+                        worksheet.write(fila, col, float(_a_numero_texto(texto)))
+                    except ValueError:
+                        worksheet.write(fila, col, texto)
                 col += 1
             fila += 1
 

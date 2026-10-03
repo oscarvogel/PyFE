@@ -486,6 +486,32 @@ QLabel[objectName="detalleTarjeta"] {
     background: transparent;
 }
 
+/* -- Buscador de la barra lateral ---------------------------------------- */
+
+QLineEdit[objectName="buscadorLateral"] {
+    background-color: #FFFFFF;
+    border: 1px solid #CFD8E1;
+    border-radius: 5px;
+    padding: 5px 8px 5px 28px;
+    color: #1F2933;
+}
+
+QLineEdit[objectName="buscadorLateral"]:focus {
+    border: 1px solid #0863C6;
+    background-color: #FFFFFF;
+}
+
+QLineEdit[objectName="buscadorLateral"]::placeholder {
+    color: #8A97A4;
+}
+
+QLabel[objectName="sinResultados"] {
+    color: #6B7885;
+    font-size: 12px;
+    background: transparent;
+    padding: 8px 10px 0 10px;
+}
+
 /* --------------------------------------------------------------------------
    Casillas y opciones
    -------------------------------------------------------------------------- */
