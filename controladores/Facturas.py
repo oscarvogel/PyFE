@@ -12,6 +12,7 @@ from controladores.FCE import WsFECred
 from controladores.FE import FEv1, PyQRv1
 from controladores.FacturaBranding import aplicar_marca_factura, cargar_config_marca_factura, obtener_formato_factura
 from libs import Ventanas, Constantes
+from libs import fpdf_compat
 from libs.Utiles import (LeerIni, validar_cuit, FechaMysql, ubicacion_sistema,
                          inicializar_y_capturar_excepciones, DeCodifica, imagen,
                          getFileName, FormatoFecha, formato_cuit, a_entero)
@@ -866,6 +867,14 @@ class FacturaController(ControladorBase):
         papel = "A4" #o "letter" para carta, "legal" para oficio
         orientacion = "portrait" #o landscape(apaisado)
         ok = pyfpdf.CrearPlantilla(papel, orientacion)
+        # Las plantillas de pyfepdf alinean con "D" (derecha) e "I"
+        # (izquierda), codigos que existian en fpdf 1.7 y que fpdf2 no
+        # entiende. Sin esta traduccion el PDF no se genera y la factura queda
+        # autorizada en ARCA sin documento. Ver libs/fpdf_compat.py.
+        _alineados = fpdf_compat.normalizar_plantilla(pyfpdf)
+        if _alineados:
+            logging.debug("plantilla: %s campos con alineacion antigua (D/I)",
+                          _alineados)
         num_copias = a_entero(LeerIni(clave='num_copias', key='FACTURA'), 1) #original, duplicado y triplicado
         lineas_max = 24 #cantidad de linas de items por página
         qty_pos = "izq" #(cantidad a la izquierda de la descripción del artículo)

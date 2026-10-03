@@ -128,11 +128,26 @@ except Exception:
     traceback.print_exc(file=sys.stdout)
     sys.exit(1)
 
+# La traduccion de los codigos de alineacion que hace la app real.
+from libs import fpdf_compat  # noqa: E402
+print("align antiguos  : {} elementos".format(
+    sum(1 for e in pyfpdf.template.elements if e.get("align") in ("D", "I"))))
+print("normalizados    : {} (align) y {} (fuentes)".format(*fpdf_compat.normalizar_plantilla(pyfpdf)))
+print("align restantes : {} elementos con D/I".format(
+    sum(1 for e in pyfpdf.template.elements if e.get("align") in ("D", "I"))))
+
 seccion("4. GENERAR EL PDF")
 try:
-    print("ProcesarPlantilla: {}".format(pyfpdf.ProcesarPlantilla(1, 24, "izq")))
+    procesado = pyfpdf.ProcesarPlantilla(1, 24, "izq")
+    print("ProcesarPlantilla: {}".format(procesado))
+    if not procesado:
+        print("  Excepcion: {}".format(
+            getattr(pyfpdf, "Excepcion", "").strip()))
+        print("  Traceback: {}".format(
+            getattr(pyfpdf, "Traceback", "").strip()[-1500:]))
     salida = os.path.join(os.getcwd(), "factura_prueba.pdf")
-    print("GenerarPDF     : {}".format(pyfpdf.GenerarPDF(salida)))
+    pyfpdf.GenerarPDF(salida)
+    print("GenerarPDF     : ok")
 except Exception:
     print("FALLO al generar el PDF:")
     traceback.print_exc(file=sys.stdout)

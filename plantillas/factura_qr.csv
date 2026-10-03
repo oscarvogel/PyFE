@@ -520,7 +520,7 @@
 'copia';'T';115.70;13.70;150.70;17.70;'Arial';8;0;0;0;0;0;'C';'Original';2
 'custom-nota1';'T';104.20;274.80;149.30;279.00;'Arial';8;False;False;False;0;16777215;'C';'';0
 'custom-nota2';'T';104.20;278.60;149.70;282.80;'Arial';8;False;False;False;0;16777215;'C';'';0
-'custom-nota3';'T';9.40;282.00;138.70;286.20;'Arial';8;False;False;False;0;16777215;'C';'Software de Gestion desarrollado por Servin LGSM http://www.servinlgsm.com.ar - 3743 454150';0
+'custom-nota3';'T';9.40;282.00;138.70;286.20;'Arial';8;False;False;False;0;16777215;'C';'';0
 'custom-nro-cli';'T';26.40;44.90;44.40;50.90;'Arial';10;0;0;0;0;65535;'I';None;0
 'custom-pedido';'T';157.10;60.10;170.50;64.10;'Arial';10;0;0;0;0;65535;'I';'';0
 'custom-remito';'T';187.90;60.10;207.10;64.10;'Arial';10;0;0;0;0;0;'I';'';0

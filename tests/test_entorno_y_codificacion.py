@@ -22,7 +22,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 CARPETAS_IGNORADAS = {".git", "build", "dist", "__pycache__", "_prueba_exec",
                       "_prueba_facturacion", "_sandbox_prueba", ".venv",
-                      "pyafipws", "tests"}
+                      # Copia local de una libreria de terceros, en latin1. No es
+                      # codigo del proyecto y no se puede arreglar desde aca.
+                      "pyafipws", "_upstream", "tests"}
 EXTENSIONES = (".py", ".css", ".bat", ".iss", ".txt", ".csv")
 
 
