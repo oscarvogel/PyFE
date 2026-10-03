@@ -91,7 +91,7 @@ def test_obtener_formato_factura_vuelve_al_default_si_no_hay_formato(tmp_path):
 def test_el_cuit_de_la_factura_va_suelto_y_con_guiones():
     """El CUIT del emisor no puede ir con el rotulo pegado.
 
-    Antes se imprimia 'CUIT: 20179461154' en un solo campo. Mal por dos
+    Antes se imprimia 'CUIT: 20123456789' en un solo campo. Mal por dos
     motivos: el rotulo mezclado con el dato hace que el campo no se pueda leer
     ni copiar como numero, y un CUIT en un comprobante fiscal se muestra con
     guiones (XX-XXXXXXXX-X), que es como lo pone la mascara del campo de
@@ -159,8 +159,8 @@ def test_el_rotulo_del_cuit_existe_como_campo_propio():
 def test_formato_cuit_devuelve_el_numero_con_guiones():
     from libs.Utiles import formato_cuit
 
-    assert formato_cuit("20179461154") == "20-17946115-4"
-    assert formato_cuit("20-17946115-4") == "20-17946115-4"
+    assert formato_cuit("20123456789") == "20-12345678-9"
+    assert formato_cuit("20-12345678-9") == "20-12345678-9"
     # Un valor que no es un CUIT se devuelve tal cual, para que se vea el
     # problema en vez de recortarlo en silencio.
     assert formato_cuit("") == ""

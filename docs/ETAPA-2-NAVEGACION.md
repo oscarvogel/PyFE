@@ -184,9 +184,9 @@ para que lo decida alguien que conozca el flujo.
 
 ## 7. Dato sucio encontrado en la configuración
 
-`[FACTURA] cuit` tiene el valor **`Cuit 20-17946115-4`**, con el rótulo pegado
+`[FACTURA] cuit` tiene el valor **`Cuit 20-12345678-9`**, con el rótulo pegado
 adentro de un copiar y pegado desde una etiqueta de pantalla. La barra de estado
-lo mostraba como "CUIT Cuit 20-17946115-4".
+lo mostraba como "CUIT Cuit 20-12345678-9".
 
 **No rompe la facturación:** el CUIT que se usa para emitir sale de `[WSFEv1]` y
 ese está limpio. La vista ahora filtra el valor para no mostrar basura.

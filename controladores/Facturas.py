@@ -1035,7 +1035,7 @@ class FacturaController(ControladorBase):
         ok = pyfpdf.AgregarDato("MEMBRETE2", DeCodifica(LeerIni(clave='membrete2', key='FACTURA')))
         # El CUIT del emisor va SOLO, sin el rotulo pegado y con guiones.
         #
-        # Antes se imprimia 'CUIT: 20179461154' en un unico campo. Mal por dos
+        # Antes se imprimia 'CUIT: 20123456789' en un unico campo. Mal por dos
         # motivos: el rotulo mezclado con el dato hace que el campo no se pueda
         # leer como numero (y hay gente que los copia de la factura), y el
         # numero sin guiones no es como se muestra un CUIT en un comprobante

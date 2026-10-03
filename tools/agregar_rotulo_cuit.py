@@ -2,7 +2,7 @@
 """Agrega a los formatos de factura el campo CUIT.L y el pie de credito.
 
 CUIT.L: el rotulo del CUIT del emisor, que antes venia pegado al dato desde
-el codigo ('CUIT: 20179461154'). Ahora el numero va solo y con guiones, y el
+el codigo ('CUIT: 20123456789'). Ahora el numero va solo y con guiones, y el
 rotulo esta en su propio campo, como ya pasa con Fecha, Direccion, Localidad.
 
 creditoSoftware: la linea de pie 'Desarrollo de <empresa> · <sitio> ·

@@ -335,9 +335,9 @@ class MainView(VistaBase):
         """Se queda solo con los digitos y guiones del CUIT.
 
         Hay instalaciones donde el valor de [FACTURA] cuit quedo con el rotulo
-        pegado adentro (por ejemplo 'Cuit 20-17946115-4'), de copiar y pegar
+        pegado adentro (por ejemplo 'Cuit 20-12345678-9'), de copiar y pegar
         desde una etiqueta de la pantalla. Mostrarlo crudo en el encabezado
-        daba 'CUIT Cuit 20-17946115-4'.
+        daba 'CUIT Cuit 20-12345678-9'.
 
         No se corrige el dato: el CUIT que se usa para facturar sale de
         [WSFEv1], y ese esta bien. Esto solo evita mostrar basura.

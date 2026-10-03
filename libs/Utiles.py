@@ -254,7 +254,7 @@ def a_decimal(valor, defecto=None):
 
 
 def formato_cuit(valor):
-    """Devuelve el CUIT con guiones: 20179461154 -> 20-17946115-4
+    """Devuelve el CUIT con guiones: 20123456789 -> 20-12345678-9
 
     El dato se guarda sin guiones porque es lo que espera AFIP, pero en un
     comprobante fiscal se muestra con guiones: es como lo pide la norma y
