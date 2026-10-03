@@ -2,7 +2,9 @@
 from decimal import Decimal
 
 from peewee import fn
-from PyQt5.QtWidgets import QDialog, QMessageBox
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import QDialog, QShortcut
 
 from controladores.ControladorBase import ControladorBase
 from controladores.venta_simple_totales import RenglonVenta, calcular_totales
@@ -15,6 +17,8 @@ from vistas.VentaSimple import VentaSimpleAltaArticuloDialog, VentaSimpleAltaCli
 
 
 class VentaSimpleController(ControladorBase):
+    _atajos_creados = []
+
     def __init__(self):
         super(VentaSimpleController, self).__init__()
         self.cliente = None
@@ -22,7 +26,7 @@ class VentaSimpleController(ControladorBase):
         self.conectarWidgets()
 
     def conectarWidgets(self):
-        self.view.btnCerrar.clicked.connect(self.view.Cerrar)
+        self.view.btnCerrar.clicked.connect(self._cerrar)
         self.view.btnAgregar.clicked.connect(self.agregar_articulo)
         self.view.btnEmitir.clicked.connect(self.emitir_factura)
         self.view.btnBorrar.clicked.connect(self.borrar_renglon)
@@ -31,6 +35,56 @@ class VentaSimpleController(ControladorBase):
         self.view.textCliente.returnPressed.connect(self.cargar_cliente_desde_busqueda)
         self.view.textCliente.editingFinished.connect(self.cargar_cliente_desde_busqueda)
         self.view.checkConsumidorFinal.stateChanged.connect(self.on_consumidor_final_changed)
+        self.atajos()
+
+    # Atajos del flujo frecuente. Cargar una venta es escribir, buscar y
+    # agregar, una linea por producto: si hay que ir al mouse entre renglones,
+    # el atajo es lo que hace que la pantalla sea rapida. El tooltip de cada
+    # boton los muestra, asi que no hay que acordarse.
+    # (secuencia, metodo, boton donde se anuncia, texto del tooltip)
+    ATAJOS = [
+        ("Ctrl+Return", "agregar_articulo", "btnAgregar",
+         "Agregar el producto (Ctrl+Return)"),
+        ("Ctrl+E", "emitir_factura", "btnEmitir",
+         "Emitir la factura (Ctrl+E)"),
+        ("Ctrl+B", "borrar_renglon", "btnBorrar",
+         "Borrar el renglón (Ctrl+B)"),
+        ("Delete", "borrar_renglon", "btnBorrar", None),
+        ("F2", "_ir_al_producto", "textArticulo",
+         "Ir al producto (F2)"),
+        ("Esc", "_cerrar", "btnCerrar", "Cerrar sin guardar (Esc)"),
+    ]
+
+    def atajos(self):
+        self._atajos_creados = []
+        for secuencia, metodo, atributo, texto in self.ATAJOS:
+            atajo = QShortcut(QKeySequence(secuencia), self.view)
+            atajo.setContext(Qt.WindowShortcut)
+            atajo.activated.connect(getattr(self, metodo))
+            # Sin referencia propia el atajo se garbage-collectea y deja de
+            # funcionar sin que se vea ningun error.
+            self._atajos_creados.append(atajo)
+            if texto:
+                getattr(self.view, atributo).setToolTip(texto)
+
+    def _ir_al_producto(self):
+        self.view.textArticulo.setFocus()
+        self.view.textArticulo.selectAll()
+
+    def _cerrar(self):
+        """Cerrar pidiendo confirmacion si hay una venta a medio cargar.
+
+        No hace falta que Cerrar() pregunte siempre: si la venta esta vacia no
+        hay nada que perder. Pero con renglones cargados, cerrar sin avisar tira
+        el trabajo de tipeo a la basura sin dejar rastro.
+        """
+        if self.view.gridVenta.rowCount() and not Ventanas.showConfirmation(
+                "Descartar la venta",
+                "La venta tiene productos cargados y todavia no se emitio.\n\n"
+                "Si cierra ahora se pierde.",
+                textoOk="Descartar", textoCancelar="Seguir cargando"):
+            return
+        self.view.Cerrar()
 
     def on_consumidor_final_changed(self):
         if self.view.checkConsumidorFinal.isChecked():
@@ -54,14 +108,12 @@ class VentaSimpleController(ControladorBase):
         self.cargar_cliente_en_vista(cliente)
 
     def confirmar_alta(self, titulo, mensaje):
-        respuesta = QMessageBox.question(
-            self.view,
-            titulo,
-            mensaje,
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes,
-        )
-        return respuesta == QMessageBox.Yes
+        # Antes era un QMessageBox.question con "Sí" como boton por defecto:
+        # con el foco en la pantalla, apretar Enter sin querer creaba el
+        # cliente que uno todavia no habia decidido crear. Ahora el boton por
+        # defecto es cancelar.
+        return Ventanas.showConfirmation(
+            titulo, mensaje, textoOk="Crear cliente", textoCancelar="Cancelar")
 
     def cargar_cliente_en_vista(self, cliente):
         self.cliente = cliente
@@ -197,6 +249,10 @@ class VentaSimpleController(ControladorBase):
         self.view.textArticulo.setText("")
         self.view.textCantidad.setText("1")
         self.recalcular_total()
+        # El foco vuelve al producto: cargar una venta es agregar linea por
+        # linea, y volver al mouse entre renglones es lo que hace lenta la
+        # pantalla.
+        self.view.textArticulo.setFocus()
 
     def solicitar_cantidad_y_precio(self, articulo, cantidad):
         dialogo = VentaSimpleCantidadPrecioDialog(
