@@ -4,7 +4,10 @@ import logging
 import os
 
 import peewee
-from PyQt5.QtCore import Qt
+import threading
+
+from PyQt5.QtCore import Qt, QObject, QThread, pyqtSignal, pyqtSlot
+from PyQt5.QtWidgets import QApplication
 from os.path import join
 
 from controladores.ControladorBase import ControladorBase
@@ -29,6 +32,46 @@ from pyafipws.pyfepdf import FEPDF
 from vistas.Busqueda import UiBusqueda
 
 from vistas.Facturas import FacturaView
+
+
+class _EmisionWorker(QObject):
+    """Corre _autorizar() en un hilo aparte y avisa por senales.
+
+    Va en su propia clase y no como metodo del controlador porque Qt necesita
+    un QObject con vida propia: si el worker se crea como variable local y se
+    pierde la referencia, se lo garbage-collectea a mitad de la emision y la
+    factura queda en un estado imposible de explicar.
+
+    SIN padre, a proposito. Qt no deja mover a otro hilo un QObject que tenga
+    padre:
+
+        QObject::moveToThread: Cannot move objects with a parent
+
+    y lo dice en la consola, sin exception: si se le pasa la vista como padre,
+    el worker se queda en el hilo principal, las llamadas a ARCA siguen
+    corriendo aca, y la ventana se sigue congelando igual. Parece que funciona
+    y no funciona. La vida la sostiene self._worker en el controlador.
+    """
+
+    # Emitidas desde el hilo de trabajo, recibidas en el principal. Qt encola
+    # sola las que se cruzan entre hilos, asi que no hace falta lock.
+    etapa = pyqtSignal(str)
+    terminado = pyqtSignal(bool, object)
+
+    def __init__(self, controlador, datos, parent=None):
+        super(_EmisionWorker, self).__init__(parent)
+        self._controlador = controlador
+        self._datos = datos
+        self.resultado = (False, {"error": "No se pudo emitir."})
+
+    @pyqtSlot()
+    def run(self):
+        # Avisar por senal, no llamar a self._etapa(): _etapa toca el dialogo
+        # de progreso, que pertenece al hilo de la interfaz.
+        self.resultado = self._controlador._autorizar(
+            self._datos, avisar=self.etapa.emit)
+        ok, aviso = self.resultado
+        self.terminado.emit(ok, aviso)
 
 
 class FacturaController(ControladorBase):
@@ -311,50 +354,121 @@ class FacturaController(ControladorBase):
             return
 
         # Confirmacion antes de algo que no se puede deshacer: una factura
-        # autorizada ante AFIP existe mas alla de esta app, y anularla es otro
+        # autorizada ante ARCA existe mas alla de esta app, y anularla es otro
         # tramite. El boton por defecto es cancelar.
         if not Ventanas.showConfirmation(
                 "Emitir la factura",
-                "La factura se va a autorizar ante AFIP y no se puede deshacer "
+                "La factura se va a autorizar ante ARCA y no se puede deshacer "
                 "desde aca.\n\nRevise el importe y el cliente antes de confirmar.",
                 textoOk="Emitir", textoCancelar="Volver a revisar"):
             return
 
-        ok = False
-        with Ventanas.Progreso("Emitiendo la factura",
-                               self.ETAPAS_EMISION) as pasos:
-            self._progreso = pasos
-            # Los errores de esta vuelta los muestra GrabaFactura, con el
-            # contexto de la emision. Si tambien los muestra el decorador, el
-            # usuario ve el mismo problema dos veces.
-            self.SilenciarError = True
-            try:
-                self.view.btnGrabarFactura.setEnabled(False)
-                self.SumaTodo()
-                ok = self.CreaFE()
-                if ok:
-                    pasos.avanzar("Guardando la factura")
-                    ok = self.GrabaFE()
-            finally:
-                self._progreso = None
-                self.SilenciarError = False
-                self.view.btnGrabarFactura.setEnabled(True)
+        self.view.btnGrabarFactura.setEnabled(False)
+        self.SilenciarError = True
+        try:
+            # Los datos se leen ACa, en el hilo principal: la pantalla y la
+            # base no se tocan desde el hilo de trabajo.
+            datos = self._datos_emision()
+            self._emitir_en_hilo(datos)
+        finally:
+            self.SilenciarError = False
+            self.view.btnGrabarFactura.setEnabled(True)
+            self._hilo = None
+            self._worker = None
+            self._progreso = None
 
-        if ok:
-            self.view.Cerrar()
-        else:
+    def _emitir_en_hilo(self, datos):
+        """Emite en un hilo de trabajo y espera el resultado.
+
+        While antes de arrancar el hilo, se cierran los datos de la pantalla y
+        el boton queda deshabilitado, asi que no hay forma de que cambien
+        mientras ARCA procesa. Es lo que hace seguro tomar la foto de los
+        datos en un solo momento.
+        """
+        estado = {"ok": False, "aviso": None}
+        listo = threading.Event()
+
+        def al_terminar(ok, aviso):
+            # Llega al hilo principal: Qt encola las senales entre hilos.
+            estado["ok"] = ok
+            estado["aviso"] = aviso
+            listo.set()
+
+        with Ventanas.Progreso("Emitiendo la factura",
+                               self.ETAPAS_EMISION) as barra:
+            self._progreso = barra
+
+            # Sin padre: ver la nota de la clase. La referencia la sostiene
+            # self._worker hasta que el hilo termina.
+            self._worker = _EmisionWorker(self, datos)
+            self._worker.etapa.connect(barra.avanzar)
+            self._worker.terminado.connect(al_terminar)
+
+            self._hilo = QThread()
+            self._worker.moveToThread(self._hilo)
+            self._hilo.started.connect(self._worker.run)
+            self._hilo.start()
+
+            while not listo.wait(0.05):
+                # El wait(0.05) devuelve solo y sigue ventilando la interfaz:
+                # sin esto la ventana quedaria congelada, que es justo lo que
+                # se vino a arreglar.
+                QApplication.processEvents()
+                if not self._hilo.isRunning():
+                    break
+
+            self._hilo.quit()
+            self._hilo.wait(5000)      # 5 s sobran para un return limpio
+
+        if estado["aviso"] is None:
+            # El hilo murio sin devolver nada. Puede ser una caida de red o un
+            # cierre de la ventana; en cualquier caso no se sabe si ARCA
+            # autorizo, asi que NO se toca la base y se avisa con la duda
+            # explícita, que es lo que hay que hacer con una factura dudosa.
+            Ventanas.showError(
+                LeerIni('nombre_sistema'),
+                "No se pudo saber si la factura se autorizó.",
+                que_hacer="Puede que ARCA la haya autorizado y el programa haya "
+                          "cerrado antes de recibir la respuesta. NO la emita "
+                          "de nuevo: entre en Comprobantes y vea si aparece. Si "
+                          "aparece, reimprima el PDF desde Reimprimir factura; "
+                          "si no aparece, llame y lo verificamos con el CAE.",
+                detalle="El hilo de emisión terminó sin devolver resultado.")
+            return
+
+        ok = self._aplicar_resultado(estado["ok"], estado["aviso"])
+
+        if not ok:
             Ventanas.showError(
                 LeerIni('nombre_sistema'),
                 "No se pudo emitir la factura.",
-                que_hacer="Revise el detalle. Si el problema es de certificacion, "
-                          "corra Diagnostico desde Configuracion. Si es un "
-                          "rechazo de AFIP, el codigo de observacion esta en el "
-                          "detalle.",
+                que_hacer="Revise el detalle. Si el problema es de "
+                          "certificacion, corra Diagnostico desde "
+                          "Configuracion. Si es un rechazo de ARCA, el codigo "
+                          "de observacion esta en el detalle.",
                 detalle=self._mensaje_error_emision())
+            return
 
-    # Lo que respondio AFIP, si respondio algo malo. Lo deja CreaFE; lo
-    # muestra GrabaFactura junto con el resto.
-    _error_afip = ""
+        # Guardar la factura SIEMPRE en el hilo principal: peewee no es
+        # thread-safe y esta es la unica parte que escribe en la base.
+        with Ventanas.Progreso("Guardando la factura",
+                               ["Guardando en la base"]) as barra:
+            barra.avanzar("Guardando en la base")
+            guardado = self.GrabaFE()
+            if not guardado:
+                Ventanas.showError(
+                    LeerIni('nombre_sistema'),
+                    "La factura se autorizó pero no se pudo guardar.",
+                    que_hacer="La factura con CAE {} ya está autorizada en ARCA y "
+                              "no se puede deshacer. Anótela y avise: se puede "
+                              "cargar a mano, pero no la vuelva a emitir.".format(
+                                  self.view.lineditCAE.text() or "(sin CAE)"),
+                    detalle=self._mensaje_error_emision())
+                return
+
+        # La factura quedo autorizada y guardada: se cierra la pantalla, que ya
+        # cumplio su parte.
+        self.view.Cerrar()
 
     def _etapa(self, nombre):
         """Avanza el progreso, si hay alguno abierto."""
@@ -375,149 +489,263 @@ class FacturaController(ControladorBase):
             return "AFIP no respondio como se espera. Revise el log de errores."
         return "\n\n".join(partes)
 
-    @inicializar_y_capturar_excepciones
-    def CreaFE(self, *args, **kwargs):
-        ok = True
-        self._etapa("Preparando el numero de comprobante")
-        self.ObtieneNumeroFactura()
-        wsfev1 = FEv1()
-        self._etapa("Autenticando en AFIP")
-        ta = wsfev1.Autenticar()
-        #Setear tocken y sign de autorizacion(ticket de accesso, pasos previos)
-        wsfev1.SetTicketAcceso(ta)
-        wsfev1.Cuit = LeerIni(clave='cuit', key='WSFEv1') #CUIT del emisor (debe estar registrado en la AFIP)
-        self._etapa("Conectando al servicio de facturacion")
-        #Conectar al Servicio Web de Facturacion
-        #Produccion usar: *-- ok = WSFE.Conectar("", "https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL") & & Producción
-        if LeerIni(clave='homo') == "S":
-            ok = wsfev1.Conectar("") #Homologacion
-        else:
-            # cacert = LeerIni(clave='cacert', key='WSFEv1')
-            cacert = None
-            ok = wsfev1.Conectar("", LeerIni(clave="url_prod", key="WSFEv1"), cacert=cacert)
+    # -- Emision en dos hilos ------------------------------------------------
+    #
+    # La emision contra ARCA tarda y antes congelaba la ventana entera. Se
+    # resuelve con un QThread, pero CreaFE no se puede mandar tal cual a otro
+    # hilo porque mezcla tres cosas con reglas distintas:
+    #
+    #   - llamadas de red a ARCA: lentas, van bien en cualquier hilo
+    #   - widgets: Qt no permite tocarlos desde otro hilo
+    #   - la base: peewee NO es thread-safe
+    #
+    # Por eso quedo partida en tres partes. Lo unico que cruza al hilo es un
+    # dict de datos planos:
+    #
+    #   _datos_emision()  corre en el hilo PRINCIPAL: lee la pantalla y la base
+    #   _autorizar()      corre en el hilo de TRABAJO: solo habla con ARCA
+    #   _aplicar()        corre en el hilo PRINCIPAL: escribe el resultado
+    #
+    # GrabaFE (que escribe la factura en la base) sigue en el hilo principal a
+    # proposito, por lo de peewee.
 
-        if self.view.checkBoxServicios.isChecked() \
-            and self.view.checkBoxProductos.isChecked(): #si es productoso y servicios
-            concepto = wsfev1.PRODUCTOYSERVICIOS
-        elif self.view.checkBoxServicios.isChecked():
-            concepto = wsfev1.SERVICIOS
-        else:
-            concepto = wsfev1.PRODUCTOS
+    def _datos_emision(self):
+        """Lee de la pantalla y de la base todo lo que hace falta para emitir.
 
-        self.concepto = concepto
-        if self.cliente.tiporesp.idtiporesp == 3: #consumidor final
-            if str(self.view.lineEditDocumento.text()).strip() in ['0', '']:
-                tipo_doc = 99
-            else:
-                tipo_doc = 96
-        else:
-            tipo_doc = 80
-
-        punto_vta = int(self.view.layoutFactura.lineEditPtoVta.value())
-        tipo_cbte = self.tipo_cpte
-        nro_doc = str(self.view.lineEditDocumento.text()).strip().replace('-','')
-        cbt_desde = int(self.view.layoutFactura.lineEditNumero.value())
-        cbt_hasta = cbt_desde
-        imp_total = self.view.lineEditTotal.text()
-        imp_tot_conc = "0.00"
-        if a_entero(LeerIni(clave='cat_iva',
-                       key='WSFEv1'), 1) == 1:  # si es Resp insc el contribuyente
-            imp_neto = str(round(float(self.view.lineEditTotal.text()) - \
-                float(self.view.lineEditTributos.text()) - \
-                float(self.view.lineEditTotalIVA.text()), 2))
-        else:
-            imp_neto = str(round(float(self.view.lineEditTotal.text()),2))
-        imp_iva = str(round(float(self.view.lineEditTotalIVA.text()),2))
-        imp_trib = str(round(float(self.view.lineEditTributos.text()),2))
-        impto_liq_rni = "0.00"
-        imp_op_ex = "0.00"
+        Corre en el hilo de la interfaz, a proposito. Devuelve datos planos: si
+        se pasara el controlador entero al hilo de trabajo, ese terminaria
+        tocando widgets y base desde alla, que es exactamente lo que no se
+        puede hacer.
+        """
+        concepto_productos = self.view.checkBoxProductos.isChecked()
+        concepto_servicios = self.view.checkBoxServicios.isChecked()
+        documento = str(self.view.lineEditDocumento.text()).strip()
+        total = self.view.lineEditTotal.text()
+        tributos = self.view.lineEditTributos.text()
+        total_iva = self.view.lineEditTotalIVA.text()
         fecha_cbte = self.view.lineEditFecha.getFechaSql()
-        #Fechas del periodo del servicio facturado(solo siconcepto > 1)
-        if concepto in [wsfev1.SERVICIOS, wsfev1.PRODUCTOYSERVICIOS]:
-            fecha_serv_desde = self.view.fechaDesde.getFechaSql()
-            fecha_serv_hasta = self.view.fechaHasta.getFechaSql()
-            fecha_venc_pago = self.view.lineEditFecha.getFechaSql()
+
+        # La percepcion se lee de la base. Se resuelve aca y no en el hilo de
+        # trabajo justamente por eso: peewee no es thread-safe.
+        try:
+            percepcion = self.cliente.percepcion
+            percepcion_detalle = percepcion.detalle
+            percepcion_alicuota = percepcion.porcentaje
+        except Exception:
+            percepcion_detalle = ""
+            percepcion_alicuota = 0
+
+        es_consumidor_final = self.cliente.tiporesp.idtiporesp == 3
+        es_ri = a_entero(LeerIni(clave='cat_iva', key='WSFEv1'), 1) == 1
+
+        if es_ri:
+            imp_neto = str(round(float(total) - float(tributos)
+                                - float(total_iva), 2))
         else:
-            fecha_serv_desde = ""
-            fecha_serv_hasta = ""
-            fecha_venc_pago = ""
-        moneda_id = "PES"
-        moneda_ctz = "1.000"
+            imp_neto = str(round(float(total), 2))
 
-        if self.tipo_cpte in Constantes.COMPROBANTES_FCE: #FCE
-            fecha_venc_pago = self.view.lineEditFecha.getFechaSql()
-        
-        #Llamo al WebService de Autorizacion para obtener el CAE
-        self._etapa("Enviando la factura")
-        ok = self.crear_factura_wsfe(
-            wsfev1, concepto, tipo_doc, nro_doc, tipo_cbte, punto_vta,
-            cbt_desde, cbt_hasta, imp_total, imp_tot_conc, imp_neto,
-            imp_iva, imp_trib, imp_op_ex, fecha_cbte, fecha_venc_pago,
-            fecha_serv_desde, fecha_serv_hasta, moneda_id, moneda_ctz)
+        datos = {
+            "concepto_productos": concepto_productos,
+            "concepto_servicios": concepto_servicios,
+            "es_consumidor_final": es_consumidor_final,
+            "documento": documento,
+            "tipo_doc": self._tipo_documento(es_consumidor_final, documento),
+            "tipo_cbte": self.tipo_cpte,
+            "punto_vta": int(self.view.layoutFactura.lineEditPtoVta.value()),
+            "cbt_desde": int(self.view.layoutFactura.lineEditNumero.value()),
+            "imp_total": total,
+            "imp_neto": imp_neto,
+            "imp_iva": str(round(float(total_iva), 2)),
+            "imp_trib": str(round(float(tributos), 2)),
+            "imp_tot_conc": "0.00",
+            "imp_op_ex": "0.00",
+            "fecha_cbte": fecha_cbte,
+            "moneda_id": "PES",
+            "moneda_ctz": "1.000",
+            "es_ri": es_ri,
+            "netos": dict(self.netos or {}),
+            "condicion_iva_receptor": self.cliente.tiporesp.condicion_iva_receptor_id,
+            # Datos de NC/ND y FCE, que solo se usan en algunos comprobantes.
+            "asociado_pto": self.view.layoutCpbteRelacionado.lineEditPtoVta.text(),
+            "asociado_nro": self.view.layoutCpbteRelacionado.lineEditNumero.text(),
+            "tiene_asociado": bool(self.view.layoutCpbteRelacionado.numero),
+            "cbu": LeerIni("CBUFCE", key='FACTURA'),
+            "alias": LeerIni("ALIASFCE", key='FACTURA'),
+            "percepcion_detalle": percepcion_detalle,
+            "percepcion_alicuota": percepcion_alicuota,
+            "cuit": LeerIni(clave='cuit', key='WSFEv1'),
+        }
 
-        # Agregar comprobantes asociados(si es una NC / ND):
-        if self.tipo_cpte in [2, 3, 7, 8, 12, 13]:
-        # if str(self.view.cboComprobante.text()).find('credito'):
-            tipo = tipo_cbte
-            pto_vta = self.view.layoutCpbteRelacionado.lineEditPtoVta.text()
-            nro = self.view.layoutCpbteRelacionado.lineEditNumero.text()
-            wsfev1.AgregarCmpAsoc(tipo, pto_vta, nro)
+        if concepto_productos and concepto_servicios:
+            datos["concepto"] = "PRODUCTOYSERVICIOS"
+        elif concepto_servicios:
+            datos["concepto"] = "SERVICIOS"
+        else:
+            datos["concepto"] = "PRODUCTOS"
+
+        # Fechas del periodo facturado, que solo existen si el comprobante es
+        # de servicios.
+        if datos["concepto"] in ("SERVICIOS", "PRODUCTOYSERVICIOS"):
+            datos["fecha_serv_desde"] = self.view.fechaDesde.getFechaSql()
+            datos["fecha_serv_hasta"] = self.view.fechaHasta.getFechaSql()
+            datos["fecha_venc_pago"] = fecha_cbte
+        else:
+            datos["fecha_serv_desde"] = ""
+            datos["fecha_serv_hasta"] = ""
+            datos["fecha_venc_pago"] = ""
 
         if self.tipo_cpte in Constantes.COMPROBANTES_FCE:
-            #homologacion
-            wsfev1.AgregarOpcional(2101, LeerIni("CBUFCE", key='FACTURA')) #CBU
-            wsfev1.AgregarOpcional(2102, LeerIni("ALIASFCE", key='FACTURA')) # alias
+            datos["fecha_venc_pago"] = fecha_cbte
 
-            #cargo los remitos relacionados, por ahora cargo la fecha actual
-            #habria q ver de hacer una tabla de remitos
-            if self.view.layoutCpbteRelacionado.numero:
-                tipo_cbte_rem = 91
-                pto_vta_rem = self.view.layoutCpbteRelacionado.lineEditPtoVta.text()
-                nro_comp_rem = self.view.layoutCpbteRelacionado.lineEditNumero.text()
-                wsfev1.AgregarCmpAsoc(tipo_cbte_rem, pto_vta_rem, nro_comp_rem,
-                                      LeerIni(clave='cat_iva', key='cuit'), FechaMysql())
+        return datos
 
-        if round(float(self.view.lineEditTributos.text()), 3) != 0:
-            idimp = wsfev1.ID_IMP_PCIAL
-            detalle = self.cliente.percepcion.detalle
-            base_imp = round(float(self.view.lineEditTotal.text()) - \
-                float(self.view.lineEditTributos.text()) - \
-                float(self.view.lineEditTotalIVA.text()),2)
-            alicuota = self.cliente.percepcion.porcentaje
-            importe = str(round(float(self.view.lineEditTributos.text()),2))
-            wsfev1.AgregarTributo(tributo_id=idimp, desc=detalle, base_imp=base_imp,
-                                  alic=alicuota, importe=importe)
+    @staticmethod
+    def _tipo_documento(es_consumidor_final, documento):
+        """96 = DNI, 80 = CUIT, 99 = sin identificar."""
+        if es_consumidor_final:
+            return 99 if documento in ("0", "") else 96
+        return 80
 
-        if a_entero(LeerIni(clave='cat_iva', key='WSFEv1'), 1) == 1: #◘unicamente si es RI se informa los IVA
-            #agrego todos los iva
-            for k,v in self.netos.items():
-                if v != 0:
-                    id = FEv1().TASA_IVA[str(float(k))]
-                    base_imp = round(v,2)
-                    iva = round(k,2)
-                    importe = round(base_imp * iva / 100,2)
-                    ok = wsfev1.AgregarIva(id, base_imp, importe)
+    def _autorizar(self, datos, avisar=None):
+        """Habla con ARCA. Corre en el hilo de trabajo.
 
-        #SolicitoCAE:
-        self._etapa("Obteniendo el CAE")
-        cae = wsfev1.CAESolicitar()
-        if wsfev1.ErrMsg:
-            # No se muestra nada aca: se anota y lo muestra GrabaFactura, con
-            # el resumen de la emision. Un modal en medio de la barra de
-            # progreso la tapa y el usuario ve el error dos veces.
-            self._error_afip = DeCodifica(wsfev1.ErrMsg).strip()
-            ok = False
+        NO toca la base ni ningun widget: solo llamadas de red. `avisar` es la
+        forma de contar las etapas sin tocar el dialogo de progreso, que
+        pertenece al hilo de la interfaz.
+
+        Devuelve (ok, resultado) con un dict de datos, nunca escribe en la
+        pantalla.
+        """
+        if avisar is None:
+            avisar = self._etapa
+
+        aviso = {"ok": False, "cae": "", "resultado": "", "vencimiento": "",
+                 "error": ""}
+
+        avisar("Preparando el numero de comprobante")
+        self.ObtieneNumeroFacturaSinVista(datos)
+
+        wsfev1 = FEv1()
+        avisar("Autenticando en ARCA")
+        ta = wsfev1.Autenticar()
+        if not ta:
+            aviso["error"] = "ARCA no devolvio ticket de acceso."
+            return False, aviso
+        wsfev1.SetTicketAcceso(ta)
+        wsfev1.Cuit = datos["cuit"]
+
+        avisar("Conectando al servicio de facturacion")
+        if LeerIni(clave='homo') == "S":
+            conectado = wsfev1.Conectar("")
         else:
-            if wsfev1.Resultado == 'R':
-                self._error_afip = "AFIP rechazo la factura: {}".format(
-                    DeCodifica(wsfev1.Obs).strip())
-                ok = False
-            else:
-                self._error_afip = ""
-                self.view.lineditCAE.setText(cae)
-                self.view.lineEditResultado.setText(wsfev1.Resultado)
-                self.view.fechaVencCAE.setFecha(wsfev1.Vencimiento, format="Ymd")
+            conectado = wsfev1.Conectar(
+                "", LeerIni(clave="url_prod", key="WSFEv1"), cacert=None)
+        if not conectado:
+            aviso["error"] = DeCodifica(wsfev1.ErrMsg) or \
+                "No se pudo conectar con el servicio de facturacion."
+            return False, aviso
+
+        concepto = {
+            "PRODUCTOS": wsfev1.PRODUCTOS,
+            "SERVICIOS": wsfev1.SERVICIOS,
+            "PRODUCTOYSERVICIOS": wsfev1.PRODUCTOYSERVICIOS,
+        }[datos["concepto"]]
+
+        avisar("Enviando la factura")
+        ok = self.crear_factura_wsfe(
+            wsfev1, concepto, datos["tipo_doc"],
+            datos["documento"].replace("-", ""), datos["tipo_cbte"],
+            datos["punto_vta"], datos["cbt_desde"], datos["cbt_desde"],
+            datos["imp_total"], datos["imp_tot_conc"], datos["imp_neto"],
+            datos["imp_iva"], datos["imp_trib"], datos["imp_op_ex"],
+            datos["fecha_cbte"], datos["fecha_venc_pago"],
+            datos["fecha_serv_desde"], datos["fecha_serv_hasta"],
+            datos["moneda_id"], datos["moneda_ctz"])
+
+        if not ok:
+            aviso["error"] = DeCodifica(getattr(wsfev1, "ErrMsg", "")) or \
+                "No se pudo armar el comprobante."
+            return False, aviso
+
+        # Agregar comprobantes asociados (si es una NC / ND).
+        if datos["tipo_cbte"] in [2, 3, 7, 8, 12, 13]:
+            wsfev1.AgregarCmpAsoc(datos["tipo_cbte"], datos["asociado_pto"],
+                                  datos["asociado_nro"])
+
+        if datos["tipo_cbte"] in Constantes.COMPROBANTES_FCE:
+            wsfev1.AgregarOpcional(2101, datos["cbu"])
+            wsfev1.AgregarOpcional(2102, datos["alias"])
+            if datos["tiene_asociado"]:
+                wsfev1.AgregarCmpAsoc(
+                    91, datos["asociado_pto"], datos["asociado_nro"],
+                    LeerIni(clave='cat_iva', key='cuit'), FechaMysql())
+
+        if round(float(datos["imp_trib"]), 3) != 0:
+            base_imp = round(float(datos["imp_total"])
+                             - float(datos["imp_trib"])
+                             - float(datos["imp_iva"]), 2)
+            wsfev1.AgregarTributo(
+                tributo_id=wsfev1.ID_IMP_PCIAL, desc=datos["percepcion_detalle"],
+                base_imp=base_imp, alic=datos["percepcion_alicuota"],
+                importe=str(round(float(datos["imp_trib"]), 2)))
+
+        # Solo si es responsable inscripto se informa el detalle de IVA.
+        if datos["es_ri"]:
+            for alicuota, neto in datos["netos"].items():
+                if neto != 0:
+                    codigo = FEv1().TASA_IVA[str(float(alicuota))]
+                    wsfev1.AgregarIva(codigo, round(neto, 2),
+                                      round(neto * float(alicuota) / 100, 2))
+
+        avisar("Obteniendo el CAE")
+        cae = wsfev1.CAESolicitar()
+
+        if wsfev1.ErrMsg:
+            aviso["error"] = DeCodifica(wsfev1.ErrMsg).strip()
+            return False, aviso
+
+        if wsfev1.Resultado == "R":
+            aviso["error"] = "ARCA rechazo la factura: {}".format(
+                DeCodifica(wsfev1.Obs).strip())
+            return False, aviso
+
+        aviso["ok"] = True
+        aviso["cae"] = cae
+        aviso["resultado"] = wsfev1.Resultado
+        aviso["vencimiento"] = wsfev1.Vencimiento
+        return True, aviso
+
+    def _aplicar_resultado(self, ok, aviso):
+        """Escribe el resultado en la pantalla. Hilo principal."""
+        self._error_afip = aviso.get("error", "") if not ok else ""
+        if ok:
+            self.view.lineditCAE.setText(aviso["cae"])
+            self.view.lineEditResultado.setText(aviso["resultado"])
+            self.view.fechaVencCAE.setFecha(aviso["vencimiento"], format="Ymd")
         return ok
+
+    def ObtieneNumeroFacturaSinVista(self, datos):
+        """Pide a ARCA el ultimo comprobante y deja el siguiente en la pantalla.
+
+        Va separado de ObtieneNumeroFactura() porque este corre en el hilo de
+        trabajo y no puede tocar widgets hasta volver al principal. La escritura
+        en la pantalla se hace despues, en _aplicar_numero().
+        """
+        nro = FEv1().UltimoComprobante(tipo=datos["tipo_cbte"],
+                                       ptovta=datos["punto_vta"])
+        try:
+            nro = int(nro)
+        except (TypeError, ValueError):
+            nro = 0
+        datos["cbt_desde"] = nro + 1
+        return nro + 1
+
+    @inicializar_y_capturar_excepciones
+    def CreaFE(self, *args, **kwargs):
+        """Emite el comprobante. Se usa cuando se emite sin hilo."""
+        datos = self._datos_emision()
+        ok, aviso = self._autorizar(datos)
+        return self._aplicar_resultado(ok, aviso)
 
     def onEditingFinishedDocumento(self):
         if self.cliente.tiporesp.idtiporesp != 3:
