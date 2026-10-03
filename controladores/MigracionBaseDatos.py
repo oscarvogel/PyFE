@@ -1,6 +1,7 @@
 # coding=utf-8
 import csv
 import logging
+import os
 import sys
 import traceback
 
@@ -216,20 +217,42 @@ class MigracionBaseDatos(ControladorBase):
         )
 
     def cargar_csv(self, archivo='', campos=None, modelo=None):
-        with open(archivo) as csv_file:
-            csv_reader = csv.reader(csv_file, delimiter=',')
-            line_count = 0
-            datos = []
-            for row in csv_reader:
-                if line_count == 0:
-                    line_count += 1
-                else:
-                    datos.append(tuple([x for x in row]))
-                    line_count += 1
-            try:
-                modelo.insert_many(datos, fields=campos).execute()
-            except:
-                logging.error("Error:", sys.exc_info()[0])
+        """Carga un CSV de datos maestros.
+
+        Antes: `open(archivo)` y ya. Si el archivo no estaba, la excepcion
+        subia y cortaba TODA la siembra en el primer faltante, sin que quedara
+        rastro util. Instalando el ejecutable en una maquina nueva eso era lo
+        que pasaba siempre, porque data/ no viaja al .exe: la base quedaba
+        creada pero vacia, sin alicuotas de IVA, sin tipos de comprobante, sin
+        formas de pago. La app arrancaba y no habia forma de emitir nada.
+
+        Ahora cada faltante se avisa y se sigue con el resto, que es lo
+        unico razonable: que falte un maestro no puede impedir cargar los
+        otros.
+        """
+        try:
+            with open(archivo) as csv_file:
+                csv_reader = csv.reader(csv_file, delimiter=',')
+                line_count = 0
+                datos = []
+                for row in csv_reader:
+                    if line_count == 0:
+                        line_count += 1
+                    else:
+                        datos.append(tuple([x for x in row]))
+                        line_count += 1
+        except (IOError, OSError):
+            logging.error(
+                "No se pudo cargar el maestro %s: el archivo no esta en %s. "
+                "Revisar que la carpeta data/ este junto al ejecutable.",
+                archivo, os.path.dirname(os.path.abspath(archivo)))
+            return 0
+
+        try:
+            modelo.insert_many(datos, fields=campos).execute()
+        except:
+            logging.error("Error:", sys.exc_info()[0])
+        return len(datos)
 
     def MigrarVersion3(self):
         correos = CorreoEnviado()

@@ -18,11 +18,22 @@ CARPETAS_ESPERADAS = {
     "plantillas": None,
     "certificados": None,      # vacia esta bien: la llena el asistente
     "excel": None,
+    # Los datos maestros se cargan al crear la base. Sin esta carpeta, una
+    # instalacion nueva queda con la base VACIA: sin alicuotas de IVA, sin
+    # tipos de comprobante y sin formas de pago, o sea, sin poder facturar.
+    "data": ["tipoiva.csv", "tipodoc.csv", "tiporesp.csv", "tipocomprobante.csv",
+             "formapago.csv", "provincias.csv", "localidades.csv",
+             "unidad.csv", "impuestos.csv", "centrocostos.csv", "grupos.csv"],
 }
 
 ARCHIVOS_ESPERADOS = [
     "main.exe",
     "sistema.ini.example",
+    # PyInstaller mete este archivo DENTRO del .exe (--version-file), pero la
+    # app lo lee en tiempo de ejecucion buscando el archivo suelto en las
+    # carpetas de la instalacion. Si falta este, la barra de estado y Acerca de
+    # muestran la version vacia y no da ningun error.
+    "version.txt",
 ]
 
 # Archivos que el tema necesita para verse bien. Los dibuja

@@ -45,6 +45,30 @@ xcopy /E /I /Y temas dist\temas >nul
 if not exist dist\certificados mkdir dist\certificados
 if not exist dist\excel mkdir dist\excel
 
+REM version.txt va DOS veces en el build, y no es redundancia:
+REM  - --version-file lo mete DENTRO del .exe, para que Windows muestre la
+REM    version en el explorador de archivos.
+REM  - esta copia lo deja SUELTO al lado, que es como la app lo lee en
+REM    tiempo de ejecucion (vistas/Main.py::_version busca el archivo en las
+REM    carpetas de la app). Sin el archivo suelto, la barra de estado y el
+REM    dialogo de Acerca de mostraban la version vacia en el ejecutable,
+REM    aunque en desarrollo se vieran bien.
+copy /Y version.txt dist\ >nul
+
+REM data\ son los datos maestros que se cargan al crear la base (alicuotas de
+REM IVA, tipos de comprobante, formas de pago, provincias, etc). La migracion
+REM los lee con rutas relativas ("data/tipoiva.csv"), asi que tienen que estar
+REM sueltos al lado del .exe.
+REM
+REM Sin esto, instalando en una maquina nueva la base se creaba VACIA: no
+REM habia ni una alicuota de IVA ni una forma de pago, y no se podia emitir
+REM nada. Solo seEDIA al instalar.
+REM
+REM Se copian solo los .csv, no toda la carpeta: data\ trae tambien pablo.db,
+REM que es una base de pruebas ajena al producto.
+if not exist dist\data mkdir dist\data
+copy /Y data\*.csv dist\data\ >nul
+
 REM El instalador de Inno Setup lee la plantilla desde la raiz del repo,
 REM pero el ejecutable arranca sin ella (la copia el instalador).
 if not exist dist\sistema.ini.example copy /Y sistema.ini.example dist\ >nul
