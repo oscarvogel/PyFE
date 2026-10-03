@@ -66,11 +66,15 @@ CLIENTES_FALSOS = [
 
 
 # Vistas que se intentan renderizar.
-# (etiqueta, modulo, clase, ancho, alto, argumentos)
+# (etiqueta, modulo, clase, ancho, alto, argumentos[, metodo])
 # Solo las que se construyen sin base de datos.
 # ancho/alto == 0 -> se renderiza al tamano que pida la propia vista.
+# metodo opcional: se construye la clase y despues se llama a ese metodo, que
+# devuelve el widget a renderizar. Sirve para los dialogos que solo existen
+# adentro de una vista (el de Acerca de) y que de otro modo no se podrian mirar.
 VISTAS = [
     ("Main", "vistas.Main", "MainView", 0, 0, ()),
+    ("AcercaDe", "vistas.Main", "MainView", 0, 0, (), "construir_acerca_de"),
     ("VentaSimple", "vistas.VentaSimple", "VentaSimpleView", 1024, 700, ()),
     ("AltaCliente", "vistas.VentaSimple", "VentaSimpleAltaClienteDialog", 0, 0, ("Acme SA",)),
     ("AltaArticulo", "vistas.VentaSimple", "VentaSimpleAltaArticuloDialog", 0, 0, ("Tornillo",)),
@@ -97,7 +101,7 @@ def aplicar_tema_real():
     return aplicar_tema(app)
 
 
-def _construir(modulo, clase, ancho, alto, argumentos):
+def _construir(modulo, clase, ancho, alto, argumentos, metodo=None):
     mod = __import__(modulo, fromlist=[clase])
     widget = getattr(mod, clase)(*argumentos)
 
@@ -112,6 +116,11 @@ def _construir(modulo, clase, ancho, alto, argumentos):
     if hasattr(widget, "initUi"):
         widget.initUi()
 
+    # El metodo devuelve el widget a mostrar (por ejemplo el dialogo de
+    # Acerca de, que cuelga de la vista principal y no se abre solo).
+    if metodo:
+        widget = getattr(widget, metodo)()
+
     # ancho == 0 significa "al tamano que pida la propia vista", para no
     # inventar un tamano de pantalla que el usuario nunca ve.
     if ancho and alto:
@@ -125,10 +134,10 @@ def _construir(modulo, clase, ancho, alto, argumentos):
     return widget
 
 
-def render(etiqueta, modulo, clase, ancho, alto, argumentos, salida):
+def render(etiqueta, modulo, clase, ancho, alto, argumentos, salida, metodo=None):
     destino = os.path.join(salida, "{}.png".format(etiqueta))
     try:
-        widget = _construir(modulo, clase, ancho, alto, argumentos)
+        widget = _construir(modulo, clase, ancho, alto, argumentos, metodo)
     except Exception as e:  # noqa: BLE001 - acá se reporta, no se propaga
         return "omitida", "{}: {}".format(type(e).__name__, e), None
 
@@ -177,9 +186,11 @@ def main():
             return 1
 
     resultados = []
-    for etiqueta, modulo, clase, ancho, alto, argumentos in objetivos:
+    for entrada in objetivos:
+        etiqueta, modulo, clase, ancho, alto, argumentos = entrada[:6]
+        metodo = entrada[6] if len(entrada) > 6 else None
         estado, detalle, _ = render(etiqueta, modulo, clase, ancho, alto,
-                                    argumentos, args.salida)
+                                    argumentos, args.salida, metodo)
         resultados.append((etiqueta, estado, detalle))
         print("{:<20} {:<8} {}".format(etiqueta, estado, detalle))
         app.processEvents()

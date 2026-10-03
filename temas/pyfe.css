@@ -512,6 +512,48 @@ QLabel[objectName="sinResultados"] {
     padding: 8px 10px 0 10px;
 }
 
+/* Pie de la barra lateral: separa el boton de Acerca de la lista de secciones
+   con una linea, para que no se lea como una seccion mas.
+
+   Los colores son los del sidebar CLARO (#EEF2F8), no los de un panel oscuro:
+   con los oscuros el texto quedaba en 2.3:1 y no se leia. */
+QPushButton[objectName="botonAcercaDe"] {
+    background: transparent;
+    border: none;
+    border-top: 1px solid #DCE3EC;
+    color: #4A5A6B;
+    text-align: left;
+    padding: 10px 8px;
+    font-size: 13px;
+}
+
+QPushButton[objectName="botonAcercaDe"]:hover {
+    background-color: #E3EAF2;
+    color: #1B2836;
+}
+
+QPushButton[objectName="botonAcercaDe"]:focus {
+    background-color: #E3EAF2;
+    color: #0A57A8;
+}
+
+QDialog[objectName="dialogoAcercaDe"] {
+    background: #FFFFFF;
+    min-width: 380px;
+}
+
+QLabel[objectName="tituloAcercaDe"] {
+    color: #031A3E;
+    font-size: 19px;
+    font-weight: 700;
+    background: transparent;
+    padding: 2px 0 4px 0;
+}
+
+QPushButton[objectName="botonCerrar"] {
+    min-width: 92px;
+}
+
 /* --------------------------------------------------------------------------
    Casillas y opciones
    -------------------------------------------------------------------------- */

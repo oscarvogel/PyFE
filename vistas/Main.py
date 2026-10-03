@@ -19,6 +19,7 @@ tests/test_navegacion.py). Es el mismo bug que hoy esconde a Compras.
 """
 
 import os
+import re
 
 from PyQt5.QtCore import QEvent, QObject, QSize, Qt, pyqtSignal
 from PyQt5.QtGui import QKeySequence
@@ -27,7 +28,7 @@ from PyQt5.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout,
                              QShortcut, QSizePolicy, QVBoxLayout, QWidget)
 
 from libs.Etiquetas import Etiqueta, EtiquetaTitulo
-from libs.Constantes import NOMBRE_PRODUCTO
+from libs.Constantes import NOMBRE_PRODUCTO, SITIO_EMPRESA
 from libs.Utiles import icono
 from libs.recursos import ruta_recurso
 from vistas.VistaBase import VistaBase
@@ -347,16 +348,37 @@ class MainView(VistaBase):
 
     @staticmethod
     def _version():
-        """La version sale de version.txt, que es la que se mete en el .exe."""
+        """La version sale de version.txt, que es la que se mete en el .exe.
+
+        PyInstaller lee ese archivo con eval(), asi que no se le puede agregar
+        una clave propia: tiene que seguir siendo una sola expresion
+        VSVersionInfo(...). Por eso la version se saca de los campos que ya
+        tiene, en este orden: ProductVersion, FileVersion y filevers.
+
+        Antes buscaba una clave `versionName` que nadie escribia, y por eso la
+        barra de estado y Acerca de salian con la version vacia, sin error.
+        """
         try:
             from libs.recursos import rutas_base
             for base in rutas_base():
                 ruta = os.path.join(base, "version.txt")
-                if os.path.isfile(ruta):
-                    with open(ruta, "r", encoding="utf-8", errors="replace") as f:
-                        for linea in f:
-                            if linea.strip().startswith("versionName"):
-                                return "v" + linea.split("=", 1)[1].strip().strip('"')
+                if not os.path.isfile(ruta):
+                    continue
+                with open(ruta, "r", encoding="utf-8", errors="replace") as f:
+                    contenido = f.read()
+
+                # Los valores van como u'0.8.10', no como 0.8.10=...
+                for clave in ("ProductVersion", "FileVersion"):
+                    encontrado = re.search(
+                        clave + r"'\s*,\s*u?'([^']+)'", contenido)
+                    if encontrado and encontrado.group(1).strip():
+                        return "v" + encontrado.group(1).strip()
+
+                encontrado = re.search(r"filevers\s*=\s*\(([^)]*)\)", contenido)
+                if encontrado:
+                    numeros = re.findall(r"\d+", encontrado.group(1))
+                    if len(numeros) >= 3:
+                        return "v" + ".".join(numeros[:3])
         except Exception:
             pass
         return ""
@@ -440,7 +462,92 @@ class MainView(VistaBase):
         self.layoutLateral.addStretch(1)
         scroll.setWidget(contenido)
         vertical.addWidget(scroll)
+        vertical.addWidget(self._construir_pie_lateral())
         return lateral
+
+    def _construir_pie_lateral(self):
+        """El boton de Acerca de, abajo de la lista y siempre a la vista.
+
+        Va fuera del scroll a proposito: si viviera dentro se perderia de vista
+        en listas largas, y es justo el boton que se busca cuando algo anda
+        mal y hay que preguntar a quien lo desarrollo.
+        """
+        pie = QPushButton("Acerca de")
+        pie.setObjectName("botonAcercaDe")
+        pie.setCursor(Qt.PointingHandCursor)
+        pie.setToolTip("Version, datos del desarrollo y como pedir ayuda")
+        pie.clicked.connect(self.abrir_acerca_de)
+
+        marco = QWidget()
+        layout = QVBoxLayout(marco)
+        layout.setContentsMargins(10, 8, 10, 0)
+        layout.addWidget(pie)
+        return marco
+
+    def abrir_acerca_de(self):
+        self.construir_acerca_de().exec_()
+
+    def construir_acerca_de(self):
+        """Arma el dialogo de Acerca de y lo devuelve sin abrirlo.
+
+        Va separado de abrir_acerca_de para poder renderizarlo en las
+        herramientas de control: un dialogo que solo existe adentro de un
+        exec_() no se puede mirar hasta que alguien lo abre.
+        """
+        from PyQt5.QtGui import QPixmap
+        from PyQt5.QtWidgets import QDialog, QPushButton
+
+        from libs.Constantes import EMPRESA_DESARROLLO, WHATSAPP_EMPRESA
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Acerca de {}".format(NOMBRE_PRODUCTO))
+        dlg.setObjectName("dialogoAcercaDe")
+        vertical = QVBoxLayout(dlg)
+        vertical.setSpacing(10)
+
+        ruta_logo = ruta_recurso("imagenes/marca/marca-48.png")
+        if ruta_logo:
+            logo = QLabel()
+            logo.setAlignment(Qt.AlignCenter)
+            logo.setPixmap(QPixmap(ruta_logo).scaledToHeight(
+                48, Qt.SmoothTransformation))
+            vertical.addWidget(logo)
+
+        titulo = QLabel(NOMBRE_PRODUCTO)
+        titulo.setObjectName("tituloAcercaDe")
+        titulo.setAlignment(Qt.AlignCenter)
+        vertical.addWidget(titulo)
+
+        # El dominio va aca y no en el titulo de la ventana: el producto lo
+        # instala un tercero y el titulo tiene que ser el nombre del producto.
+        detalles = QLabel(
+            "Version {version}\n"
+            "Desarrollo: {empresa}\n"
+            "Web: https://{sitio}\n"
+            "WhatsApp: {whatsapp}\n\n"
+            "Ante cualquier falla de conexion con AFIP, copie el detalle del "
+            "error y envielo por WhatsApp.".format(
+                version=self._version() or "(sin version)",
+                empresa=EMPRESA_DESARROLLO,
+                sitio=SITIO_EMPRESA,
+                whatsapp=WHATSAPP_EMPRESA))
+        detalles.setObjectName("labelSubtitulo")
+        detalles.setWordWrap(True)
+        detalles.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        vertical.addWidget(detalles)
+
+        # Boton propio y no QDialogButtonBox: el de la caja de botones toma el
+        # texto del idioma del sistema y en una maquina en ingles salia
+        # "Close" en una pantalla que por lo demas esta toda en Castellano.
+        cerrar = QPushButton("Cerrar")
+        cerrar.setObjectName("botonCerrar")
+        cerrar.clicked.connect(dlg.reject)
+        fila = QHBoxLayout()
+        fila.addStretch(1)
+        fila.addWidget(cerrar)
+        vertical.addLayout(fila)
+        dlg.setAttribute(Qt.WA_DeleteOnClose, False)
+        return dlg
 
     def _lupa(self):
         from PyQt5.QtGui import QIcon
