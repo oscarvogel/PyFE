@@ -152,4 +152,7 @@ def marcar_estado(widget, estado):
 
 
 def limpiar_estado(widget):
-    marca_estado(widget, "")
+    # El nombre es marcar_estado: con "marca_" esto tiraba NameError en
+    # cuanto un control se limpiaba, y eso rompia el "Nuevo" y el "Editar" de
+    # los 12 ABM, que son los que la llaman.
+    marcar_estado(widget, "")
