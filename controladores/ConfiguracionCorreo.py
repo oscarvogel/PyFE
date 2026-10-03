@@ -110,18 +110,36 @@ class ConfiguracionCorreoController(object):
 
 
 def _motivo(exc):
-    """El motivo de una excepcion de red, en palabras."""
-    texto = str(exc).strip() or exc.__class__.__name__
-    conocida = {
-        "gaierror": "El nombre del servidor no existe. Reviselo: algunos "
-                    "proveedores de correo no publican el host por DNS y lo "
-                    "dan unicamente en el panel.",
-        "timed out": "No respondió a tiempo. Puede ser un firewall o que el "
-                     "puerto este bloqueado en esta red.",
-        "connection refused": "El puerto está cerrado en ese servidor.",
-        "authentication": "El servidor rechazó el usuario o la contraseña.",
-    }
-    for marca, explicacion in conocida.items():
-        if marca in texto.lower():
+    """El motivo de una excepcion de red, en palabras.
+
+    Se mira el NOMBRE de la clase tanto como el texto. smtplib envuelve el
+    error de socket, asi que "[Errno 11001] getaddrinfo failed" no contiene la
+    palabra "gaierror" en ningun lado: sin mirar el nombre de la clase, el
+    caso mas comun de todos (el host mal escrito) se muestra crudo.
+    """
+    texto = str(exc).strip() or ""
+    clase = exc.__class__.__name__
+    completo = "{} {}".format(clase, texto).lower()
+
+    conocida = [
+        (("gai", "getaddrinfo", "name or service not known", "unknown host"),
+         "El nombre del servidor no existe. Reviselo: muchos proveedores de "
+         "correo no publican el host por DNS y lo dan unicamente en el panel "
+         "de su cuenta."),
+        (("timeout", "timed out"),
+         "No respondió a tiempo. Puede ser un firewall en esta red o que el "
+         "puerto esté bloqueado."),
+        (("refused",),
+         "El puerto está cerrado en ese servidor. Verificá que el puerto sea el "
+         "que corresponde a tu proveedor (465 con SSL, 587 con STARTTLS)."),
+        (("authentication", "auth"),
+         "El servidor rechazó el usuario o la contraseña."),
+        (("ssl", "certificate"),
+         "Falló el cifrado de la conexión. Si el host no tiene certificado "
+         "para ese nombre, probá con STARTTLS en el puerto 587."),
+    ]
+    for marcas, explicacion in conocida:
+        if any(m in completo for m in marcas):
             return "{} ({})".format(explicacion, texto)
-    return texto
+
+    return texto or clase

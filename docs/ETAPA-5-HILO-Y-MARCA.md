@@ -131,6 +131,35 @@ función, sin llamar**. Si eso se pasaba al log, al log le quedaba
 — justo lo que se necesita leer cuando algo falló. `libs/Utiles.py` lo trae a
 texto antes de usarlo.
 
+### Dónde se carga
+
+**Configuración → Correo de reportes de errores**, en la barra lateral.
+
+Esa pantalla no existía. Antes había que ir a *Parámetros del sistema*, que es
+un ABM genérico de `id / parametro / valor`, y agregar cuatro filas a mano
+escribiendo de memoria los nombres exactos de los parámetros. Eso no es
+configuración, es un examen — y lo tiene que hacer el administrador, en la
+máquina de un cliente.
+
+La pantalla tiene los cinco campos y un botón **Probar conexión** que conecta
+y autentica **sin mandar ningún correo**. Es la única forma de confirmar que
+el host y el puerto están bien antes de esperar a que falle un reporte.
+
+El error se traduce, y esto se comprobó en el ejecutable: sin traducción
+smtplib devuelve
+
+```
+No se pudo conectar con 0110632.ferozo.com:465. [Errno 11001] getaddrinfo failed
+```
+
+y ahora dice
+
+> No se pudo conectar con 0110632.ferozo.com:465.
+> El nombre del servidor no existe. Reviselo: muchos proveedores de correo no
+> publican el host por DNS y lo dan unicamente en el panel de su cuenta.
+
+Que es justo el caso de Ferozo.
+
 ### Lo que NO se tocó, a propósito
 
 `pyafipws/` es código de Mariano Reingart y el proyecto deriva de ahí. GPL
@@ -168,7 +197,7 @@ forma de demostrar que el hilo existe y no solo parece.
 
 ## Tests
 
-**268 en verde.** Los nuevos sobre el hilo:
+**280 en verde.** Los nuevos sobre el hilo:
 
 | Test | Qué fija |
 |---|---|
@@ -183,7 +212,7 @@ forma de demostrar que el hilo existe y no solo parece.
 
 ## Verificación
 
-- `python -m pytest tests\` → 266 en verde
+- `python -m pytest tests\` → 280 en verde
 - `tools/probar_emision_hilo.py` → emite en homologación y confirma el hilo
 - `tools/consultar_cae.py` → el comprobante existe en ARCA
 - `cmd /c compila.bat` + ejecutable → verificado en la app
