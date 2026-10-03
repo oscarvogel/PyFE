@@ -287,38 +287,104 @@ class FacturaController(ControladorBase):
 
         self.SumaTodo()
 
+    # Las etapas por las que pasa una emision, en el orden en que pasan. Se
+    # muestran al usuario porque contra AFIP esto tarda, y una ventana muerta
+    # sin explicacion hace pensar que la app se colgo.
+    ETAPAS_EMISION = [
+        "Comprobando los datos",
+        "Preparando el numero de comprobante",
+        "Autenticando en AFIP",
+        "Conectando al servicio de facturacion",
+        "Enviando la factura",
+        "Obteniendo el CAE",
+        "Guardando la factura",
+    ]
+
+    # Ventana de progreso abierta, si la hay. A nivel de clase para que
+    # _etapa() no reviente si se llama a CreaFE() sin pasar por GrabaFactura.
+    _progreso = None
+
     def GrabaFactura(self):
         if not self.Validacion():
             return
-        self.view.btnGrabarFactura.setEnabled(False)
-        self.SumaTodo()
-        ok = self.CreaFE()
-        if ok:
-            print("Graba factura")
-            ok = self.GrabaFE()
+
+        # Confirmacion antes de algo que no se puede deshacer: una factura
+        # autorizada ante AFIP existe mas alla de esta app, y anularla es otro
+        # tramite. El boton por defecto es cancelar.
+        if not Ventanas.showConfirmation(
+                "Emitir la factura",
+                "La factura se va a autorizar ante AFIP y no se puede deshacer "
+                "desde aca.\n\nRevise el importe y el cliente antes de confirmar.",
+                textoOk="Emitir", textoCancelar="Volver a revisar"):
+            return
+
+        ok = False
+        with Ventanas.Progreso("Emitiendo la factura",
+                               self.ETAPAS_EMISION) as pasos:
+            self._progreso = pasos
+            # Los errores de esta vuelta los muestra GrabaFactura, con el
+            # contexto de la emision. Si tambien los muestra el decorador, el
+            # usuario ve el mismo problema dos veces.
+            self.SilenciarError = True
+            try:
+                self.view.btnGrabarFactura.setEnabled(False)
+                self.SumaTodo()
+                ok = self.CreaFE()
+                if ok:
+                    pasos.avanzar("Guardando la factura")
+                    ok = self.GrabaFE()
+            finally:
+                self._progreso = None
+                self.SilenciarError = False
+                self.view.btnGrabarFactura.setEnabled(True)
+
         if ok:
             self.view.Cerrar()
         else:
-            self.view.btnGrabarFactura.setEnabled(True)
-            Ventanas.showAlert("Sistema", self._mensaje_error_emision())
+            Ventanas.showError(
+                LeerIni('nombre_sistema'),
+                "No se pudo emitir la factura.",
+                que_hacer="Revise el detalle. Si el problema es de certificacion, "
+                          "corra Diagnostico desde Configuracion. Si es un "
+                          "rechazo de AFIP, el codigo de observacion esta en el "
+                          "detalle.",
+                detalle=self._mensaje_error_emision())
+
+    # Lo que respondio AFIP, si respondio algo malo. Lo deja CreaFE; lo
+    # muestra GrabaFactura junto con el resto.
+    _error_afip = ""
+
+    def _etapa(self, nombre):
+        """Avanza el progreso, si hay alguno abierto."""
+        if self._progreso is not None:
+            self._progreso.avanzar(nombre)
 
     def _mensaje_error_emision(self):
+        partes = []
+        rechazo = DeCodifica(getattr(self, "_error_afip", "") or "").strip()
+        if rechazo:
+            partes.append(rechazo)
         detalle = DeCodifica(getattr(self, "Excepcion", "") or "").strip()
         if not detalle:
             detalle = DeCodifica(getattr(self, "Traceback", "") or "").strip()
         if detalle:
-            return "No se pudo emitir o guardar la factura.\n\n{}".format(detalle)
-        return "No se pudo emitir o guardar la factura. Revise el log de errores."
+            partes.append(detalle)
+        if not partes:
+            return "AFIP no respondio como se espera. Revise el log de errores."
+        return "\n\n".join(partes)
 
     @inicializar_y_capturar_excepciones
     def CreaFE(self, *args, **kwargs):
         ok = True
+        self._etapa("Preparando el numero de comprobante")
         self.ObtieneNumeroFactura()
         wsfev1 = FEv1()
+        self._etapa("Autenticando en AFIP")
         ta = wsfev1.Autenticar()
         #Setear tocken y sign de autorizacion(ticket de accesso, pasos previos)
         wsfev1.SetTicketAcceso(ta)
         wsfev1.Cuit = LeerIni(clave='cuit', key='WSFEv1') #CUIT del emisor (debe estar registrado en la AFIP)
+        self._etapa("Conectando al servicio de facturacion")
         #Conectar al Servicio Web de Facturacion
         #Produccion usar: *-- ok = WSFE.Conectar("", "https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL") & & Producción
         if LeerIni(clave='homo') == "S":
@@ -380,6 +446,7 @@ class FacturaController(ControladorBase):
             fecha_venc_pago = self.view.lineEditFecha.getFechaSql()
         
         #Llamo al WebService de Autorizacion para obtener el CAE
+        self._etapa("Enviando la factura")
         ok = self.crear_factura_wsfe(
             wsfev1, concepto, tipo_doc, nro_doc, tipo_cbte, punto_vta,
             cbt_desde, cbt_hasta, imp_total, imp_tot_conc, imp_neto,
@@ -430,15 +497,21 @@ class FacturaController(ControladorBase):
                     ok = wsfev1.AgregarIva(id, base_imp, importe)
 
         #SolicitoCAE:
+        self._etapa("Obteniendo el CAE")
         cae = wsfev1.CAESolicitar()
         if wsfev1.ErrMsg:
-            Ventanas.showAlert("Sistema", "ERROR {}".format(DeCodifica(wsfev1.ErrMsg)))
+            # No se muestra nada aca: se anota y lo muestra GrabaFactura, con
+            # el resumen de la emision. Un modal en medio de la barra de
+            # progreso la tapa y el usuario ve el error dos veces.
+            self._error_afip = DeCodifica(wsfev1.ErrMsg).strip()
             ok = False
         else:
             if wsfev1.Resultado == 'R':
-                Ventanas.showAlert("Sistema", "Motivo de rechazo {}".format(DeCodifica(wsfev1.Obs)))
+                self._error_afip = "AFIP rechazo la factura: {}".format(
+                    DeCodifica(wsfev1.Obs).strip())
                 ok = False
             else:
+                self._error_afip = ""
                 self.view.lineditCAE.setText(cae)
                 self.view.lineEditResultado.setText(wsfev1.Resultado)
                 self.view.fechaVencCAE.setFecha(wsfev1.Vencimiento, format="Ymd")

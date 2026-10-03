@@ -45,7 +45,8 @@ from controladores.ConsultaCAE import ConsultaCAEController
 from controladores.ConsultaCtaCte import ConsultaCtaCteController
 from controladores.ConsultaPadronAfip import ConsultaPadronAfipController
 from controladores.ControladorBase import ControladorBase
-from controladores.DiagnosticoAfip import DiagnosticoAfip
+from controladores.DiagnosticoAfip import (DiagnosticoAfip,
+                                         ETAPAS_DIAGNOSTICO)
 from controladores.EmiteRecibo import EmiteReciboController
 from controladores.EnvioEmail import EnvioEmailController
 from controladores.Facturas import FacturaController
@@ -225,8 +226,19 @@ class Main(ControladorBase):
 
     def diagnostico_arca(self):
         diagnostico = DiagnosticoAfip()
-        pasos = diagnostico.ejecutar()
-        Ventanas.showAlert(LeerIni("nombre_sistema"), diagnostico.formatear(pasos))
+        with Ventanas.Progreso("Probando la conexión con ARCA",
+                               ETAPAS_DIAGNOSTICO) as barra:
+            resultado = diagnostico.ejecutar(al_avanzar=barra.avanzar)
+
+        if diagnostico.que_hacer(resultado):
+            Ventanas.showError(LeerIni("nombre_sistema"),
+                               diagnostico.titulo(resultado),
+                               que_hacer=diagnostico.que_hacer(resultado),
+                               detalle=diagnostico.formatear(resultado))
+        else:
+            Ventanas.showAlert(LeerIni("nombre_sistema"),
+                               "{}\n\n{}".format(diagnostico.titulo(resultado),
+                                                 diagnostico.formatear(resultado)))
 
     # -- Base de datos -----------------------------------------------------
     @inicializar_y_capturar_excepciones

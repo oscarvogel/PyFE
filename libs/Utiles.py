@@ -309,9 +309,16 @@ def inicializar_y_capturar_excepciones(func):
             self.Traceback = ''.join(ex)
             self.Excepcion = traceback.format_exception_only( sys.exc_info()[0], sys.exc_info()[1])[0]
             logging.debug(self.Traceback)
-            if LeerIni('debug') == 'N':
-                from libs import Ventanas
+            from libs import Ventanas
+            # SilenciarError apaga SOLO el dialogo, no el reporte. Quien llama
+            # (por ejemplo la emision de una factura) sabe mas que este
+            # decorador y va a mostrar un error accionable; mostrar este ademas
+            # era hacer ver el mismo problema dos veces. El correo a soporte
+            # sigue yendo: perder el aviso automatico de una falla fiscal seria
+            # un retroceso peor que el dialogo duplicado.
+            if not getattr(self, "SilenciarError", False):
                 Ventanas.showAlert("Error", "Se ha producido un error \n{}".format(self.Excepcion))
+            if LeerIni('debug') == 'N':
                 pyemail = PyEmail()
                 remitente = 'fe@servinlgsm.com.ar'
                 destinatario = 'fe@servinlgsm.com.ar'
