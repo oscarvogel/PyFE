@@ -9,11 +9,18 @@ from PyQt5.QtWidgets import QDialog, QShortcut
 from controladores.ControladorBase import ControladorBase
 from controladores.venta_simple_totales import RenglonVenta, calcular_totales
 from libs import Ventanas
+from libs.busqueda import contiene as buscar_texto
 from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, a_entero
 from modelos.Articulos import Articulo
 from modelos.Clientes import Cliente
 from vistas.VentaSimple import VentaSimpleAltaArticuloDialog, VentaSimpleAltaClienteDialog, \
     VentaSimpleCantidadPrecioDialog, VentaSimpleSeleccionClienteDialog, VentaSimpleView
+
+
+# Cuantos clientes se traen a la lista. Es un tope, no un filtro: por abajo el
+# total, asi que el dialogo puede decir cuantos hay en total y el operador
+# sigue acotando. 100 es lo que entra comodo en la pantalla sin scroll.
+LIMITE_BUSQUEDA_CLIENTES = 100
 
 
 class VentaSimpleController(ControladorBase):
@@ -161,26 +168,31 @@ class VentaSimpleController(ControladorBase):
             return None
         if len(clientes) == 1:
             return clientes[0]
-        return self.seleccionar_cliente(clientes)
+        return self.seleccionar_cliente(busqueda)
 
-    def seleccionar_cliente(self, clientes):
-        dialogo = VentaSimpleSeleccionClienteDialog(clientes)
+    def seleccionar_cliente(self, busqueda):
+        # El dialogo recibe como buscar, no una lista ya armada: si se le
+        # pasaran las coincidencias, no habria forma de acotar sin cerrar y
+        # volver a escribir, que es justo lo que duele cuando la lista son
+        # 800 clientes.
+        dialogo = VentaSimpleSeleccionClienteDialog(self._coincidencias_clientes,
+                                                    busqueda=busqueda)
         dialogo.exec_()
         if dialogo.result() != QDialog.Accepted:
             return None
         return dialogo.cliente
 
-    def buscar_cliente(self, busqueda):
-        clientes = self.buscar_clientes(busqueda)
-        return clientes[0] if clientes else None
+    def _cliente_exacto(self, texto):
+        """Si el texto identifica a un solo cliente, lo devuelve.
 
-    def buscar_clientes(self, busqueda):
-        texto = str(busqueda).strip()
+        Codigo, CUIT (con o sin guiones) y DNI se buscan con igualdad exacta:
+        son indices, y ademas no tienen sentido "con contiene", porque
+        "3067" matchearia cualquier CUIT que arranque con 3067.
+        """
         posible_id = texto.split(" - ", 1)[0]
-
         if posible_id.isdigit():
             try:
-                return [Cliente.get_by_id(posible_id)]
+                return Cliente.get_by_id(posible_id)
             except Exception:
                 pass
 
@@ -188,22 +200,45 @@ class VentaSimpleController(ControladorBase):
         try:
             cliente = Cliente.select().where(Cliente.cuit == texto).first()
             if cliente:
-                return [cliente]
+                return cliente
             cliente = Cliente.select().where(fn.REPLACE(Cliente.cuit, "-", "") == cuit).first()
             if cliente:
-                return [cliente]
+                return cliente
         except Exception:
             pass
 
         if texto.isdigit():
             try:
-                cliente = Cliente.select().where(Cliente.dni == int(texto)).first()
-                if cliente:
-                    return [cliente]
+                return Cliente.select().where(Cliente.dni == int(texto)).first()
             except Exception:
                 pass
+        return None
 
-        return list(Cliente.select().where(Cliente.nombre.contains(texto)).order_by(Cliente.nombre))
+    def _coincidencias_clientes(self, busqueda, limite=None):
+        """(coincidencias, total) para el buscador del dialogo.
+
+        Devuelve el total ademas de la lista porque con miles de clientes la
+        lista viene recortada: sin el total, ver 100 filas y no saber si hay
+        100 o 5.000 deja al operador creyendo que ya los vio todos.
+        """
+        texto = str(busqueda or "").strip()
+        exacto = self._cliente_exacto(texto)
+        if exacto:
+            return [exacto], 1
+        if not texto:
+            return [], 0
+
+        consulta = Cliente.select().where(buscar_texto(Cliente.nombre, texto))
+        total = consulta.count()
+        if limite is None:
+            limite = LIMITE_BUSQUEDA_CLIENTES
+        return list(consulta.order_by(Cliente.nombre).limit(limite)), total
+
+    def buscar_clientes(self, busqueda, limite=None):
+        texto = str(busqueda).strip()
+        if not texto:
+            return []
+        return self._coincidencias_clientes(texto, limite=limite)[0]
 
     @inicializar_y_capturar_excepciones
     def agregar_articulo(self, *args, **kwargs):

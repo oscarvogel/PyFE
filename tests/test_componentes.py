@@ -186,6 +186,100 @@ def test_la_columna_cantidad_no_se_comedia_la_fila(app, grilla):
         "la columna Detalle deberia ser mas ancha que la cantidad")
 
 
+def test_el_ancho_sobrante_no_lo_gana_una_columna_de_codigo(app):
+    """Un codigo angosto no puede quedarse con media tabla.
+
+    Con la tabla vacia la columna que se estira se elige por el texto del
+    encabezado, y en el ABM de clientes eso daba "Idcliente" (9 letras) por
+    sobre "Nombre" (6): el codigo se llevaba 732 de 959 px y los nombres
+    quedaban partidos en dos renglones, con 700 px de blanco al lado.
+
+    Con la primera fila ya se sabe que hay en cada columna, y un codigo es
+    numerico: los numericos no compiten por el sobrante.
+
+    La comparacion es entre columnas y no en pixeles fijos a proposito: cuanto
+    mide un encabezado depende de la fuente instalada, y una prueba que falla
+    en la maquina de otro por un cambio de tipografia no sirve para nada.
+    """
+    from libs.Grillas import Grilla
+
+    g = Grilla(tamanio=10)
+    g.ArmaCabeceras(cabeceras=["Idcliente", "Nombre"],
+                    formatos=["Entero", "String"])
+    g.resize(900, 260)
+    g.show()
+    app.processEvents()
+    g.AgregaItem([1, "MUNICIPALIDAD DE PTO. RICO"])
+    app.processEvents()
+
+    codigo, nombre = g.columnWidth(0), g.columnWidth(1)
+    assert codigo < g.viewport().width() / 3, (
+        "la columna de codigo mide {} px de {}: se esta comiendo la tabla".format(
+            codigo, g.viewport().width()))
+    assert nombre > codigo * 3, (
+        "la columna de texto mide {} px contra {} del codigo: el sobrante no "
+        "llego a donde se lee".format(nombre, codigo))
+    g.close()
+
+
+def test_un_codigo_no_se_muestra_con_decimales(app):
+    """El id de un cliente es 1, no "1,00": alcanza con declararlo Entero.
+
+    Que lo declare quien arma la tabla y no que la grilla lo adivine con el
+    valor de la primera fila es a proposito: una columna de importes a la que
+    se le pasa un 0 de arranque se volveria "Entero" y ahi los 1.234,56 se
+    muestran como 1.235. Ver test_un_importe_no_se_redondea_sin_declarar_tipo.
+    """
+    from libs.Grillas import Grilla
+
+    g = Grilla(tamanio=10)
+    g.ArmaCabeceras(cabeceras=["Idcliente", "Nombre"],
+                    formatos=["Entero", "String"])
+    g.AgregaItem([1, "CONSUMIDOR FINAL"])
+    app.processEvents()
+    assert g.item(0, 0).text() == "1", (
+        "el codigo se muestra como {!r}".format(g.item(0, 0).text()))
+    # Y el valor que se lee sigue siendo el numero, no el texto.
+    assert g.ObtenerItem(fila=0, col=0) == 1
+    g.close()
+
+
+def test_un_importe_no_se_redondea_sin_declarar_tipo(app):
+    """Sin tipo declarado se asume Decimal, que es lo que corresponde a un
+    importe: 1500 se ve 1.500,00 y no 1.500."""
+    from libs.Grillas import Grilla
+
+    g = Grilla(tamanio=10)
+    g.ArmaCabeceras(cabeceras=["Detalle", "Unitario"])
+    g.AgregaItem(["Tornillo", 1500])
+    app.processEvents()
+    assert g.item(0, 1).text() == "1.500,00", (
+        "un importe se esta mostrando como {!r}".format(g.item(0, 1).text()))
+    g.close()
+
+
+def test_la_primera_fila_no_poisona_el_resto_de_la_columna(app):
+    """La fila de "Saldo Inicial" de la ficha del cliente arranca con 0.
+
+    Si ese 0 definiera el tipo de la columna, los importes de las filas que
+    siguen se verian redondeados: por eso el tipo se declara, y por eso el
+    valor de la primera fila no toca el formato.
+    """
+    from libs.Grillas import Grilla
+
+    g = Grilla(tamanio=10)
+    g.ArmaCabeceras(cabeceras=["Detalle", "Debe"])
+    g.AgregaItem(["Saldo Inicial", 0])          # el 0 de arranque, entero
+    g.AgregaItem(["Factura 1", 1234.56])
+    app.processEvents()
+
+    assert g.item(0, 1).text() == "0,00", (
+        "el cero de arranque quedo como {!r}".format(g.item(0, 1).text()))
+    assert g.item(1, 1).text() == "1.234,56", (
+        "el importe quedo como {!r}".format(g.item(1, 1).text()))
+    g.close()
+
+
 # -- Buscador de la barra lateral -----------------------------------------
 
 @pytest.fixture

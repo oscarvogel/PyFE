@@ -4,10 +4,11 @@ import logging
 
 from PyQt5 import QtCore
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QVBoxLayout, QTableWidget, QHBoxLayout, QTableWidgetItem, QMainWindow, QApplication
+from PyQt5.QtWidgets import QVBoxLayout, QTableWidget, QHBoxLayout, QTableWidgetItem, QMainWindow, QApplication, QLabel
 
 from libs import Ventanas
 from libs.Botones import BotonAceptar, BotonCerrarFormulario
+from libs.busqueda import contiene
 from libs.EntradaTexto import EntradaTexto
 from libs.Formulario import Formulario
 from libs.Utiles import LeerIni
@@ -50,6 +51,9 @@ class UiBusqueda(Formulario):
         font.setPointSize(12)
         self.tableView.setFont(font)
         self.verticalLayout.addWidget(self.tableView)
+        self.lblCuenta = QLabel("")
+        self.lblCuenta.setObjectName("lblCuenta")
+        self.verticalLayout.addWidget(self.lblCuenta)
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.btnAceptar = BotonAceptar(textoBoton="&Seleccionar")
@@ -106,29 +110,56 @@ class UiBusqueda(Formulario):
                 rows = rows.where(c)
 
         if textoBusqueda:
-            rows = rows.where(self.campoBusqueda.contains(textoBusqueda))
+            rows = rows.where(contiene(self.campoBusqueda, textoBusqueda))
+
+        # El limite va antes de contar las filas. Antes se hacia
+        # setRowCount(len(rows)), y len() de una consulta de peewee la ejecuta
+        # entera: con una tabla grande eso traia miles de filas a memoria en
+        # cada tecla, sin usar el `limite` que la clase declaraba y nunca
+        # aplicaba.
+        total = rows.count()
+        filas = list(rows.limit(self.limite))
 
         self.tableView.setColumnCount(len(self.campos))
-        self.tableView.setRowCount(len(rows))
+        self.tableView.setRowCount(len(filas))
+
+        if not filas:
+            self.lblCuenta.setText("Sin resultados para {!r}".format(textoBusqueda))
+        elif total > len(filas):
+            self.lblCuenta.setText(
+                "Mostrando {} de {} coincidencias".format(len(filas), total))
+        else:
+            self.lblCuenta.setText("{} coincidencia{}".format(
+                total, "" if total == 1 else "s"))
 
         logging.info("SQL de condiciones de busqueda {}".format(self.condiciones))
         #self.tableView.horizontalHeader().setResizeMode(QHeaderView.ResizeToContents)
 
-        for col in range(0, len(self.campos)):
-            if self.campos[col] == self.campoRetorno.column_name:
+        # `campos` puede venir como nombres ("idcliente") o como campos de
+        # peewee (Cliente.idcliente). Hoy todos los que llaman pasan nombres, y
+        # por eso el .capitalize() de abajo no se rompio nunca: un campo de
+        # peewee no tiene capitalize(). El detalle es que esto corre DENTRO de
+        # un slot de Qt (textChanged), y una excepcion ahi no se muestra: PyQt5
+        # aborta el proceso entero sin dejar traza. Un error en un buscador no
+        # puede llevarse la aplicacion por delante, asi que los dos formatos
+        # entran igual.
+        nombres = [c if isinstance(c, str) else c.column_name for c in self.campos]
+
+        for col in range(0, len(nombres)):
+            if nombres[col] == self.campoRetorno.column_name:
                 self.colRetorno = col
-            if self.campos[col] == self.campoBusqueda.column_name:
+            if nombres[col] == self.campoBusqueda.column_name:
                 self.colBusqueda = col
 
-            self.tableView.setHorizontalHeaderItem(col, QTableWidgetItem(self.campos[col].capitalize()))
+            self.tableView.setHorizontalHeaderItem(col, QTableWidgetItem(nombres[col].capitalize()))
 
         fila = 0
-        for row in rows:
-            for col in range(0, len(self.campos)):
-                if isinstance(row[self.campos[col]], (int, decimal.Decimal,)):
-                    item = QTableWidgetItem(str(row[self.campos[col]]))
+        for row in filas:
+            for col in range(0, len(nombres)):
+                if isinstance(row[nombres[col]], (int, decimal.Decimal,)):
+                    item = QTableWidgetItem(str(row[nombres[col]]))
                 else:
-                    item = QTableWidgetItem(QTableWidgetItem(row[self.campos[col]]))
+                    item = QTableWidgetItem(QTableWidgetItem(row[nombres[col]]))
 
                 item.setFlags(QtCore.Qt.ItemIsSelectable |  QtCore.Qt.ItemIsEnabled)
                 self.tableView.setItem(fila, col, item)

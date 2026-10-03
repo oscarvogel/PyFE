@@ -27,6 +27,7 @@ from PyQt5.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout,
                              QLabel, QLineEdit, QPushButton, QScrollArea,
                              QShortcut, QSizePolicy, QVBoxLayout, QWidget)
 
+from libs.busqueda import normalizar
 from libs.Etiquetas import Etiqueta, EtiquetaTitulo
 from libs.Constantes import NOMBRE_PRODUCTO, SITIO_EMPRESA
 from libs.Utiles import icono
@@ -557,10 +558,13 @@ class MainView(VistaBase):
 
     def _normalizar(self, texto):
         """Minúsculas y sin tildes, para que buscar 'configuracion' encuentre
-        'Configuración'."""
-        import unicodedata
-        descompuesto = unicodedata.normalize("NFD", str(texto).lower())
-        return "".join(c for c in descompuesto if not unicodedata.combining(c))
+        'Configuración'.
+
+        Es el mismo criterio que usan las búsquedas contra la base (ver
+        libs/busqueda.py): si la barra lateral acepta "configuracion" y el
+        buscador de clientes no, el operador concluye que el cliente no existe.
+        """
+        return normalizar(texto)
 
     def _filtrar_lateral(self, texto):
         """Muestra solo los botones que coinciden, y esconde las secciones que

@@ -85,8 +85,12 @@ def test_busqueda_cliente_con_multiples_coincidencias_obliga_a_elegir(monkeypatc
         dni = 0
 
     controller = VentaSimpleController()
-    monkeypatch.setattr(controller, "buscar_clientes", lambda busqueda: [ClienteA(), ClienteB()])
-    monkeypatch.setattr(controller, "seleccionar_cliente", lambda clientes: clientes[1])
+    monkeypatch.setattr(controller, "buscar_clientes",
+                        lambda busqueda, limite=None: [ClienteA(), ClienteB()])
+    # `seleccionar_cliente` recibe lo que se escribio, no la lista: el dialogo
+    # vuelve a consultar para poder acotar la lista sin cerrarlo. El dialogo en
+    # si lo prueba tests/test_busqueda_clientes.py, con 1200 clientes.
+    monkeypatch.setattr(controller, "seleccionar_cliente", lambda busqueda: ClienteB())
     controller.view.textCliente.setText("traid")
 
     controller.cargar_cliente_desde_busqueda()
@@ -110,7 +114,12 @@ def test_cliente_no_encontrado_propone_alta_y_lo_carga(monkeypatch):
         dni = 12345678
 
     controller = VentaSimpleController()
-    monkeypatch.setattr(controller, "buscar_cliente", lambda busqueda: None)
+    # Se parchea `buscar_clientes`, que es el metodo que se usa. Antes se
+    # parcheaba `buscar_cliente` (en singular), que no lo llama nadie: el
+    # monkeypatch no tenia efecto y el test pasaba porque la base real no
+    # tiene un cliente llamado "Cliente nuevo". Parecia que cubria el camino
+    # de "no encontrado" y en realidad no lo cubria.
+    monkeypatch.setattr(controller, "buscar_clientes", lambda busqueda, limite=None: [])
     monkeypatch.setattr(controller, "confirmar_alta", lambda titulo, mensaje: True)
     monkeypatch.setattr(controller, "solicitar_alta_cliente", lambda busqueda: ClienteNuevo())
     controller.view.textCliente.setText("Cliente nuevo")
