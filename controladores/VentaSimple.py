@@ -39,7 +39,12 @@ class VentaSimpleController(ControladorBase):
         self.view.btnBorrar.clicked.connect(self.borrar_renglon)
         self.view.textArticulo.returnPressed.connect(self.agregar_articulo)
         self.view.textCantidad.returnPressed.connect(self.agregar_articulo)
-        self.view.textCliente.returnPressed.connect(self.cargar_cliente_desde_busqueda)
+        # Solo editingFinished, y no las dos senales: QLineEdit emite
+        # returnPressed Y editingFinished cuando se presiona Enter, asi que
+        # con las dos conectadas la busqueda corria dos veces y el selector de
+        # cliente se abria dos veces (se elige en el primero y aparece el
+        # segundo encima). editingFinished alcanza para los dos casos que
+        # importan: Enter y salir del campo con el mouse.
         self.view.textCliente.editingFinished.connect(self.cargar_cliente_desde_busqueda)
         self.view.checkConsumidorFinal.stateChanged.connect(self.on_consumidor_final_changed)
         self.atajos()
