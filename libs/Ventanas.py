@@ -28,14 +28,32 @@ from PyQt5.QtWidgets import (QApplication, QMessageBox, QPushButton, QWidget)
 from libs.Utiles import icono_sistema
 
 
+# Plataformas donde no hay pantalla. Abrir un dialogo modal ahi no muestra
+# nada y ademas revienta el proceso con un access violation, asi que no se
+# intenta: el mensaje va a la consola.
+_PLATAFORMAS_SIN_PANTALLA = ("offscreen", "minimal", "vnc")
+
+
 def hay_interfaz():
     """Hay una ventana donde mostrar algo?
 
     Sin esto, armar un QMessageBox sin QApplication revienta el proceso con
     0xC0000409 en vez de dar un error de Python: los tests y las herramientas de
-    linea de comandos (armar_sandbox, render_ui) morian sin dejar rastro.
+    linea de comandos morian sin dejar rastro.
+
+    Y no alcanza con que exista la QApplication: con la plataforma "offscreen"
+    (la que usan los tests y los scripts) no hay a quien mostrarle nada, y
+    `exec_()` de un modal Access Violation. Eso mata el proceso entero y se
+    lleva puesto el texto que ya se habia impreso, asi que el script muere en
+    silencio. Por eso se pregunta tambien por la plataforma.
     """
-    return QApplication.instance() is not None
+    aplicacion = QApplication.instance()
+    if aplicacion is None:
+        return False
+    try:
+        return aplicacion.platformName().lower() not in _PLATAFORMAS_SIN_PANTALLA
+    except Exception:
+        return False
 
 
 def _sin_interfaz(titulo, mensaje):
