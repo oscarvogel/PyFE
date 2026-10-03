@@ -104,12 +104,32 @@ perdía, o llegaba a un buzón ajeno.
 
 Ahora salen de **Parámetros del sistema** (`SERVER_SMTP`, `USUARIO_SMTP`,
 `CLAVE_SMTP`, `PUERTO_SMTP`), y si no están configurados, de las constantes.
-El destino se puede cambiar por instalación sin tocar el programa.
 
-> **OJO: el host y la casilla hay que confirmarlos.** Lo que quedó es
-> `mail.vogelconsultoria.com.ar` / `soporte@vogelconsultoria.com.ar`, que es el
-> dominio pero no una cuenta verificada. Si no son esos, se cambian en
-> Parámetros del sistema y no hay que tocar código.
+**El servidor queda vacío a propósito.** El SMTP de Ferozo es específico de
+cada cuenta y no se publica por DNS: lo muestra el panel (*Email → Cuentas*)
+y lo manda por correo al contratarlo. Se verificó que `0110632.ferozo.com`
+**no resuelve en DNS**, y tampoco ninguna variante razonable
+(`smtp.…`, `mail.…`, `.com.ar`). Con un host inventado, la app falla al
+reportar un error — que es el peor momento para fallar. Vacío, el programa
+anota en el log **qué parámetro falta**, con el nombre exacto, para que se
+pueda ir a tocarlo.
+
+Lo que sí quedó, de lo que se pasó:
+
+| Parámetro | Valor | Por qué |
+|---|---|---|
+| `USUARIO_SMTP` | `info@vogelconsultoria.com.ar` | El dado por vos |
+| `PUERTO_SMTP` | `465` | Ferozo documenta SSL implícito en 465; `PyEmail` usa `SMTP_SSL` en ese puerto |
+| `SERVER_SMTP` | *(vacío)* | Hay que tomarlo del panel |
+| `CLAVE_SMTP` | *(vacío)* | **Nunca en el código.** Va en la máquina donde corre |
+
+### Un bug de pyafipws que dejaba el error inútil
+
+`pyemail.py` deja `self.Excepcion = traceback.format_exception_only`: **la
+función, sin llamar**. Si eso se pasaba al log, al log le quedaba
+`<built-in function format_exception_only>` en vez del mensaje real del error
+— justo lo que se necesita leer cuando algo falló. `libs/Utiles.py` lo trae a
+texto antes de usarlo.
 
 ### Lo que NO se tocó, a propósito
 
@@ -148,7 +168,7 @@ forma de demostrar que el hilo existe y no solo parece.
 
 ## Tests
 
-**266 en verde.** Los nuevos sobre el hilo:
+**268 en verde.** Los nuevos sobre el hilo:
 
 | Test | Qué fija |
 |---|---|
@@ -158,6 +178,8 @@ forma de demostrar que el hilo existe y no solo parece.
 | `test_el_neto_se_calcula_segun_la_categoria_de_iva` | El neto se calcula antes de cruzar |
 | `test_cancelar_la_confirmacion_no_emite` | Cancelar no toca nada |
 | `test_el_cae_rechazado_no_se_escribe_en_la_pantalla` | Un rechazo no inventa un CAE |
+| `test_sin_clave_no_se_intenta_conectar` | Sin configurar, el log dice QUÉ falta |
+| `test_el_reporte_no_da_la_direccion_anterior` | El reporte no vuelve a Servin |
 
 ## Verificación
 
@@ -173,7 +195,9 @@ forma de demostrar que el hilo existe y no solo parece.
 - **`requirements.txt` sigue pidiendo `fpdf==1.7.2`**, pero el código ya
   funciona con fpdf2 (ver Etapa 4). Conviene actualizar el pin, con lo que
   implica en el empaquetado.
-- **El host y la casilla de SMTP** hay que confirmarlos (ver arriba).
+- **Falta cargar `SERVER_SMTP` y `CLAVE_SMTP`** en Parámetros del sistema de
+  cada instalación donde se quiera recibir el reporte de errores. El host sale
+  del panel de Ferozo (*Email → Cuentas*).
 - **La emisión a `QThread` ya no es pendiente.** Queda, si algún día se
   quiere, partir `GrabaFE` en una transacción única con rollback, que es
   asunto aparte del hilo.

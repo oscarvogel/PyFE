@@ -181,7 +181,17 @@ def _controlador_que_falla(**atributos):
     return revienta(clase())
 
 
-def test_el_decorador_muestra_el_error_y_lo_reporta(monkeypatch):
+# Valores de Parametros del sistema con los que el reporte queda habilitado.
+PARAMETROS_SMTP = {
+    "SERVER_SMTP": "smtp.de-ejemplo.com",
+    "USUARIO_SMTP": "info@vogelconsultoria.com.ar",
+    "CLAVE_SMTP": "la-clave",
+    "PUERTO_SMTP": "465",
+    "DESTINO_ERRORES": "info@vogelconsultoria.com.ar",
+}
+
+
+def _preparar_reporte(monkeypatch, con_clave=True):
     monkeypatch.setattr(sys, "argv", [sys.argv[0]])
     import libs.Utiles as utiles
     from libs import Ventanas
@@ -190,9 +200,24 @@ def test_el_decorador_muestra_el_error_y_lo_reporta(monkeypatch):
     monkeypatch.setattr(utiles, "PyEmail", _FalsoEmail)
     monkeypatch.setattr(utiles, "LeerIni", lambda *a, **k: "N")
 
+    def parametros(nombre, defecto=""):
+        if not con_clave and nombre == "CLAVE_SMTP":
+            return ""
+        return PARAMETROS_SMTP.get(nombre, defecto)
+
+    monkeypatch.setattr(utiles, "_parametro_smtp", parametros)
+
     mostrados = []
     monkeypatch.setattr(Ventanas, "showAlert",
                         lambda t, m: mostrados.append((t, m)))
+    errores = []
+    import logging
+    monkeypatch.setattr(logging, "error", lambda *a, **k: errores.append(a))
+    return mostrados, errores
+
+
+def test_el_decorador_muestra_el_error_y_lo_reporta(monkeypatch):
+    mostrados, errores = _preparar_reporte(monkeypatch)
 
     _controlador_que_falla()
 
@@ -207,20 +232,42 @@ def test_silenciar_el_error_apaga_el_dialogo_pero_no_el_reporte(monkeypatch):
     automatico dejara de salir, una falla fiscal se quedaria sin registrar y
     eso seria peor que el dialogo duplicado.
     """
-    monkeypatch.setattr(sys, "argv", [sys.argv[0]])
-    import libs.Utiles as utiles
-    from libs import Ventanas
-
-    _FalsoEmail.enviados = []
-    monkeypatch.setattr(utiles, "PyEmail", _FalsoEmail)
-    monkeypatch.setattr(utiles, "LeerIni", lambda *a, **k: "N")
-
-    mostrados = []
-    monkeypatch.setattr(Ventanas, "showAlert",
-                        lambda t, m: mostrados.append((t, m)))
+    mostrados, errores = _preparar_reporte(monkeypatch)
 
     _controlador_que_falla(SilenciarError=True)
 
     assert mostrados == [], "con SilenciarError no puede haber dialogo"
     assert _FalsoEmail.enviados, \
         "el reporte a soporte no se puede apagar: es el unico registro de la falla"
+
+
+def test_sin_clave_no_se_intenta_conectar(monkeypatch):
+    """Sin clave, conectar revienta con un error de socket que no dice nada.
+
+    Y este codigo corre justo cuando algo ya fallo: el traceback original ya
+    quedo en el log, que es el registro que importa.
+    """
+    mostrados, errores = _preparar_reporte(monkeypatch, con_clave=False)
+
+    _controlador_que_falla()
+
+    assert _FalsoEmail.enviados == [], "no se puede mandar sin configuracion"
+    assert errores, "pero tiene que quedar anotado que falta configurarlo"
+    # El mensaje va ya armado a proposito: este log lo lee una persona, y no
+    # depende de que el handler de logging resuelva los argumentos.
+    unido = " ".join(str(args[0]) for args in errores)
+    assert "CLAVE_SMTP" in unido, \
+        "el log tiene que decir QUE falta, no solo que algo fallo"
+
+
+def test_el_reporte_no_da_la_direccion_anterior(monkeypatch):
+    """El reporte automatico de los clientes no puede seguir yendo a otro."""
+    mostrados, errores = _preparar_reporte(monkeypatch)
+    from libs import Constantes
+
+    assert "servinlgsm" not in Constantes.USUARIO_SMTP.lower()
+    assert "servinlgsm" not in Constantes.SERVER_SMTP.lower()
+    assert "vogelconsultoria" in Constantes.USUARIO_SMTP.lower()
+    # Y el servidor no se inventa: vacio hasta que el administrador lo ponga.
+    assert Constantes.SERVER_SMTP == "", \
+        "un host inventado hace fallar el reporte, que es el peor momento"

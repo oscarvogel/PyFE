@@ -296,6 +296,25 @@ def desencriptar(encrypted_data, key):
     return plain_text.decode('utf-8')
 
 
+def _texto_excepcion(objeto):
+    """La Excepcion de pyafipws, como texto.
+
+    pyemail.py deja `self.Excepcion = traceback.format_exception_only`: la
+    FUNCION, sin llamar. Si se la pasa a logging tal cual, al log le queda la
+    representacion "<built-in function format_exception_only>" en vez del
+    mensaje real del error, que es justo lo que se necesita leer.
+    """
+    valor = getattr(objeto, "Excepcion", "")
+    if callable(valor):
+        try:
+            valor = valor(sys.exc_info()[0], sys.exc_info()[1])
+            if isinstance(valor, (list, tuple)):
+                valor = "".join(valor)
+        except Exception:
+            valor = "error desconocido en el envio de correo"
+    return str(valor or "") + " " + str(getattr(objeto, "Traceback", "") or "")
+
+
 def _parametro_smtp(nombre, defecto=""):
     """Un valor de Parametros del sistema, o el que le paso.
 
@@ -343,30 +362,52 @@ def inicializar_y_capturar_excepciones(func):
                 # reporte automatico de errores de los clientes seguia yendo
                 # ahi: o se perdia, o llegaba a un buzon que ya no es de nadie
                 # de este proyecto.
+                servidor = _parametro_smtp("SERVER_SMTP", Constantes.SERVER_SMTP)
                 remitente = _parametro_smtp("USUARIO_SMTP", Constantes.USUARIO_SMTP)
-                destinatario = _parametro_smtp("DESTINO_ERRORES", remitente)
-                if not remitente or not destinatario:
-                    # Sin destinatario no hay a quien reportar. Se deja Constante
-                    # y se sigue: el traceback ya quedo en el log.
-                    remitente = Constantes.USUARIO_SMTP
-                    destinatario = Constantes.USUARIO_SMTP
-                mensaje = "{} {}\n\nEnviado desde {}. {}".format(
-                    self.Traceback, self.Excepcion,
-                    Constantes.NOMBRE_PRODUCTO, Constantes.CREDITO_SOFTWARE
-                )
-                motivo = "Se envia informe de errores de {}".format(LeerIni(clave='empresa', key='FACTURA'))
-                pyemail = PyEmail()
-                pyemail.Conectar(servidor=_parametro_smtp("SERVER_SMTP", Constantes.SERVER_SMTP),
-                                 usuario=remitente,
-                                 clave=_parametro_smtp("CLAVE_SMTP", Constantes.CLAVE_SMTP),
-                                 puerto=_parametro_smtp("PUERTO_SMTP", Constantes.PUERTO_SMTP) or 587)
+                clave = _parametro_smtp("CLAVE_SMTP", Constantes.CLAVE_SMTP)
+                puerto = _parametro_smtp("PUERTO_SMTP", Constantes.PUERTO_SMTP) or 587
+                destinatario = _parametro_smtp("DESTINO_ERRORES", remitente) or remitente
 
-                ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje)
-                if not ok:
-                    # Que falle el reporte no puede tapar el error original:
-                    # queda en el log y el dialogo ya se mostraria antes.
-                    logging.error("No se pudo enviar el reporte de errores: %s %s",
-                                  pyemail.Excepcion, pyemail.Traceback)
+                if not servidor or not remitente or not clave:
+                    # Sin configurar no se intenta conectar: un host vacio o
+                    # inventado revienta con un error de socket que no dice nada
+                    # util, y esto corre justo cuando algo ya fallo. El
+                    # traceback original ya quedo en el log, que es el registro
+                    # que importa.
+                    # Con el nombre real del parámetro, no con una palabra
+                    # suelta: el que lee el log tiene que poder ir a
+                    # Parametros del sistema y saber exactamente qué tocar.
+                    faltantes = [n for n, v in
+                                 (("SERVER_SMTP", servidor),
+                                  ("USUARIO_SMTP", remitente),
+                                  ("CLAVE_SMTP", clave)) if not v]
+                    logging.error(
+                        "No se reporto el error por correo: falta configurar {} "
+                        "en Parametros del sistema. El traceback quedo en el log.".format(
+                            ", ".join(faltantes)))
+                else:
+                    mensaje = "{} {}\n\nEnviado desde {}. {}".format(
+                        self.Traceback, self.Excepcion,
+                        Constantes.NOMBRE_PRODUCTO, Constantes.CREDITO_SOFTWARE
+                    )
+                    motivo = "Informe de errores de {}".format(
+                        LeerIni(clave='empresa', key='FACTURA') or Constantes.NOMBRE_PRODUCTO)
+                    pyemail = PyEmail()
+                    conectado = pyemail.Conectar(servidor=servidor, usuario=remitente,
+                                                 clave=clave, puerto=puerto)
+                    if not conectado:
+                        # pyemail deja Excepcion como la FUNCION traceback.
+                        # format_exception_only, sin llamar, y por eso hay que
+                        # traerla a texto antes de usarla.
+                        logging.error("No se pudo conectar al servidor de correo: %s",
+                                      _texto_excepcion(pyemail))
+                    else:
+                        ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje)
+                        if not ok:
+                            # Que falle el reporte no puede tapar el error
+                            # original: queda en el log.
+                            logging.error("No se pudo enviar el reporte de errores: %s",
+                                          _texto_excepcion(pyemail))
                 # envia_correo(from_address=remitente, to_address=destinatario,
                 #              message=mensaje, subject=motivo)
             else:

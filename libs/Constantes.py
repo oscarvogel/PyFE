@@ -18,10 +18,18 @@ COMPROBANTES_FCE = [201,202,203,206,207,208,211,212,213]
 #
 # OJO: el host y la casilla reales hay que confirmarlos con quien corresponde.
 # Lo que hay aca es el dominio, no una cuenta verificada.
-SERVER_SMTP = 'mail.vogelconsultoria.com.ar'
-USUARIO_SMTP = 'soporte@vogelconsultoria.com.ar'
-CLAVE_SMTP = ''
-PUERTO_SMTP = ''
+#
+# EL SERVIDOR QUEDA VACIO A PROPOSITO. El SMTP de Ferozo es especifico de cada
+# cuenta y no se publica por DNS: lo muestra en Email > Cuentas y lo manda por
+# correo al contratarlo (0110632.ferozo.com, por ejemplo, NO resuelve). Poner
+# un host inventado hace que la app falle justo al reportar un error, que es
+# el peor momento para fallar. Vacio, el programa dice que falta configurarlo.
+#
+# La clave NO va aca: va en Parametros del sistema, en la maquina donde corre.
+SERVER_SMTP = ''                              # lo completa el administrador
+USUARIO_SMTP = 'info@vogelconsultoria.com.ar'
+CLAVE_SMTP = ''                               # nunca en el codigo
+PUERTO_SMTP = 465                             # Ferozo: SSL implicito en 465
 
 # -- Identidad del producto ------------------------------------------------
 #
