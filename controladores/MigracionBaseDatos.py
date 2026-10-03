@@ -79,10 +79,17 @@ class MigracionBaseDatos(ControladorBase):
 
         if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 7:
             self.MigrarVersion7()
-        
+
+        # No usa el migrator, y va antes de RealizaMigraciones: es una
+        # correccion de DATOS, no de esquema, asi que tiene que correr tambien
+        # en una base recien creada, donde las migraciones de esquema fallan
+        # todas. El orden con RealizaMigraciones es al reves justamente por
+        # eso: no depende de que las de esquema hayan salido bien.
+        self.CorregirCondicionIvaReceptor()
+
         self.RealizaMigraciones()
 
-        ParamSist.GuardarParametro("VERSION_DB", "7")
+        ParamSist.GuardarParametro("VERSION_DB", "8")
 
     def MigrarVersion1(self):
         migrator = self.migrator
@@ -155,7 +162,7 @@ class MigracionBaseDatos(ControladorBase):
             archivo='data/tiporesp.csv',
             campos=[Tiporesp.idtiporesp, Tiporesp.nombre, Tiporesp.discrimina, Tiporesp.tipoiva,
                     Tiporesp.obligacuit, Tiporesp.factura, Tiporesp.notacredito, Tiporesp.notadebito,
-                    Tiporesp.tipoivaepson],
+                    Tiporesp.tipoivaepson, Tiporesp.condicion_iva_receptor_id],
             modelo=Tiporesp
         )
         self.cargar_csv(
@@ -295,3 +302,55 @@ class MigracionBaseDatos(ControladorBase):
                 ultcomp=0,
                 letra='X'
             )
+
+    def CorregirCondicionIvaReceptor(self):
+        """Arregla la condicion de IVA del receptor de las bases viejas.
+
+        Que esta correccion haga falta
+        -----------------------------
+        `condicion_iva_receptor_id` se agrego a la tabla con default 5, que es
+        'Consumidor Final'. La siembra de data/tiporesp.csv no cargaba la
+        columna, asi que en toda base creada hasta ahora las cuatro filas
+        quedaron en 5: a un Responsable Inscripto con CUIT se le mandaba
+        'Consumidor Final' a ARCA, incompatible con el tipo de documento 80. Y
+        el campo es obligatorio desde la RG 5616.
+
+        Que no pise lo que el usuario ya corrigio
+        -----------------------------------------
+        Solo toca filas que siguen en el default (5) y cuyo tipo no es
+        Consumidor Final. Si alguien entro al ABM de tipos de responsable y lo
+        cambio a mano, el valor ya no es 5 y queda intacto. Decidir cual de dos
+        condiciones es la correcta no se puede desde acá: eso lo tiene que
+        decir una persona.
+
+        Corre en cada arranque, no solo en la migracion 8, porque son cuatro
+        filas y es idempotente. Asi una base creada por una version vieja se
+        arregla sola en el primer arranque posterior, le tenga VERSION_DB = 7
+        clavado o no.
+        """
+        from libs.catalogos import (CONDICION_CONSUMIDOR_FINAL,
+                                    CONDICION_IVA_POR_TIPO_RESPONSABLE)
+
+        corregidas = []
+        for tipo in Tiporesp.select():
+            esperada = CONDICION_IVA_POR_TIPO_RESPONSABLE.get(
+                (tipo.nombre or "").strip().upper())
+            if esperada is None:
+                # Un tipo que el catalogo no conoce se deja como esta: puede
+                # ser uno que el usuario haya creado a mano.
+                continue
+            if tipo.condicion_iva_receptor_id != CONDICION_CONSUMIDOR_FINAL:
+                continue
+            if esperada == CONDICION_CONSUMIDOR_FINAL:
+                continue
+            tipo.condicion_iva_receptor_id = esperada
+            tipo.save()
+            corregidas.append("{}: {} -> {}".format(
+                tipo.nombre, CONDICION_CONSUMIDOR_FINAL, esperada))
+
+        if corregidas:
+            logging.warning(
+                "Se corrigio la condicion de IVA del receptor de estos tipos "
+                "de responsable, que venian en el default: %s. Antes se mandaba "
+                "'Consumidor Final' a ARCA para clientes que no lo son.",
+                "; ".join(corregidas))
