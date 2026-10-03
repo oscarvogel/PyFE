@@ -33,6 +33,7 @@ from controladores.ABMCategoriasMonotributo import ABMCategoriaMonoController
 from controladores.ABMGrupos import ABMGruposController
 from controladores.ABMImpuestos import ABMImpuestoController
 from controladores.ABMParametrosSistema import ABMParamSistController
+from controladores.ConfiguracionCorreo import ConfiguracionCorreoController
 from controladores.ABMTipoDocumentos import ABMTipoDocumentoController
 from controladores.ABMTipoResponsable import ABMTipoResponsableController
 from controladores.Articulos import ArticulosController
@@ -220,6 +221,7 @@ class Main(ControladorBase):
             "configuracion": lambda: self._abrir(ConfiguracionController,
                                                 usar_exec=False),
             "parametros": lambda: self._abrir(ABMParamSistController),
+            "correo-reportes": lambda: self._abrir(ConfiguracionCorreoController),
             "firma-email": lambda: self._abrir(FirmaCorreoElectronicoController),
             "certificados": lambda: self._abrir(GeneraCertificadosController),
         }

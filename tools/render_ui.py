@@ -75,6 +75,7 @@ CLIENTES_FALSOS = [
 VISTAS = [
     ("Main", "vistas.Main", "MainView", 0, 0, ()),
     ("AcercaDe", "vistas.Main", "MainView", 0, 0, (), "construir_acerca_de"),
+    ("CorreoReportes", "vistas.ConfiguracionCorreo", "ConfiguracionCorreoView", 0, 0, ()),
     ("VentaSimple", "vistas.VentaSimple", "VentaSimpleView", 1024, 700, ()),
     ("AltaCliente", "vistas.VentaSimple", "VentaSimpleAltaClienteDialog", 0, 0, ("Acme SA",)),
     ("AltaArticulo", "vistas.VentaSimple", "VentaSimpleAltaArticuloDialog", 0, 0, ("Tornillo",)),

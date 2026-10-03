@@ -90,6 +90,7 @@ SECCIONES = [
     ("Configuración", "configuracion", [
         ("configuracion", "Configuración de inicio", "configuracion"),
         ("parametros", "Parámetros del sistema", "configuracion"),
+        ("correo-reportes", "Correo de reportes de errores", "email"),
         ("firma-email", "Firma de correo", "email"),
         ("certificados", "Certificados digitales", "certificado"),
     ]),

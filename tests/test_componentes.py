@@ -198,12 +198,54 @@ def shell(app):
     return v
 
 
+def _acciones_de_la_seccion(nombre):
+    """Cuantas acciones tiene una seccion, contadas desde la definicion."""
+    from vistas.Main import SECCIONES
+    for titulo, _clave, items in SECCIONES:
+        if titulo == nombre:
+            return len(items)
+    raise AssertionError("no existe la seccion {}".format(nombre))
+
+
+def _total_de_acciones():
+    from vistas.Main import SECCIONES
+    return sum(len(items) for _, _, items in SECCIONES)
+
+
 def _visibles(vista):
     return [b.text() for b in vista.botonesNav.values() if b.isVisible()]
 
 
 def test_el_buscador_empieza_mostrando_todo(shell):
-    assert len(_visibles(shell)) == len(shell.botonesNav) == 36
+    """Todas las acciones de la barra lateral, sin que ninguna quede afuera.
+
+    El numero sale de SECCIONES y no de un numero fijo: si uno agrega una
+    pantalla y no actualiza el test, este lo dice, y al revés, si se saca una
+    pantalla sin querer, tambien.
+    """
+    from vistas.Main import SECCIONES
+
+    esperadas = sum(len(items) for _, _, items in SECCIONES)
+    assert len(_visibles(shell)) == len(shell.botonesNav) == esperadas
+
+
+def test_toda_accion_de_la_barra_lateral_tiene_pantalla(shell):
+    """Una accion sin destino abre un error en vez de no hacer nada.
+
+    Se agrega un boton a la barra lateral y se lo conecta a algo, pero si el
+    destino no existe el clic no hace nada y no se ve ningun error: la accion
+    queda muerta en pantalla.
+    """
+    from controladores.Main import Main
+    from vistas.Main import SECCIONES
+
+    # DESTINOS es un metodo: devuelve el mapa clave -> como abrir la pantalla.
+    destinos = set(Main().DESTINOS())
+    for _, _, items in SECCIONES:
+        for clave, etiqueta, _icono in items:
+            assert clave in destinos, \
+                "la acción '{}' ({}) no tiene destino en DESTINOS".format(
+                    etiqueta, clave)
 
 
 @pytest.mark.parametrize("consulta,esperado", [
@@ -227,7 +269,7 @@ def test_el_buscador_ignora_tildes_y_mayusculas(shell):
     sin_tilde = _visibles(shell)
 
     assert con_mayusculas == con_tilde == sin_tilde
-    assert len(sin_tilde) == 4
+    assert len(sin_tilde) == _acciones_de_la_seccion("Configuraci\u00f3n")
 
 
 def test_el_buscador_also_busca_por_nombre_de_seccion(shell):
@@ -244,7 +286,7 @@ def test_el_buscador_avisa_cuando_no_encuentra_nada(shell):
 def test_borrar_la_busqueda_deja_todo_visible(shell):
     shell.buscar("proveedor")
     shell.buscar("")
-    assert len(_visibles(shell)) == 36
+    assert len(_visibles(shell)) == _total_de_acciones()
     assert not shell.lblSinResultados.isVisible()
 
 
