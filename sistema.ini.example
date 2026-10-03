@@ -1,0 +1,55 @@
+; Plantilla de configuracion. Copiar como sistema.ini y completar con los
+; datos del equipo donde corre PyFE. sistema.ini NO se versiona porque puede
+; contener datos fiscales, rutas de certificados y credenciales cifradas.
+
+[param]
+iniciosistema = /PyFE/
+nombre_sistema = Sistema FE
+basedatos = Basedatos
+usuario = Usuario
+host = localhost
+password = CLAVE_CIFRADA
+key = LLAVE_CIFRADA
+homo = S
+base = sqlite
+ultima_copia = 00000000
+email_contador = contador@example.com
+
+[WSFEv1]
+cat_iva = 6
+pto_vta = 1
+cuit = 00000000000
+url_prod = https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL
+url_homo = https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL
+cacert = conf/afip_ca_info.crt
+
+[WSAA]
+cert_homo = certificados/certificado_homologacion.crt
+cert_prod = certificados/certificado_produccion.crt
+privatekey_homo = certificados/clave_privada_homo.key
+privatekey_prod = certificados/clave_privada_produccion.key
+url_prod = https://wsaa.afip.gov.ar/ws/services/LoginCms
+url_homo = https://wsaahomo.afip.gov.ar/ws/services/LoginCms
+
+[FACTURA]
+empresa = Razon Social
+membrete1 = Direccion 1
+membrete2 = Direccion 2
+cuit = Cuit 00-00000000-0
+iibb = IIBB 00-00000000-0
+iva = Responsable Inscripto
+inicio = 01/01/2000
+num_copias = 1
+venta = grilla
+
+[WSCDC]
+cuit = 00000000000
+url_prod = https://servicios1.afip.gov.ar/WSCDC/service.asmx?WSDL
+
+; Respaldo por FTP de la base y de sistema.ini. Si se deja vacio, el
+; resguardo queda desactivado. No versionar estas claves: sistema.ini
+; esta en .gitignore justamente por esto.
+[RESPALDO]
+servidor =
+usuario =
+clave =

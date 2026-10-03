@@ -10,7 +10,7 @@ from modelos.Tipoiva import Tipoiva
 
 class Remito(ModeloBase):
     
-    idremito = peewee.AutoField(db_column='idremito')
+    idremito = peewee.AutoField(column_name='idremito')
     cliente = peewee.ForeignKeyField(Cliente)
     fecha = peewee.DateField(default=peewee.fn.now())
     ptovta = peewee.IntegerField(default=1)
@@ -29,7 +29,7 @@ class Remito(ModeloBase):
 
 class DetalleRemito(ModeloBase):
     
-    iddetalleremito = peewee.AutoField(db_column='iddetalleremito')
+    iddetalleremito = peewee.AutoField(column_name='iddetalleremito')
     remito = peewee.ForeignKeyField(Remito)
     producto = peewee.ForeignKeyField(Articulo)
     detalle = peewee.TextField(default='')

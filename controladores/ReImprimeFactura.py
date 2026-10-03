@@ -76,8 +76,8 @@ class ReImprimeFacturaController(ControladorBase):
             #     text, ok = QInputDialog.getText(self.view, 'Sistema', 'Ingrese el mail destinatario:')
             # if ok:
             #     destinatario = str(text).strip()
-            #     mensaje = "Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar \n" \
-            #               "No responder este email"
+            #     mensaje = "Enviado desde {}. {}\nNo responder este email".format(
+            #               Constantes.NOMBRE_PRODUCTO, Constantes.CREDITO_SOFTWARE)
             #     archivo = factura.facturaGenerada
             #     motivo = "Se envia comprobante electronico de {}".format(LeerIni(clave='empresa', key='FACTURA'))
             #     servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
@@ -90,5 +90,5 @@ class ReImprimeFacturaController(ControladorBase):
             #     if not ok:
             #         Ventanas.showAlert("Sistema", "Ha ocurrido un error al enviar el correo\n{}".format(err_msg))
             #     else:
-            #         Ventanas.showAlert("Sistema", "Comprobante electronico enviado correctamente")
+            #         Ventanas.showAlert("Sistema", "Comprobante electrónico enviado correctamente")
 

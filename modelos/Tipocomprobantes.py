@@ -13,9 +13,9 @@ FORMA_PAGO = {
 }
 
 class TipoComprobante(ModeloBase):
-    codigo = IntegerField(primary_key=True, db_column='codigo')
+    codigo = IntegerField(primary_key=True, column_name='codigo')
     nombre = CharField(max_length=30)
-    abreviatura = CharField(max_length=3, db_column='abr')
+    abreviatura = CharField(max_length=3, column_name='abr')
     lado = CharField(max_length=1, default='')
     exporta = BitBooleanField(default=0)
     ultcomp = IntegerField(default=0)
@@ -87,16 +87,19 @@ class Valida(Validaciones):
             data = self.modelo.select().where(TipoComprobante.codigo == codigo).get()
             if data:
                 self.valido = True
-                self.setStyleSheet("background-color: Dodgerblue")
+                from libs.tema import marcar_estado
+                marcar_estado(self, "ok")
                 self.cursor = data
                 if self.widgetNombre:
                     self.widgetNombre.setText(data.nombre.strip())
             else:
                 self.valido = False
-                self.setStyleSheet("background-color: yellow")
+                from libs.tema import marcar_estado
+                marcar_estado(self, "error")
                 #Ventanas.showAlert("Error", "Codigo no encontrado en el sistema")
         except TipoComprobante.DoesNotExist:
-            self.setStyleSheet("background-color: yellow")
+            from libs.tema import marcar_estado
+            marcar_estado(self, "error")
         return data
 
 class ComboTipoIngreso(Combo):

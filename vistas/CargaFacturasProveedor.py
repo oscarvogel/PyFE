@@ -10,6 +10,7 @@ from libs.Fechas import Fecha
 from libs.Formulario import Formulario
 from libs.Grillas import Grilla
 from libs.Spinner import Periodo
+from libs.Utiles import imagen, icono
 from modelos import Proveedores, Tipocomprobantes
 from modelos.CentroCostos import CentroCosto
 from vistas.Busqueda import UiBusqueda
@@ -56,7 +57,7 @@ class CargaFacturaProveedorView(Formulario):
         self.gridLayout.addWidget(self.lblFechaCarga, 2, 0, 1, 1)
         self.gridLayout.addWidget(self.fechaCarga, 2, 1, 1, 1)
 
-        self.lblFechaEm = Etiqueta(texto="Fecha Emision")
+        self.lblFechaEm = Etiqueta(texto="Fecha Emisión")
         self.fechaEmision = Fecha()
         self.fechaEmision.setFecha()
         self.gridLayout.addWidget(self.lblFechaEm, 2, 3, 1, 1)
@@ -99,8 +100,8 @@ class CargaFacturaProveedorView(Formulario):
         self.textNoGravado = EntradaTexto(placeholderText="No gravados")
         self.gridTotales.addWidget(self.lblNoGravado, 1, 0)
         self.gridTotales.addWidget(self.textNoGravado, 1, 1)
-        self.lblPercepcionDGR = Etiqueta(texto="Percepcion DGR")
-        self.textPercepcionDGR = EntradaTexto(placeholderText="Percepcion DGR", enabled=False)
+        self.lblPercepcionDGR = Etiqueta(texto="Percepción DGR")
+        self.textPercepcionDGR = EntradaTexto(placeholderText="Percepción DGR", enabled=False)
         self.gridTotales.addWidget(self.lblPercepcionDGR, 1, 2)
         self.gridTotales.addWidget(self.textPercepcionDGR, 1, 3)
         self.lblIVA = Etiqueta(texto="IVA")
@@ -108,8 +109,8 @@ class CargaFacturaProveedorView(Formulario):
         self.gridTotales.addWidget(self.lblIVA, 1, 4)
         self.gridTotales.addWidget(self.textIVA, 1, 5)
 
-        self.lblPercepcionIVA = Etiqueta(texto="Percepcion IVA")
-        self.textPercepcionIVA = EntradaTexto(placeholderText="Percepcion IVA")
+        self.lblPercepcionIVA = Etiqueta(texto="Percepción IVA")
+        self.textPercepcionIVA = EntradaTexto(placeholderText="Percepción IVA")
         self.gridTotales.addWidget(self.lblPercepcionIVA, 2, 0)
         self.gridTotales.addWidget(self.textPercepcionIVA, 2, 1)
         self.lblTotal = Etiqueta(texto="Total")
@@ -120,10 +121,10 @@ class CargaFacturaProveedorView(Formulario):
         self.layoutPpal.addLayout(self.gridTotales)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnGrabar = Boton(texto="Grabar", imagen='imagenes/if_save.png', autodefault=False, enabled=False)
-        self.btnConstatacion = Boton(texto="Constatacion", imagen="imagenes/logoafipfondoblanco.png",
+        self.btnGrabar = Boton(texto="Grabar", imagen=icono('guardar'), autodefault=False, enabled=False, estilo='primario')
+        self.btnConstatacion = Boton(texto="Constatación", imagen=icono('arca'),
                                      autodefault=False, enabled=False)
-        self.btnPercepDGR = Boton(texto="Percepcion DGR", imagen='imagenes/dgr-misiones.png',
+        self.btnPercepDGR = Boton(texto="Percepción DGR", imagen=imagen('dgr-misiones.png'),
                                   enabled=False, autodefault=False)
         self.btnCerrar = BotonCerrarFormulario(autodefault=False)
         self.layoutBotones.addWidget(self.btnGrabar)

@@ -8,7 +8,11 @@ from libs.BarraProgreso import Avance
 from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import Etiqueta
 from libs.Utiles import icono_sistema
-from modelos.ParametrosSistema import ParamSist
+# ParamSist ya no se usa en este archivo (lo usaba EstablecerTema, que se
+# desactivo). El import se deja a proposito: importar el modulo registra el
+# modelo en peewee, y como Formulario lo importan casi todas las vistas, sacarlo
+# podria cambiar el orden de registro y romper algo en otra pantalla.
+from modelos.ParametrosSistema import ParamSist  # noqa: F401
 
 
 class Formulario(QDialog):
@@ -23,7 +27,12 @@ class Formulario(QDialog):
         self.LanzarExcepciones = False
         self.setWindowIcon(icono_sistema())
         self.setWindowModality(Qt.ApplicationModal)
-        self.EstablecerTema()
+        # El tema se aplica una sola vez, de forma global, sobre la
+        # QApplication (ver libs/tema.py y main.py). Antes cada dialogo
+        # intentaba cargar por su cuenta un .css desde el parametro TEMA de la
+        # base, dentro de un except: pass: si el archivo no estaba, el dialogo
+        # se quedaba sin estilo y ademas tapaba el global con lo que hubiera
+        # cargado. Ese metodo quedo desactivado.
 
     def Cerrar(self):
         self.close()
@@ -98,11 +107,10 @@ class Formulario(QDialog):
         pass
 
     def EstablecerTema(self):
-        try:
-            tema = ParamSist.ObtenerParametro("TEMA")
-            if os.path.isfile(tema):
-                style = open(tema)
-                style = style.read()
-                self.setStyleSheet(style)
-        except:
-            pass
+        """Obsoleto: el tema es global, se aplica en main.py.
+
+        Se deja el metodo para no romper a nadie que lo llame, pero ya no hace
+        nada. La version anterior leia el parametro TEMA de la base y aplicaba
+        el .css solo a ese dialogo, dentro de un except: pass.
+        """
+        return

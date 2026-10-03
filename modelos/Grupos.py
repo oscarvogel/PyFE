@@ -9,7 +9,7 @@ from modelos.ModeloBase import ModeloBase
 class Grupo(ModeloBase):
     idgrupo = AutoField(primary_key=True)
     nombre = CharField(max_length=30)
-    impuesto = ForeignKeyField(Impuesto, default=1, db_column='impuesto')
+    impuesto = ForeignKeyField(Impuesto, default=1, column_name='impuesto')
 
     class Meta:
         table_name = 'grupos'

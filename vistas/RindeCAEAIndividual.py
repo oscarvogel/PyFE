@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
 from libs.Botones import Boton, BotonCerrarFormulario
 from libs.EntradaTexto import Factura
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
-from libs.Utiles import LeerIni
+from libs.Utiles import LeerIni, imagen, icono, a_entero
 from modelos.Tipocomprobantes import ComboTipoComp
 from vistas.VistaBase import VistaBase
 
@@ -23,7 +23,7 @@ class RindeCAEAIndividualView(VistaBase):
 
         layoutTipoComp = QHBoxLayout()
         lblTipoComp = Etiqueta(texto="Tipo de comprobante")
-        self.cboTipoComp = ComboTipoComp(tiporesp=int(LeerIni(key='WSFEv1', clave='cat_iva')))
+        self.cboTipoComp = ComboTipoComp(tiporesp=a_entero(LeerIni(key='WSFEv1', clave='cat_iva'), 1))
         layoutTipoComp.addWidget(lblTipoComp)
         layoutTipoComp.addWidget(self.cboTipoComp)
         self.layoutFactura = Factura(titulo=u"Nº de Comprobante")
@@ -31,7 +31,7 @@ class RindeCAEAIndividualView(VistaBase):
         layoutPpal.addLayout(layoutTipoComp)
 
         layoutBotones = QHBoxLayout()
-        self.btnConsultar = Boton(texto="Rinde CAEA", imagen="imagenes/Accept.png")
+        self.btnConsultar = Boton(texto="Rinde CAEA", imagen=icono('check'))
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnConsultar)
         layoutBotones.addWidget(self.btnCerrar)

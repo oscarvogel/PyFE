@@ -15,13 +15,13 @@ class Cliente(ModeloBase):
     nombre = CharField(max_length=100)
     domicilio = CharField(max_length=100)
     telefono = CharField(max_length=100, default='')
-    localidad = ForeignKeyField(Localidad, backref="localidad", db_column='idLocalidad')
+    localidad = ForeignKeyField(Localidad, backref="localidad", column_name='idLocalidad')
     cuit = CharField(max_length=13, default='')
     dni = IntegerField(default=0)
-    tipodocu = ForeignKeyField(Tipodoc, backref='tipodoc', db_column='tipodocu', default=0)
-    tiporesp = ForeignKeyField(Tiporesp, backref='tiporesp', db_column='tiporesp', default=1)
-    formapago = ForeignKeyField(Formapago, backref='formapago', db_column='formapago', default=1)
-    percepcion = ForeignKeyField(Impuesto, backref='percepcion', db_column='percepcion', default=1)
+    tipodocu = ForeignKeyField(Tipodoc, backref='tipodoc', column_name='tipodocu', default=0)
+    tiporesp = ForeignKeyField(Tiporesp, backref='tiporesp', column_name='tiporesp', default=1)
+    formapago = ForeignKeyField(Formapago, backref='formapago', column_name='formapago', default=1)
+    percepcion = ForeignKeyField(Impuesto, backref='percepcion', column_name='percepcion', default=1)
 
     class Meta:
         table_name = 'clientes'
@@ -36,7 +36,7 @@ class Valida(Validaciones):
 class FichaCliente(ModeloBase):
 
     id = AutoField(primary_key=True)
-    cliente = ForeignKeyField(Cliente, db_column='cliente')
+    cliente = ForeignKeyField(Cliente, column_name='cliente')
     fecha = peewee.DateField()
     detalle = peewee.TextField()
     debe = peewee.DecimalField(max_digits=12, decimal_places=2, default=0)

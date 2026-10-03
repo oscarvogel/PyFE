@@ -17,7 +17,7 @@ from libs.Botones import Boton, BotonCerrarFormulario
 from libs.Etiquetas import Etiqueta
 from libs.Fechas import Fecha
 from libs.Formulario import Formulario
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 
 
 class InformeVentasPorGrupoView(Formulario):
@@ -49,7 +49,7 @@ class InformeVentasPorGrupoView(Formulario):
         layoutPpal.addWidget(self.avance)
 
         layoutBotones = QHBoxLayout()
-        self.btnExcel = Boton(texto="Exporta", imagen=imagen("excel.png"))
+        self.btnExcel = Boton(texto="Exporta", imagen=icono('excel'), estilo='primario')
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnExcel)
         layoutBotones.addWidget(self.btnCerrar)

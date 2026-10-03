@@ -17,7 +17,7 @@ from libs.Botones import Boton, BotonCerrarFormulario
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Fechas import Fecha
 from libs.Formulario import Formulario
-from libs.Utiles import imagen, InicioMes, FinMes
+from libs.Utiles import imagen, InicioMes, FinMes, icono
 
 
 class IVAVentasView(Formulario):
@@ -55,8 +55,8 @@ class IVAVentasView(Formulario):
         self.verticalLayoutDatos.addLayout(self.layoutFechas)
 
         self.layoutBotones = QHBoxLayout()
-        self.btnExcel = Boton(texto="Excel", imagen=imagen('excel.png'))
-        self.btnEnviaCorreo = Boton(texto="Envia correo", imagen=imagen('email.png'))
+        self.btnExcel = Boton(texto="Excel", imagen=icono('excel'), estilo='primario')
+        self.btnEnviaCorreo = Boton(texto="Envia correo", imagen=icono('email'))
         self.btnCerrar = BotonCerrarFormulario()
         self.layoutBotones.addWidget(self.btnExcel)
         self.layoutBotones.addWidget(self.btnEnviaCorreo)

@@ -1,5 +1,12 @@
 # UTF-8
 #
+# ATENCION: este archivo NO es un .ini. PyInstaller lo lee con eval(), asi que
+# tiene que ser UNA expresion de Python y nada mas. Agregar una linea suelta
+# arriba (por ejemplo "versionName=0.8.10") rompe la compilacion con
+# "Failed to deserialize VSVersionInfo". Por eso la app no busca una clave
+# propia: lee ProductVersion / FileVersion / filevers de esta misma estructura
+# (ver vistas/Main.py::_version).
+#
 # For more details about fixed file info 'ffi' see:
 # http://msdn.microsoft.com/en-us/library/ms646997.aspx
 VSVersionInfo(
@@ -12,7 +19,7 @@ VSVersionInfo(
     mask=0x3f,
     # Contains a bitmask that specifies the Boolean attributes of the file.
     flags=0x0,
-    # The operating system for which this file was designed.
+    # The operating system for which the file was designed.
     # 0x4 - NT and there is no need to change it.
     OS=0x4,
     # The general type of file.
@@ -29,16 +36,16 @@ VSVersionInfo(
       [
       StringTable(
         u'040904b0',
-        [StringStruct(u'CompanyName', u'Servin LGSM'),
-        StringStruct(u'ProductName', u'Sistema'),
-        StringStruct(u'ProductVersion', u'2025, 11, 4, 1'),
-        StringStruct(u'InternalName', u'Sistema'),
-        StringStruct(u'OriginalFilename', u'main.exe'),
-        StringStruct(u'FileVersion', u'2025, 11, 4, 1'),
-        StringStruct(u'FileDescription', u'Sistema en FE de Servin LGSM'),
-        StringStruct(u'LegalCopyright', u'Copyright 2025, Servin LGSM'),
-        StringStruct(u'LegalTrademarks', u'Marca registrada de Servin LGSM'),])
+        [StringStruct(u'CompanyName', u'Vogel Consultoria'),
+        StringStruct(u'ProductName', u'Asiento'),
+        StringStruct(u'ProductVersion', u'0.8.10'),
+        StringStruct(u'InternalName', u'Asiento'),
+        StringStruct(u'OriginalFilename', u'Asiento.exe'),
+        StringStruct(u'FileVersion', u'0.8.10'),
+        StringStruct(u'FileDescription', u'Asiento - Sistema de facturacion electronica'),
+        StringStruct(u'LegalCopyright', u'Copyright 2025, Vogel Consultoria'),
+        StringStruct(u'LegalTrademarks', u'Asiento - Vogel Consultoria'),])
       ]),
-    VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
+    VarFileInfo([VarStruct(u'Translation', [3081, 1200])])
   ]
 )

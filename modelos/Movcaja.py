@@ -11,7 +11,7 @@ class MovCajaModel(ModeloBase):
 
     idmovcaja = AutoField()
     fecha = DateField(default="0000-00-00")
-    idtipocomp = ForeignKeyField(TipoComprobante, default=0, db_column='idtipocomp')
+    idtipocomp = ForeignKeyField(TipoComprobante, default=0, column_name='idtipocomp')
     numcomp = CharField(max_length=12, default='000000000000')
     importe = DecimalField(max_digits=12, decimal_places=2, default=0)
     banco = IntegerField(default=0)
@@ -23,9 +23,9 @@ class MovCajaModel(ModeloBase):
     idcabfact = IntegerField(default=0)
     idproveedor = IntegerField(default=0)
     idcliente = IntegerField(default=0)
-    usuario = CharField(max_length=30, default='', db_column='_usuario')
-    fechagraba = DateField(default=datetime.now(), db_column='_fecha')
-    hora = CharField(db_column='_hora', default='00:00:00')
+    usuario = CharField(max_length=30, default='', column_name='_usuario')
+    fechagraba = DateField(default=datetime.now(), column_name='_fecha')
+    hora = CharField(column_name='_hora', default='00:00:00')
 
     class Meta:
         table_name = 'movcaja'

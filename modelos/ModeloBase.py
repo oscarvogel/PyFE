@@ -18,7 +18,7 @@ __version__ = "0.5"
 
 from peewee import MySQLDatabase, Model, BooleanField, SqliteDatabase
 
-from libs.Utiles import LeerIni, desencriptar
+from libs.Utiles import LeerIni
 
 if LeerIni(clave='base') == 'sqlite':
     if LeerIni(clave='usa_nombre_db') == 'S':
@@ -28,8 +28,16 @@ if LeerIni(clave='base') == 'sqlite':
         db = SqliteDatabase(f'sistema.db')
         print("Usando sistema.db")
 else:
+    # El password se resuelve aca, sin mostrar ningun dialogo: este modulo se
+    # importa antes de que exista una QApplication. Si no esta disponible
+    # (el usuario todavia no lo tipeo) queda vacio y la conexion falla con un
+    # error claro, en vez de romper el arranque.
+    from libs.secretos import resolver_password_base
+    _password_base = resolver_password_base() or ''
+    if not _password_base:
+        print("Falta el password de la base. Se va a pedir al usuario.")
     db = MySQLDatabase(LeerIni("basedatos"), user=LeerIni("usuario"),
-                       password=desencriptar(LeerIni('password').encode(),LeerIni('key').encode()),
+                       password=_password_base,
                    host=LeerIni("host"), port=3306)
 
 class ModeloBase(Model):

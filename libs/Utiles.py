@@ -13,6 +13,7 @@
 #Utilidades varias necesarias en el sistema
 import argparse
 import calendar
+import configparser
 import platform
 import subprocess
 import tempfile
@@ -51,7 +52,7 @@ from cryptography.fernet import Fernet
 from os.path import join
 from sys import argv
 
-from libs import Ventanas, Constantes
+from libs import Constantes
 
 
 #necesario porque en mysql tengo definido el campo boolean como bit
@@ -72,21 +73,42 @@ def AbrirArchivo(cArchivo=None):
 
 #leo el archivo de configuracion del sistema
 #recibe la clave y el key a leer en caso de que tenga mas de una seccion el archivo
+
+def _leer_config(Config, ruta):
+    """Carga el archivo de configuracion en el ConfigParser, a mano.
+
+    No se usa Config.read() a proposito: pyafipws/utils.py reemplaza ese
+    metodo a nivel global por uno que abre en latin1 y que revienta si el
+    archivo no existe. Como el patch es global, en cuanto se importa
+    cualquier cosa de pyafipws el sistema.ini entero se leia en latin1
+    (los acentos y la enie salian como caracteres raros) y cualquier
+    archivo ausente tiraba FileNotFoundError en vez de devolver vacio.
+    """
+    try:
+        with open(ruta, "r", encoding="utf-8-sig") as archivo:
+            Config.read_file(archivo)
+    except FileNotFoundError:
+        pass
+    except (OSError, UnicodeDecodeError, configparser.Error):
+        # un archivo de configuracion ilegible no puede voltear la app
+        pass
+
+
 def LeerIni(clave=None, key=None, carpeta=''):
     analizador = argparse.ArgumentParser(description='Sistema de Facturacion Electronica.')
     analizador.add_argument("-i", "--inicio", default=os.getcwd(), help="Carpeta de Inicio de sistema.")
     analizador.add_argument("-a", "--archivo", default="sistema.ini", help="Archivo de Configuracion de sistema.")
-    argumento = analizador.parse_args()
+    argumento = analizador.parse_known_args()[0]
     retorno = ''
     Config = ConfigParser()
     archivoini = argumento.archivo
     carpeta = argumento.inicio
     # Config.read("sistema.ini")
     if carpeta:
-        Config.read(join(carpeta, archivoini))
+        _leer_config(Config, join(carpeta, archivoini))
         # logging.debug("Archivo utilizado {}".format(join(carpeta, archivoini)))
     else:
-        Config.read(archivoini)
+        _leer_config(Config, archivoini)
         # logging.debug("Archivo utilizado {}".format(archivoini))
 
     try:
@@ -99,22 +121,30 @@ def LeerIni(clave=None, key=None, carpeta=''):
     # print("archivo {} clave {} key {} carpeta {} valor {}".format(archivoini, clave, key, carpeta, retorno))
     return retorno
 
-def GrabarIni(clave=None, key=None, valor=''):
+def GrabarIni(clave=None, key=None, valor='', borrar=False):
     analizador = argparse.ArgumentParser(description='Sistema de Facturacion Electronica.')
-    analizador.add_argument("-i", "--inicio", default=os.getcwd(), help="Carpeta de Inicio de sistema.")
+    analizador.add_argument("-i", "--inicio", default=os.getcwd(), help="Carpeta de Inicio del sistema.")
     analizador.add_argument("-a", "--archivo", default="sistema.ini", help="Archivo de Configuracion de sistema.")
-    argumento = analizador.parse_args()
+    argumento = analizador.parse_known_args()[0]
     archivoini = argumento.archivo
     carpeta = argumento.inicio
 
     if not clave or not key:
         return
     Config = ConfigParser()
-    Config.read(join(carpeta, archivoini))
-    cfgfile = open(join(carpeta, archivoini), 'w')
+    _leer_config(Config, join(carpeta, archivoini))
+    # utf-8 explicito: con la codificacion por defecto de la plataforma
+    # (cp1252 en Windows) los acentos y la enie del nombre de la empresa
+    # se guardaban con otros bytes y al releerlos no coincidian.
+    cfgfile = open(join(carpeta, archivoini), 'w', encoding='utf-8')
     if not Config.has_section(key):
         Config.add_section(key)
-    Config.set(key, clave, valor)
+    if borrar:
+        # Saca la clave en vez de dejarla vacia. Se usa cuando un secreto
+        # migra a otro backend y la clave vieja deja de servir.
+        Config.remove_option(key, clave)
+    else:
+        Config.set(key, clave, valor)
     Config.write(cfgfile)
     cfgfile.close()
 
@@ -129,17 +159,118 @@ def ubicacion_sistema():
     return c_ubicacion
 
 def imagen(archivo):
-    archivoImg = ubicacion_sistema() + join("imagenes", archivo)
-    # print("Icono formulario {}".format(archivoImg))
-    if os.path.exists(archivoImg):
-        return archivoImg
-    else:
-        return ""
+    """Ruta de un icono dentro de imagenes/.
+
+    La resolucion real esta en libs.recursos: prueba varias carpetas base y
+    devuelve la primera donde exista el archivo. Antes se armaba la ruta con
+    el `iniciosistema` del ini, que queda desactualizado cuando la instalacion
+    se copia a otra carpeta y por eso dejaba los iconos rotos en el ejecutable
+    compilado.
+    """
+    from libs.recursos import imagen as _imagen
+    return _imagen(archivo)
+
+
+def icono(nombre, alterno=None):
+    """Icono del set nuevo (imagenes/iconos/*.svg), con caida al viejo.
+
+    Los SVG son vectoriales y de un solo trazo, asi que se ven nítidos en
+    cualquier monitor y comparten estilo entre sí. Conviven con los PNG
+    anteriores mientras se migra pantalla por pantalla.
+    """
+    from libs.recursos import icono as _icono
+    return _icono(nombre, alterno)
 
 def icono_sistema():
+    """Icono de la aplicacion: el logo de Vogel Consultoria.
 
-    cIcono = QtGui.QIcon(imagen("Logo S-01.png"))
+    Se usan los .png de imagenes/marca/ en vez de un .ico suelto porque QIcon
+    elige la resolucion que necesita de la lista: en un monitor de alta
+    densidad el icono de la barra de tareas se ve borroso si se le pasa un PNG
+    de 1254 px que se reescala, y con un solo .ico hay que acertar el tamano.
+    Los .ico si se usan para el .exe y el instalador, que los necesita el
+    sistema operativo, no Qt.
+    """
+    cIcono = QtGui.QIcon()
+    from libs.recursos import ruta_recurso
+    for lado in (256, 128, 64, 48, 32, 24, 16):
+        ruta = ruta_recurso("imagenes/marca/logo-{}.png".format(lado))
+        if ruta:
+            cIcono.addFile(ruta)
+    if cIcono.isNull():
+        # Sin los derivados: cae al original completo antes de quedar sin icono.
+        cIcono = QtGui.QIcon(ruta_recurso("imagenes/marca/logo-vogel.png") or "")
     return cIcono
+
+def a_entero(valor, defecto=0):
+    """Convierte a entero sin tirar abajo la pantalla.
+
+    El .ini lo edita la gente, a mano. Una clave vacia, con un typo o con un
+    valor no numerico no puede impedir que se abra una pantalla entera: lo
+    unico razonable es usar el valor por defecto y seguir.
+
+    Antes se usaba a_entero(LeerIni(...), 0) pelado. Con [WSFEv1] cat_iva vacia, la
+    pantalla de Comprobantes, la consulta de CAE y el rind e de CAEA caian
+    con 'invalid literal for int()'.
+    """
+    if valor is None:
+        return defecto
+    if isinstance(valor, (int, float)):
+        return int(valor)
+    texto = str(valor).strip()
+    if not texto:
+        return defecto
+    try:
+        return int(texto)
+    except ValueError:
+        pass
+    try:
+        # "5.0" o "5,0" tambien son numeros validos para un entero.
+        return int(float(texto.replace(",", ".")))
+    except ValueError:
+        return defecto
+
+
+def a_decimal(valor, defecto=None):
+    """Como a_entero, pero para montos.
+
+    El defecto es None a proposito: None significa 'no hay dato', que es
+    distinto de cero. Un importe en 0 y un importe desconocido no son lo mismo.
+    """
+    import decimal
+    if valor is None:
+        return defecto
+    if isinstance(valor, decimal.Decimal):
+        return valor
+    if isinstance(valor, (int, float)):
+        return decimal.Decimal(str(valor))
+    texto = str(valor).strip().replace(",", ".")
+    if not texto:
+        return defecto
+    try:
+        return decimal.Decimal(texto)
+    except decimal.InvalidOperation:
+        return defecto
+
+
+def formato_cuit(valor):
+    """Devuelve el CUIT con guiones: 20123456789 -> 20-12345678-9
+
+    El dato se guarda sin guiones porque es lo que espera AFIP, pero en un
+    comprobante fiscal se muestra con guiones: es como lo pide la norma y
+    como lo lee cualquier persona. El campo de captura de la app ya usa la
+    mascara '99-99999999-9', pero el valor guardado en el .ini nunca pasa por
+    esa mascara y llegaba al PDF crudo.
+    """
+    if not valor:
+        return ""
+    digitos = "".join(c for c in str(valor) if c.isdigit())
+    if len(digitos) != 11:
+        # No lo toco: un CUIT raro o algo que no es un CUIT se muestra tal
+        # cual para que se vea el problema, en vez de recortarlo.
+        return str(valor).strip()
+    return "{}-{}-{}".format(digitos[:2], digitos[2:10], digitos[10:])
+
 
 def hash_password(password):
     # uuid is used to generate a random number
@@ -165,6 +296,43 @@ def desencriptar(encrypted_data, key):
     return plain_text.decode('utf-8')
 
 
+def _texto_excepcion(objeto):
+    """La Excepcion de pyafipws, como texto.
+
+    pyemail.py deja `self.Excepcion = traceback.format_exception_only`: la
+    FUNCION, sin llamar. Si se la pasa a logging tal cual, al log le queda la
+    representacion "<built-in function format_exception_only>" en vez del
+    mensaje real del error, que es justo lo que se necesita leer.
+    """
+    valor = getattr(objeto, "Excepcion", "")
+    if callable(valor):
+        try:
+            valor = valor(sys.exc_info()[0], sys.exc_info()[1])
+            if isinstance(valor, (list, tuple)):
+                valor = "".join(valor)
+        except Exception:
+            valor = "error desconocido en el envio de correo"
+    return str(valor or "") + " " + str(getattr(objeto, "Traceback", "") or "")
+
+
+def _parametro_smtp(nombre, defecto=""):
+    """Un valor de Parametros del sistema, o el que le paso.
+
+    Los datos de correo estan guardados en la base, no en el codigo, para que
+    cada instalacion pueda tener los suyos sin tocar el programa. Si la base
+    todavia no esta (por ejemplo, en el primer arranque, o justo en el error que
+    estamos reportando) se devuelve el valor por defecto.
+    """
+    try:
+        from modelos.ParametrosSistema import ParamSist
+        valor = ParamSist.ObtenerParametro(nombre)
+        if valor and str(valor).strip():
+            return str(valor).strip()
+    except Exception:
+        pass
+    return defecto or ""
+
+
 def inicializar_y_capturar_excepciones(func):
     "Decorador para inicializar y capturar errores"
     @wraps(func)
@@ -178,30 +346,68 @@ def inicializar_y_capturar_excepciones(func):
             self.Traceback = ''.join(ex)
             self.Excepcion = traceback.format_exception_only( sys.exc_info()[0], sys.exc_info()[1])[0]
             logging.debug(self.Traceback)
-            if LeerIni('debug') == 'N':
+            from libs import Ventanas
+            # SilenciarError apaga SOLO el dialogo, no el reporte. Quien llama
+            # (por ejemplo la emision de una factura) sabe mas que este
+            # decorador y va a mostrar un error accionable; mostrar este ademas
+            # era hacer ver el mismo problema dos veces. El correo a soporte
+            # sigue yendo: perder el aviso automatico de una falla fiscal seria
+            # un retroceso peor que el dialogo duplicado.
+            if not getattr(self, "SilenciarError", False):
                 Ventanas.showAlert("Error", "Se ha producido un error \n{}".format(self.Excepcion))
-                pyemail = PyEmail()
-                remitente = 'fe@servinlgsm.com.ar'
-                destinatario = 'fe@servinlgsm.com.ar'
-                mensaje = "{} {} Enviado desde mi Software de Gestion desarrollado por http://www.servinlgsm.com.ar".format(
-                    self.Traceback, self.Excepcion
-                )
-                motivo = "Se envia informe de errores de {}".format(LeerIni(clave='empresa', key='FACTURA'))
-                # servidor = ParamSist.ObtenerParametro("SERVER_SMTP")
-                # clave = ParamSist.ObtenerParametro("CLAVE_SMTP")
-                # usuario = ParamSist.ObtenerParametro("USUARIO_SMTP")
-                # puerto = ParamSist.ObtenerParametro("PUERTO_SMTP") or 587
-                #
-                pyemail.Conectar(servidor=Constantes.SERVER_SMTP,
-                                 usuario=Constantes.USUARIO_SMTP,
-                                 clave=Constantes.CLAVE_SMTP,
-                                 puerto=Constantes.PUERTO_SMTP)
+            if LeerIni('debug') == 'N':
+                # A quien se le avisa sale de Parametros del sistema, y si no
+                # esta configurado, de las constantes. Antes estaba fijo en el
+                # codigo con la direccion del desarrollador anterior, y el
+                # reporte automatico de errores de los clientes seguia yendo
+                # ahi: o se perdia, o llegaba a un buzon que ya no es de nadie
+                # de este proyecto.
+                servidor = _parametro_smtp("SERVER_SMTP", Constantes.SERVER_SMTP)
+                remitente = _parametro_smtp("USUARIO_SMTP", Constantes.USUARIO_SMTP)
+                clave = _parametro_smtp("CLAVE_SMTP", Constantes.CLAVE_SMTP)
+                puerto = _parametro_smtp("PUERTO_SMTP", Constantes.PUERTO_SMTP) or 587
+                destinatario = _parametro_smtp("DESTINO_ERRORES", remitente) or remitente
 
-                ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje)
-                if not ok:
-                    Ventanas.showAlert("Error", "{} {}".format(
-                        pyemail.Excepcion, pyemail.Traceback
-                    ))
+                if not servidor or not remitente or not clave:
+                    # Sin configurar no se intenta conectar: un host vacio o
+                    # inventado revienta con un error de socket que no dice nada
+                    # util, y esto corre justo cuando algo ya fallo. El
+                    # traceback original ya quedo en el log, que es el registro
+                    # que importa.
+                    # Con el nombre real del parámetro, no con una palabra
+                    # suelta: el que lee el log tiene que poder ir a
+                    # Parametros del sistema y saber exactamente qué tocar.
+                    faltantes = [n for n, v in
+                                 (("SERVER_SMTP", servidor),
+                                  ("USUARIO_SMTP", remitente),
+                                  ("CLAVE_SMTP", clave)) if not v]
+                    logging.error(
+                        "No se reporto el error por correo: falta configurar {} "
+                        "en Parametros del sistema. El traceback quedo en el log.".format(
+                            ", ".join(faltantes)))
+                else:
+                    mensaje = "{} {}\n\nEnviado desde {}. {}".format(
+                        self.Traceback, self.Excepcion,
+                        Constantes.NOMBRE_PRODUCTO, Constantes.CREDITO_SOFTWARE
+                    )
+                    motivo = "Informe de errores de {}".format(
+                        LeerIni(clave='empresa', key='FACTURA') or Constantes.NOMBRE_PRODUCTO)
+                    pyemail = PyEmail()
+                    conectado = pyemail.Conectar(servidor=servidor, usuario=remitente,
+                                                 clave=clave, puerto=puerto)
+                    if not conectado:
+                        # pyemail deja Excepcion como la FUNCION traceback.
+                        # format_exception_only, sin llamar, y por eso hay que
+                        # traerla a texto antes de usarla.
+                        logging.error("No se pudo conectar al servidor de correo: %s",
+                                      _texto_excepcion(pyemail))
+                    else:
+                        ok = pyemail.Enviar(remitente, motivo, destinatario, mensaje)
+                        if not ok:
+                            # Que falle el reporte no puede tapar el error
+                            # original: queda en el log.
+                            logging.error("No se pudo enviar el reporte de errores: %s",
+                                          _texto_excepcion(pyemail))
                 # envia_correo(from_address=remitente, to_address=destinatario,
                 #              message=mensaje, subject=motivo)
             else:

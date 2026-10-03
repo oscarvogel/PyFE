@@ -14,9 +14,17 @@ class ResguardoController(FTP):
 
     @threaded
     def Cargar(self, filename, callback=None):
+        servidor = LeerIni("servidor", key='RESPALDO')
+        usuario = LeerIni("usuario", key='RESPALDO')
+        clave = LeerIni("clave", key='RESPALDO')
+
+        if not (servidor and usuario and clave):
+            print("Resguardo desactivado: falta configurar [RESPALDO] en sistema.ini")
+            return
+
         try:
-            self.connect("ftp.servinlgsm.com.ar")
-            self.login("fe@servinlgsm.com.ar", "Factura2019")
+            self.connect(servidor)
+            self.login(usuario, clave)
             folderName = LeerIni("empresa", key='FACTURA')
             if not folderName in self.nlst():
                 self.mkd(LeerIni("empresa", key='FACTURA'))

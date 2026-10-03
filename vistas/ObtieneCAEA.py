@@ -5,6 +5,7 @@ from libs.Botones import Boton, BotonCerrarFormulario
 from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Spinner import Periodo
+from libs.Utiles import imagen, icono
 from vistas.VistaBase import VistaBase
 
 
@@ -31,7 +32,7 @@ class ObtieneCAEAView(VistaBase):
         layoutPpal.addLayout(layoutLinea1)
 
         layoutBotones = QHBoxLayout()
-        self.btnObtener = Boton(texto="Obtener CAEA", imagen='imagenes/if_product-sales-report_49607.png')
+        self.btnObtener = Boton(texto="Obtener CAEA", imagen=icono('productos'), estilo='primario')
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnObtener)
         layoutBotones.addWidget(self.btnCerrar)

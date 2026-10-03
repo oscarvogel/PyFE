@@ -33,9 +33,13 @@ class ConfiguracionController(ControladorBase):
         self.view.controles['HOMO'].setIndex(LeerIni(clave='homo', key='param'))
         self.view.controles['Base'].setText(LeerIni(clave='base', key='param'))
         #unicamente levanto la contraseña cuando tiene algo
-        if LeerIni(clave='password', key='param'):
-            self.view.controles['password'].setText(
-                desencriptar(LeerIni(clave='password', key='param'), LeerIni(clave='key', key='param')))
+        # El resolver acepta las tres formas a la vez: 'dpapi:v1:',
+        # 'fernet:v1:' y el esquema viejo. Si algo esta roto, se muestra
+        # vacio en vez de romper la pantalla de configuracion.
+        from libs.secretos import resolver_password_base
+        _password = resolver_password_base()
+        if _password:
+            self.view.controles['password'].setText(_password)
         self.view.controles['num_copias'].setText(LeerIni(clave='num_copias', key='FACTURA'))
         self.view.controles['cat_iva'].setIndex(LeerIni(clave='cat_iva', key='WSFEv1'))
         self.view.controles['cbufce'].setText(LeerIni(clave='cbufce', key='FACTURA'))
@@ -47,7 +51,10 @@ class ConfiguracionController(ControladorBase):
             self.view.controles['crt'].setText(LeerIni(clave='cert_homo', key='WSAA'))
             self.view.controles['key'].setText(LeerIni(clave='privatekey_homo', key='WSAA'))
 
-        self.view.controles['tema'].setIndex(ParamSist.ObtenerParametro("TEMA"))
+        # Ya no se carga el parametro TEMA: el selector de tema se elimino de
+        # la pantalla (ver vistas/Configuracion.py) porque los 7 .css que
+        # ofrecia nunca se aplicaban. El tema real es temas/pyfe.css y lo
+        # aplica libs/tema.py al arrancar.
 
     @inicializar_y_capturar_excepciones
     def GrabaParametros(self, *args, **kwargs):
@@ -65,10 +72,12 @@ class ConfiguracionController(ControladorBase):
         GrabarIni(clave='HOMO', key='param', valor=self.view.controles['HOMO'].text())
         GrabarIni(clave='Base', key='param', valor=self.view.controles['Base'].text())
         #si tiene una contraseña la guardo de lo contrario no
+        # Al guardar se migra sola: con Windows queda en 'dpapi:v1:' y se
+        # borra la clave Fernet vieja, que ya no sirve y seria otro secreto
+        # dando vueltas en el archivo.
         if self.view.controles['password'].text():
-            password, key = encriptar(bytes(self.view.controles['password'].text(), encoding='utf8'))
-            GrabarIni(clave='password', key='param', valor=password.decode('utf-8'))
-            GrabarIni(clave='key', key='param', valor=key.decode('utf-8'))
+            from libs.secretos import persistir_password_base
+            persistir_password_base(self.view.controles['password'].text())
         GrabarIni(clave='cat_iva', key='WSFEv1', valor=self.view.controles['cat_iva'].text())
         GrabarIni(clave='cbufce', key='FACTURA', valor=self.view.controles['cbufce'].text())
         GrabarIni(clave='aliasfce', key='FACTURA', valor=self.view.controles['aliasfce'].text())
@@ -79,6 +88,7 @@ class ConfiguracionController(ControladorBase):
             GrabarIni(clave='cert_homo', key='WSAA', valor=self.view.controles['crt'].text())
             GrabarIni(clave='privatekey_homo', key='WSAA', valor=self.view.controles['key'].text())
 
-        ParamSist.GuardarParametro(parametro="TEMA", valor=self.view.controles['tema'].text())
+        # El parametro TEMA ya no se guarda: el selector se elimino de la
+        # pantalla. Ver la nota en la carga de datos, mas arriba.
         self.view.EstablecerTema()
         Ventanas.showAlert(LeerIni('nombre_sistema'), 'Configuracion guardada con exito')

@@ -2,7 +2,7 @@
 from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
 
 from libs.Botones import BotonArchivo, BotonCerrarFormulario, Boton
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 from vistas.VistaBase import VistaBase
 
 
@@ -28,7 +28,7 @@ class GeneraCertificadoView(VistaBase):
         layoutArchivo.addWidget(self.btnArchivo)
 
         layoutBotones = QHBoxLayout()
-        self.btnGenera = Boton(texto="Genera", imagen=imagen("Accept.png"))
+        self.btnGenera = Boton(texto="Genera", imagen=icono('check'), estilo='primario')
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnGenera)
         layoutBotones.addWidget(self.btnCerrar)

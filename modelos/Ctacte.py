@@ -14,9 +14,9 @@ class CtaCte(ModeloBase):
     idfactura = ForeignKeyField(Cabfact)
     idrecibo = ForeignKeyField(Cabfact)
     monto = DecimalField(decimal_places=4, max_digits=12)
-    usuario = CharField(default='', db_column='_usuario')
-    fechagraba = DateField(default=datetime.now(), db_column='_fecha')
-    hora = CharField(default=datetime.now().strftime('%H:%M:%S'), db_column='_hora')
+    usuario = CharField(default='', column_name='_usuario')
+    fechagraba = DateField(default=datetime.now(), column_name='_fecha')
+    hora = CharField(default=datetime.now().strftime('%H:%M:%S'), column_name='_hora')
 
     class Meta:
         table_name = 'ctacte'

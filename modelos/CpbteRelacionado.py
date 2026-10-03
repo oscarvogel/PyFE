@@ -9,8 +9,8 @@ from modelos.Tipocomprobantes import TipoComprobante
 class CpbteRel(ModeloBase):
 
     id = AutoField()
-    idcabfact = ForeignKeyField(Cabfact, db_column='idcabfact')
-    idtipocpbte = ForeignKeyField(TipoComprobante, db_column='idtipocpbte')
+    idcabfact = ForeignKeyField(Cabfact, column_name='idcabfact')
+    idtipocpbte = ForeignKeyField(TipoComprobante, column_name='idtipocpbte')
     numero = CharField(max_length=12)
 
     class Meta:

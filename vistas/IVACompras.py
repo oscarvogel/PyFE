@@ -17,6 +17,7 @@ from libs.Botones import Boton, BotonCerrarFormulario
 from libs.Etiquetas import EtiquetaTitulo
 from libs.Formulario import Formulario
 from libs.Spinner import Periodo
+from libs.Utiles import imagen, icono
 
 
 class IVAComprasView(Formulario):
@@ -39,7 +40,7 @@ class IVAComprasView(Formulario):
         layoutPpal.addLayout(self.periodo)
 
         layoutBotones = QHBoxLayout()
-        self.btnExcel = Boton(texto="Exportar", imagen='imagenes/excel.png')
+        self.btnExcel = Boton(texto="Exportar", imagen=icono('excel'), estilo='primario')
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnExcel)
         layoutBotones.addWidget(self.btnCerrar)

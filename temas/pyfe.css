@@ -1,0 +1,924 @@
+/* ==========================================================================
+   PyFE — tema unico de la aplicacion
+   ==========================================================================
+
+   Que es este archivo
+   -------------------
+   Es la UNICA capa de estilo de PyFE. Antes no habia ninguna: la app corria
+   con el estilo crudo del sistema y los 7 .css de esta misma carpeta eran
+   codigo muerto (nadie los aplicaba). Este archivo se aplica una sola vez, de
+   forma global, sobre la QApplication (ver libs/tema.py y main.py).
+
+   Por que un solo archivo y no el que pida cada pantalla
+   -----------------------------------------------------
+   Con 30+ pantallas, si cada vista define sus colores el resultado es que
+   ninguna se parece a otra. Un unico stylesheet sobre la aplicacion entera
+   obliga a que todo se vea igual, y es un solo lugar para cambiar el aspecto.
+
+   Tokens
+   ------
+   Qt NO soporta variables CSS, asi que los valores estan escritos literales.
+   La tabla de abajo es el contrato: si se cambia un color hay que cambiarlo
+   en todos lados donde aparece. Esta es la fuente de verdad.
+
+   ========================================================================== */
+
+QWidget {
+    background-color: #FFFFFF;
+    color: #1F2933;
+    font-family: "Segoe UI", "Noto Sans", "DejaVu Sans", sans-serif;
+    font-size: 13px;
+}
+
+/* Los QDialog usan el fondo de app, no blanco puro: distingue la ventana
+   de trabajo del escritorio y da profundidad. */
+QDialog {
+    background-color: #F4F6F9;
+}
+
+/* --------------------------------------------------------------------------
+   Tipografia
+   -------------------------------------------------------------------------- */
+
+QLabel {
+    background: transparent;
+    color: #1F2933;
+}
+
+/* Titulo de pantalla. Reemplaza el degradado azul->cian que tenia cada
+   pantalla (libs/Etiquetas.py), que es lo que hacia que la app se viera
+   como algo de la era Windows Vista. Ahora la jerarquia es tipografica. */
+QLabel[objectName="tituloPantalla"] {
+    font-size: 17px;
+    font-weight: 600;
+    color: #1F2933;
+    padding: 2px 0 6px 0;
+}
+
+/* Etiqueta de campo: mas chica y suave, para que no compita con el dato. */
+QLabel[objectName="labelNombre"],
+QLabel[objectName="labelPeriodo"] {
+    color: #52606D;
+    font-size: 12px;
+}
+
+/* Bajada de titulo de pantalla: dice que es la app sin competir con el. */
+QLabel[objectName="labelSubtitulo"] {
+    color: #6B7885;
+    font-size: 12px;
+    padding-top: -4px;
+}
+
+QLabel[objectName="labelTitulo"] {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Botones
+   -------------------------------------------------------------------------- */
+
+QPushButton {
+    background-color: #FFFFFF;
+    border: 1px solid #D5DCE4;
+    border-radius: 4px;
+    padding: 6px 14px;
+    color: #1F2933;
+    /* Sin min-height: en Qt, cuando un selector de stylesheet define una
+       propiedad, esa pisa al setMinimumHeight() del codigo. Con min-height
+       aca, todos los setMinimumHeight del proyecto quedaban sin efecto y los
+       botones grandes de la pantalla principal salian aplastados. El alto
+       natural lo define el padding; si alguna pantalla necesita mas alto, lo
+       pide con setMinimumHeight y ahora si se respeta. */
+}
+
+QPushButton:hover {
+    background-color: #F0F4F9;
+    border-color: #A9BACD;
+}
+
+QPushButton:pressed {
+    background-color: #E2EAF3;
+    border-color: #8FA6BE;
+}
+
+QPushButton:focus {
+    border-color: #0863C6;
+}
+
+QPushButton:disabled {
+    color: #9AA5B1;
+    background-color: #F7F9FB;
+    border-color: #E3E8ED;
+}
+
+/* Accion principal: una sola por pantalla, y es la que da la accion al
+   usuario. Se marca con Boton(estilo='primario'). */
+QPushButton[clase="primario"] {
+    background-color: #0863C6;
+    border: 1px solid #0863C6;
+    color: #FFFFFF;
+    font-weight: 600;
+}
+
+QPushButton[clase="primario"]:hover {
+    background-color: #0A57A8;
+    border-color: #0A57A8;
+}
+
+QPushButton[clase="primario"]:pressed {
+    background-color: #063F80;
+}
+
+QPushButton[clase="primario"]:disabled {
+    background-color: #9EC0E0;
+    border-color: #9EC0E0;
+    color: #EFF3F7;
+}
+
+/* Accion de riesgo: borrar, anular. */
+QPushButton[clase="peligro"] {
+    color: #C62F35;
+    border-color: #E4B9B6;
+}
+
+QPushButton[clase="peligro"]:hover {
+    background-color: #FBEDEC;
+    border-color: #C62F35;
+}
+
+/* Sin borde: para acciones terciarias dentro de una barra. */
+QPushButton[clase="plano"] {
+    background: transparent;
+    border: 1px solid transparent;
+}
+
+QPushButton[clase="plano"]:hover {
+    background-color: #EDF2F7;
+    border-color: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   Campos de entrada
+   -------------------------------------------------------------------------- */
+
+QLineEdit,
+QTextEdit,
+QPlainTextEdit,
+QSpinBox,
+QDoubleSpinBox,
+QDateEdit,
+QTimeEdit,
+QComboBox {
+    background-color: #FFFFFF;
+    border: 1px solid #CFD8E1;
+    border-radius: 4px;
+    padding: 5px 8px;
+    color: #1F2933;
+    selection-background-color: #0863C6;
+    selection-color: #FFFFFF;
+    /* min-height ausente a proposito: en Qt pisa al setMinimumHeight() del
+       codigo. Ver la nota en QPushButton. */
+}
+
+QLineEdit:hover,
+QComboBox:hover,
+QSpinBox:hover,
+QDoubleSpinBox:hover,
+QDateEdit:hover,
+QTimeEdit:hover {
+    border-color: #A9BACD;
+}
+
+QLineEdit:focus,
+QTextEdit:focus,
+QPlainTextEdit:focus,
+QSpinBox:focus,
+QDoubleSpinBox:focus,
+QDateEdit:focus,
+QTimeEdit:focus,
+QComboBox:focus {
+    border: 1px solid #0863C6;
+    background-color: #FFFFFF;
+}
+
+QLineEdit:disabled,
+QTextEdit:disabled,
+QComboBox:disabled,
+QSpinBox:disabled,
+QDoubleSpinBox:disabled {
+    background-color: #F1F4F7;
+    color: #8A97A4;
+    border-color: #E0E6EC;
+}
+
+/* La flecha del combo se dibuja con un recurso propio.
+   Se pidio dejar que Fusion la dibujara, pero con un QComboBox estilizado
+   Fusion no pinta el indicador y el control queda como un campo de texto
+   cualquiera: no hay forma de saber que se desplega. Con bordes CSS tampoco
+   sale: Qt no arma triangulos con bordes en un subcontrol (da un cuadrado
+   negro solido).
+   El prefijo @ lo resuelve libs/tema.py a una ruta absoluta, porque Qt
+   busca las url() contra el cwd y en el .exe.compilado no es la carpeta
+   de la app. Se generan con tools/generar_recursos_tema.py. */
+QComboBox::drop-down {
+    border: none;
+    width: 24px;
+}
+
+QComboBox::down-arrow {
+    image: url(@recursos/chevron-abajo.png);
+    width: 16px;
+    height: 16px;
+    margin-right: 6px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #FFFFFF;
+    border: 1px solid #CFD8E1;
+    selection-background-color: #0863C6;
+    selection-color: #FFFFFF;
+    outline: none;
+    padding: 2px;
+}
+
+/* Estados de un campo, los pone libs.tema.marcar_estado().
+   Antes cada codigo se ponia su propio color de fondo con setStyleSheet
+   (azul Dodgerblue si estaba ok, amarillo si no). Con un fondo entero de
+   color fuerte el texto se dejaba de leer, y los colores no coincidian entre
+   pantallas. Ahora el estado se marca con el borde y un fondo apenas teñido:
+   se sigue viendo si el dato es valido, sin tapar el campo. */
+QLineEdit[estado="ok"],
+QComboBox[estado="ok"],
+QSpinBox[estado="ok"],
+QDoubleSpinBox[estado="ok"] {
+    border: 1px solid #1E7B4D;
+    background-color: #F1F9F4;
+}
+
+QLineEdit[estado="error"],
+QComboBox[estado="error"],
+QSpinBox[estado="error"],
+QDoubleSpinBox[estado="error"] {
+    border: 1px solid #C62F35;
+    background-color: #FDF3F2;
+}
+
+QLineEdit[estado="aviso"],
+QComboBox[estado="aviso"],
+QSpinBox[estado="aviso"],
+QDoubleSpinBox[estado="aviso"] {
+    border: 1px solid #B7791F;
+    background-color: #FDF8EE;
+}
+
+/* El foco manda sobre el estado: si el usuario esta escribiendo, lo que
+   importa es que se vea donde esta el cursor. */
+QLineEdit[estado="ok"]:focus,
+QLineEdit[estado="error"]:focus,
+QLineEdit[estado="aviso"]:focus,
+QComboBox[estado="ok"]:focus,
+QComboBox[estado="error"]:focus {
+    border: 2px solid #0863C6;
+    background-color: #FFFFFF;
+}
+
+/* La etiqueta de "Conectado" del primer arranque. */
+QLabel[estado="error"] {
+    color: #C62F35;
+}
+
+/* --------------------------------------------------------------------------
+   Armazon: encabezado, barra lateral, barra de estado
+   --------------------------------------------------------------------------
+   Son los tres bloques que envuelven a todas las pantallas. Se distinguen
+   de las pantallas por la superficie, no por un borde: el contenido flota
+   sobre el fondo de la app y el cromo alrededor es apenas mas oscuro. Asi la
+   ventana de trabajo siempre se lee como lo mas importante.
+   -------------------------------------------------------------------------- */
+
+/* El encabezado lleva el navy de la marca (#031A3E), que es el mismo fondo del
+   logo: por eso el logo no lleva placa ni marco, se funde con el encabezado.
+   El dorado y el azul de la marca solo se usan arriba; el resto de la app sigue
+   siendo claro, que es lo que hace legible una tabla con veinte columnas. */
+QFrame[objectName="encabezado"] {
+    background-color: #031A3E;
+    border-bottom: 1px solid #0A2B52;
+}
+
+QFrame[objectName="encabezado"] QLabel {
+    color: #FFFFFF;
+}
+
+/* El subtitulo (empresa y CUIT) va en un azul claro desaturado para no competir
+   con el titulo: blanco puro para los dos los deja como un solo bloque.
+
+   Esta regla va DENTRO de la del encabezado a proposito: el mismo objectName
+   se usa en el panel de bienvenida, que es claro, y con el azul claro de
+   arriba ahi el texto no se leia. */
+QFrame[objectName="encabezado"] QLabel[objectName="labelSubtitulo"] {
+    color: #9FB8D8;
+}
+
+/* El logo va sobre el navy del encabezado, que es su propio fondo: no lleva
+   placa ni borde porque se veria el recorte del PNG. */
+QLabel[objectName="logoEncabezado"] {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+/* -- Barra lateral ------------------------------------------------------- */
+/* Con un tinte de navy, apenas perceptible. Sigue siendo clara: es la zona
+   donde el usuario lee 36 nombres de accion, y oscurecerla los vuelve
+   cansado. La marca entra por el encabezado, no por la lista. */
+QFrame[objectName="barraLateral"] {
+    background-color: #EEF2F8;
+    border-right: 1px solid #DCE3EC;
+}
+
+QFrame[objectName="barraEstado"] {
+    background-color: #EEF2F7;
+    border-top: 1px solid #DDE4EB;
+}
+
+QWidget[objectName="areaContenido"] {
+    background-color: #F4F6F9;
+}
+
+/* -- Chip de homologacion / produccion ---------------------------------- */
+/* Es lo unico que dice, en pantalla, si el sistema esta por emitir a AFIP de
+   verdad. Antes el modo solo se anunciaba con un print a una consola que el
+   usuario nunca ve. En un sistema fiscal, esa duda no puede quedar abierta.
+
+   Los dos estados tienen que distinguirse de un vistazo, asi que usan color y
+   texto: el dorado es "atencion" (estas probando, no facturas) y el rojo es
+   "esto sale de verdad". Nunca solo color, porque hay gente que no
+   distingue rojo de verde. */
+QLabel[objectName="chipModo"] {
+    border-radius: 11px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+QLabel[objectName="chipModo"][modo="homo"] {
+    background-color: #F4A807;
+    color: #2A1D00;
+    border: 1px solid #F4A807;
+}
+
+/* #C62F35 y no un rojo mas brillante: con el claro, el blanco encima queda
+   en 3.9:1 y no cumple el minimo AA de 4.5:1. Este da 5.4:1 y ademas se ve
+   mas serio, que para "esto sale de verdad" es lo que corresponde. */
+QLabel[objectName="chipModo"][modo="produccion"] {
+    background-color: #C62F35;
+    color: #FFFFFF;
+    border: 1px solid #C62F35;
+}
+
+/* -- Barra lateral ------------------------------------------------------- */
+
+QLabel[objectName="tituloSeccion"] {
+    color: #7A8794;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    background: transparent;
+    padding: 0;
+}
+
+/* El contenido del scroll tiene que llevar el color del sidebar: si queda
+   transparente se ve la banda blanca del QScrollArea y cada titulo de seccion
+   parece un recuadro. */
+QScrollArea[objectName="scrollLateral"] > QWidget > QWidget {
+    background-color: #EEF2F8;
+}
+
+QPushButton[objectName="itemNavegacion"] {
+    background: transparent;
+    border: none;
+    border-left: 3px solid transparent;
+    border-radius: 4px;
+    padding: 6px 10px;
+    text-align: left;
+    color: #33414F;
+    min-height: 18px;
+    font-size: 13px;
+}
+
+QPushButton[objectName="itemNavegacion"]:hover {
+    background-color: #E3EAF2;
+}
+
+QPushButton[objectName="itemNavegacion"]:checked {
+    background-color: #FFFFFF;
+    border-left: 3px solid #0863C6;
+    color: #0A57A8;
+    font-weight: 600;
+}
+
+QPushButton[objectName="itemNavegacion"]:focus {
+    background-color: #E3EAF2;
+}
+
+QScrollArea[objectName="scrollLateral"] {
+    background: transparent;
+    border: none;
+}
+
+QScrollArea[objectName="scrollLateral"] > QWidget > QWidget {
+    background: transparent;
+}
+
+/* -- Barra de estado ----------------------------------------------------- */
+
+QLabel[objectName="datoEstado"] {
+    color: #52606D;
+    font-size: 12px;
+    background: transparent;
+}
+
+/* -- Panel de bienvenida y tarjetas -------------------------------------- */
+
+QWidget[objectName="panelBienvenida"] {
+    background-color: #F4F6F9;
+}
+
+QFrame[objectName="tarjetaAccion"] {
+    background-color: #FFFFFF;
+    border: 1px solid #DDE4EB;
+    border-radius: 8px;
+}
+
+QFrame[objectName="tarjetaAccion"]:hover {
+    border: 1px solid #A9BACD;
+    background-color: #FCFDFE;
+}
+
+/* El boton que cubre la tarjeta existe solo para darle foco de teclado y un
+   nombre accesible. Sin esto el tema lo pinta como un boton normal y queda un
+   rectangulo blanco arriba de cada tarjeta. */
+QPushButton[objectName="botonTarjeta"] {
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+}
+
+QPushButton[objectName="botonTarjeta"]:hover,
+QPushButton[objectName="botonTarjeta"]:pressed,
+QPushButton[objectName="botonTarjeta"]:focus {
+    background: transparent;
+    border: none;
+}
+
+QLabel[objectName="tituloTarjeta"] {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1F2933;
+    background: transparent;
+}
+
+QLabel[objectName="detalleTarjeta"] {
+    font-size: 12px;
+    color: #6B7885;
+    background: transparent;
+}
+
+/* -- Buscador de la barra lateral ---------------------------------------- */
+
+QLineEdit[objectName="buscadorLateral"] {
+    background-color: #FFFFFF;
+    border: 1px solid #CFD8E1;
+    border-radius: 5px;
+    padding: 5px 8px 5px 28px;
+    color: #1F2933;
+}
+
+QLineEdit[objectName="buscadorLateral"]:focus {
+    border: 1px solid #0863C6;
+    background-color: #FFFFFF;
+}
+
+QLineEdit[objectName="buscadorLateral"]::placeholder {
+    color: #8A97A4;
+}
+
+QLabel[objectName="sinResultados"] {
+    color: #6B7885;
+    font-size: 12px;
+    background: transparent;
+    padding: 8px 10px 0 10px;
+}
+
+/* Pie de la barra lateral: separa el boton de Acerca de la lista de secciones
+   con una linea, para que no se lea como una seccion mas.
+
+   Los colores son los del sidebar CLARO (#EEF2F8), no los de un panel oscuro:
+   con los oscuros el texto quedaba en 2.3:1 y no se leia. */
+QPushButton[objectName="botonAcercaDe"] {
+    background: transparent;
+    border: none;
+    border-top: 1px solid #DCE3EC;
+    color: #4A5A6B;
+    text-align: left;
+    padding: 10px 8px;
+    font-size: 13px;
+}
+
+QPushButton[objectName="botonAcercaDe"]:hover {
+    background-color: #E3EAF2;
+    color: #1B2836;
+}
+
+QPushButton[objectName="botonAcercaDe"]:focus {
+    background-color: #E3EAF2;
+    color: #0A57A8;
+}
+
+QDialog[objectName="dialogoAcercaDe"] {
+    background: #FFFFFF;
+    min-width: 380px;
+}
+
+QLabel[objectName="tituloAcercaDe"] {
+    color: #031A3E;
+    font-size: 19px;
+    font-weight: 700;
+    background: transparent;
+    padding: 2px 0 4px 0;
+}
+
+QPushButton[objectName="botonCerrar"] {
+    min-width: 92px;
+}
+
+/* --------------------------------------------------------------------------
+   Casillas y opciones
+   -------------------------------------------------------------------------- */
+
+QCheckBox,
+QRadioButton {
+    background: transparent;
+    spacing: 7px;
+}
+
+QCheckBox::indicator,
+QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #A9BACD;
+    background-color: #FFFFFF;
+}
+
+QCheckBox::indicator {
+    border-radius: 3px;
+}
+
+QRadioButton::indicator {
+    border-radius: 8px;
+}
+
+QCheckBox::indicator:hover,
+QRadioButton::indicator:hover {
+    border-color: #0863C6;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #0863C6;
+    border-color: #0863C6;
+    image: none;
+}
+
+QRadioButton::indicator:checked {
+    background-color: #0863C6;
+    border: 4px solid #FFFFFF;
+    outline: 1px solid #0863C6;
+}
+
+/* --------------------------------------------------------------------------
+   Agrupaciones (GroupBox)
+   -------------------------------------------------------------------------- */
+
+QGroupBox {
+    background-color: #FFFFFF;
+    border: 1px solid #DDE4EB;
+    border-radius: 6px;
+    margin-top: 14px;
+    padding: 12px 12px 10px 12px;
+    font-weight: 600;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 12px;
+    padding: 0 6px;
+    color: #0863C6;
+    font-weight: 600;
+    background: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   Tablas
+   -------------------------------------------------------------------------- */
+
+QTableWidget,
+QTableView {
+    background-color: #FFFFFF;
+    border: 1px solid #DDE4EB;
+    border-radius: 6px;
+    gridline-color: #EDF1F5;
+    selection-background-color: #0863C6;
+    selection-color: #FFFFFF;
+    alternate-background-color: #F7F9FB;
+    outline: none;
+}
+
+QTableWidget::item,
+QTableView::item {
+    padding: 4px 6px;
+    border: none;
+}
+
+QTableWidget::item:selected,
+QTableView::item:selected {
+    background-color: #0863C6;
+    color: #FFFFFF;
+}
+
+QHeaderView::section {
+    background-color: #EEF2F7;
+    color: #33414F;
+    border: none;
+    border-right: 1px solid #E2E8EF;
+    border-bottom: 1px solid #D5DCE4;
+    padding: 7px 8px;
+    font-weight: 600;
+}
+
+QHeaderView::section:hover {
+    background-color: #E4EBF3;
+}
+
+QTableCornerButton::section {
+    background-color: #EEF2F7;
+    border: none;
+}
+
+/* --------------------------------------------------------------------------
+   Pestanias
+   -------------------------------------------------------------------------- */
+
+QTabWidget::pane {
+    border: 1px solid #DDE4EB;
+    border-radius: 0 0 6px 6px;
+    background-color: #FFFFFF;
+    top: -1px;
+}
+
+QTabBar::tab {
+    background-color: #EAEFF5;
+    border: 1px solid #DDE4EB;
+    border-bottom: none;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    padding: 8px 18px;
+    margin-right: 2px;
+    color: #52606D;
+}
+
+QTabBar::tab:hover {
+    background-color: #E0E8F1;
+}
+
+QTabBar::tab:selected {
+    background-color: #FFFFFF;
+    color: #0863C6;
+    font-weight: 600;
+    border-bottom: 2px solid #FFFFFF;
+}
+
+/* --------------------------------------------------------------------------
+   Listas
+   -------------------------------------------------------------------------- */
+
+QListWidget {
+    background-color: #FFFFFF;
+    border: 1px solid #DDE4EB;
+    border-radius: 6px;
+    outline: none;
+    padding: 2px;
+}
+
+QListWidget::item {
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+
+QListWidget::item:selected {
+    background-color: #0863C6;
+    color: #FFFFFF;
+}
+
+QListWidget::item:hover:!selected {
+    background-color: #EDF2F8;
+}
+
+/* --------------------------------------------------------------------------
+   Menus
+   -------------------------------------------------------------------------- */
+
+QMenu {
+    background-color: #FFFFFF;
+    border: 1px solid #CFD8E1;
+    border-radius: 6px;
+    padding: 5px;
+}
+
+QMenu::item {
+    padding: 7px 26px 7px 12px;
+    border-radius: 4px;
+    color: #1F2933;
+}
+
+QMenu::item:selected {
+    background-color: #0863C6;
+    color: #FFFFFF;
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: #E4E9EF;
+    margin: 5px 8px;
+}
+
+QMenuBar {
+    background-color: #F4F6F9;
+    border-bottom: 1px solid #DDE4EB;
+}
+
+QMenuBar::item {
+    padding: 6px 11px;
+    background: transparent;
+    border-radius: 4px;
+}
+
+QMenuBar::item:selected {
+    background-color: #0863C6;
+    color: #FFFFFF;
+}
+
+/* --------------------------------------------------------------------------
+   Barras de desplazamiento
+   -------------------------------------------------------------------------- */
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 12px;
+    margin: 0;
+    border: none;
+}
+
+QScrollBar::handle:vertical {
+    background: #C3CDD8;
+    border-radius: 5px;
+    min-height: 32px;
+    margin: 2px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #A6B4C2;
+}
+
+QScrollBar:horizontal {
+    background: transparent;
+    height: 12px;
+    margin: 0;
+    border: none;
+}
+
+QScrollBar::handle:horizontal {
+    background: #C3CDD8;
+    border-radius: 5px;
+    min-width: 32px;
+    margin: 2px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #A6B4C2;
+}
+
+/* En Windows, Fusion dibuja los botones del scrollbar si no se ocultan. */
+QScrollBar::add-line,
+QScrollBar::sub-line {
+    height: 0;
+    width: 0;
+    border: none;
+    background: none;
+}
+
+QScrollBar::add-page,
+QScrollBar::sub-page {
+    background: none;
+}
+
+/* --------------------------------------------------------------------------
+   Barras de progreso y estado
+   -------------------------------------------------------------------------- */
+
+QProgressBar {
+    border: 1px solid #DDE4EB;
+    border-radius: 5px;
+    background-color: #EEF2F8;
+    text-align: center;
+    color: #33414F;
+}
+
+QProgressBar::chunk {
+    background-color: #0863C6;
+    border-radius: 4px;
+}
+
+QStatusBar {
+    background-color: #EEF2F7;
+    border-top: 1px solid #DDE4EB;
+    color: #52606D;
+}
+
+QStatusBar::item {
+    border: none;
+}
+
+/* --------------------------------------------------------------------------
+   Barras de herramientas
+   -------------------------------------------------------------------------- */
+
+QToolBar {
+    background-color: #F4F6F9;
+    border: 1px solid #DDE4EB;
+    border-radius: 6px;
+    spacing: 4px;
+    padding: 3px;
+}
+
+QToolBar QToolButton {
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 4px;
+}
+
+QToolBar QToolButton:hover {
+    background-color: #E4EBF3;
+    border-color: #D5DCE4;
+}
+
+QToolBar QToolButton:pressed {
+    background-color: #D3DEEA;
+}
+
+/* --------------------------------------------------------------------------
+   Mensajes y ayuda
+   -------------------------------------------------------------------------- */
+
+QMessageBox {
+    background-color: #F4F6F9;
+}
+
+QMessageBox QLabel {
+    background: transparent;
+    color: #1F2933;
+    font-size: 13px;
+}
+
+QMessageBox QPushButton {
+    min-width: 84px;
+}
+
+QToolTip {
+    background-color: #1F2933;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Separadores y cajas de agrupacion alternativa
+   -------------------------------------------------------------------------- */
+
+QFrame[frameShape="4"] {
+    color: #DDE4EB;
+}
+
+/* --------------------------------------------------------------------------
+   Paleta: el contrato de tokens
+   --------------------------------------------------------------------------
+   primario        #0863C6   hover #0A57A8   presionado #063F80
+   primario suave  #E8F1FC
+   texto           #1F2933   texto suave #52606D   invertido #FFFFFF
+   superficie      #FFFFFF   fondo app    #F4F6F9
+   borde           #D5DCE4   borde fuerte #A9BACD
+   exito           #1E7B4D   advertencia  #B7791F   peligro #C62F35
+   -------------------------------------------------------------------------- */

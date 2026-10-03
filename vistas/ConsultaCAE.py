@@ -5,7 +5,7 @@ from libs.Botones import Boton, BotonCerrarFormulario
 from libs.EntradaTexto import Factura, EntradaTexto
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Grillas import Grilla
-from libs.Utiles import LeerIni
+from libs.Utiles import LeerIni, imagen, icono, a_entero
 from modelos.Tipocomprobantes import ComboTipoComp
 from vistas.VistaBase import VistaBase
 
@@ -24,7 +24,7 @@ class ConsultaCAEView(VistaBase):
 
         layoutTipoComp = QHBoxLayout()
         lblTipoComp = Etiqueta(texto="Tipo de comprobante")
-        self.cboTipoComp = ComboTipoComp(tiporesp=int(LeerIni(key='WSFEv1', clave='cat_iva')))
+        self.cboTipoComp = ComboTipoComp(tiporesp=a_entero(LeerIni(key='WSFEv1', clave='cat_iva'), 1))
         layoutTipoComp.addWidget(lblTipoComp)
         layoutTipoComp.addWidget(self.cboTipoComp)
         self.layoutFactura = Factura(titulo=u"Nº de Comprobante")
@@ -81,7 +81,7 @@ class ConsultaCAEView(VistaBase):
         layoutPpal.addWidget(self.gridIVA)
 
         layoutBotones = QHBoxLayout()
-        self.btnConsultar = Boton(texto="Consultar CAE", imagen="imagenes/buscar.png")
+        self.btnConsultar = Boton(texto="Consultar CAE", imagen=icono('buscar'), estilo='primario')
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnConsultar)
         layoutBotones.addWidget(self.btnCerrar)

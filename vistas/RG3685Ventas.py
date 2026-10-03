@@ -6,6 +6,7 @@ from libs.Botones import Boton, BotonCerrarFormulario
 from libs.Etiquetas import EtiquetaTitulo
 from libs.Formulario import Formulario
 from libs.Spinner import Periodo
+from libs.Utiles import imagen, icono
 
 
 class RG3685VentasView(Formulario):
@@ -28,7 +29,7 @@ class RG3685VentasView(Formulario):
         layoutPpal.addWidget(self.avance)
 
         layoutBotones = QHBoxLayout()
-        self.btnProcesar = Boton(texto="Procesar", imagen='imagenes/accept.png')
+        self.btnProcesar = Boton(texto="Procesar", imagen=icono('check'), estilo='primario')
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnProcesar)
         layoutBotones.addWidget(self.btnCerrar)

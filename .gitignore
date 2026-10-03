@@ -142,3 +142,19 @@ Thumbs.db
 *.bak
 * copy.ini
 * copia.ini
+
+# Configuracion local: contiene datos fiscales, rutas de certificados y
+# credenciales cifradas. Usar sistema.ini.example como plantilla.
+/sistema.ini
+
+# Scripts temporales de depuracion
+/_debug_*.py
+
+# Salidas de las herramientas de modernizacion de la UI
+docs/ui/
+_sandbox_prueba/
+_prueba_exe/
+# Entorno de prueba de facturacion (tools/armar_prueba_facturacion.py).
+# Contiene una COPIA de la clave privada de homologacion y un sistema.ini con
+# el CUIT emisor: no tiene que acercarse al repositorio.
+/_prueba_facturacion/

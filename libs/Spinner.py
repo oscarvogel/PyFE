@@ -46,7 +46,8 @@ class Spinner(QDoubleSpinBox):
         QDoubleSpinBox.focusInEvent(self, *args, **kwargs)
 
     def focusOutEvent(self, *args, **kwargs):
-        self.setStyleSheet("background-color: Dodgerblue")
+        # Ver EntradaTexto.focusOutEvent: el fondo azul al perder el foco
+        # quedo reemplazado por el tema, que maneja foco y error mejor.
         QDoubleSpinBox.focusOutEvent(self, *args, **kwargs)
 
     def setText(self, p_val):

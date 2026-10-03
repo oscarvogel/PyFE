@@ -6,7 +6,7 @@ from modelos.ModeloBase import ModeloBase
 
 class Provincia(ModeloBase):
 
-    codjur = IntegerField(primary_key=True, db_column='codjur')
+    codjur = IntegerField(primary_key=True, column_name='codjur')
     nombre = CharField(max_length=50, default='')
 
     class Meta:

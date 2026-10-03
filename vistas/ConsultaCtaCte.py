@@ -5,6 +5,7 @@ from libs.Botones import Boton, BotonCerrarFormulario
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
 from libs.Fechas import Fecha
 from libs.Grillas import Grilla
+from libs.Utiles import imagen, icono
 from modelos import Clientes
 from vistas.VistaBase import VistaBase
 
@@ -22,7 +23,7 @@ class ConsultaCtaCteView(VistaBase):
         self.layoutPpal.addWidget(self.lblTitulo)
 
         self.layoutCliente = QHBoxLayout()
-        self.lblCodigoCliente = Etiqueta(texto="Codigo")
+        self.lblCodigoCliente = Etiqueta(texto="Código")
         self.lineEditCliente = Clientes.Valida()
         self.lblNombreCliente = Etiqueta()
         self.lineEditCliente.widgetNombre = self.lblNombreCliente
@@ -50,8 +51,8 @@ class ConsultaCtaCteView(VistaBase):
         self.layoutPpal.addWidget(self.gridDatos)
 
         self.layoutBotones= QHBoxLayout()
-        self.btnMostrar = Boton(texto="&Mostrar", imagen='imagenes/buscar.png')
-        self.btnExcel = Boton(texto="&Exportar", imagen='imagenes/excel.png')
+        self.btnMostrar = Boton(texto="&Mostrar", imagen=icono('buscar'))
+        self.btnExcel = Boton(texto="&Exportar", imagen=icono('excel'))
         self.btnCerrar = BotonCerrarFormulario()
         self.layoutBotones.addWidget(self.btnMostrar)
         self.layoutBotones.addWidget(self.btnExcel)

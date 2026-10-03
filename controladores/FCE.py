@@ -1,7 +1,9 @@
 # coding=utf-8
 import logging
+import os
 
 from libs import Ventanas
+from controladores.FE import archivo_ticket_acceso, obtener_cacert
 from libs.Utiles import LeerIni, ubicacion_sistema, inicializar_y_capturar_excepciones
 from pyafipws.wsaa import WSAA
 from pyafipws.wsfecred import WSFECred
@@ -24,7 +26,7 @@ class WsFECred(WSFECred):
         else:
             service = 'wsfecred'
         wsaa = WSAA()
-        archivo = ubicacion_sistema() + service + '-ta.xml'
+        archivo = archivo_ticket_acceso(service)
         try:
             file = open(archivo, "r")
             ta = file.read()
@@ -48,16 +50,19 @@ class WsFECred(WSFECred):
             if LeerIni(clave='homo') == 'S':#homologacion
                 cms = wsaa.SignTRA(tra, LeerIni(clave="cert_homo", key="WSAA"),
                                LeerIni(clave="privatekey_homo", key="WSAA"))
-                ok = wsaa.Conectar("", LeerIni(clave='url_homo', key='WSAA'))  # Homologación
+                ok = wsaa.Conectar("", LeerIni(clave='url_homo', key='WSAA'),
+                                   cacert=obtener_cacert("WSAA"))  # Homologación
             else:
                 cms = wsaa.SignTRA(tra, LeerIni(clave="cert_prod", key="WSAA"),
                                LeerIni(clave="privatekey_prod", key="WSAA"))
-                ok = wsaa.Conectar("", LeerIni(clave='url_prod', key='WSAA')) #Produccion
+                ok = wsaa.Conectar("", LeerIni(clave='url_prod', key='WSAA'),
+                                   cacert=obtener_cacert("WSAA")) #Produccion
 
             #Llamar al web service para autenticar
             ta = wsaa.LoginCMS(cms)
 
             #Grabo el ticket de acceso para poder reutilizarlo
+            os.makedirs(os.path.dirname(archivo), exist_ok=True)
             file = open(archivo, 'w')
             logging.debug('Ticket de acceso {}'.format(ta))
             file.write(ta)

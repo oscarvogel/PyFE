@@ -8,13 +8,13 @@ from modelos.Tiporesp import Tiporesp
 
 
 class Proveedor(ModeloBase):
-    idproveedor = AutoField(db_column='idproveedor')
+    idproveedor = AutoField(column_name='idproveedor')
     nombre = CharField(max_length=60, default='')
     domicilio = CharField(max_length=60, default='')
     telefono = CharField(max_length=60, default='')
     cuit = CharField(max_length=13, default='')
-    tiporesp = ForeignKeyField(Tiporesp, db_column='tiporesp')
-    idlocalidad = ForeignKeyField(Localidad, db_column='idLocalidad')
+    tiporesp = ForeignKeyField(Tiporesp, column_name='tiporesp')
+    idlocalidad = ForeignKeyField(Localidad, column_name='idLocalidad')
 
     class Meta:
         table_name = 'proveedores'

@@ -1,0 +1,376 @@
+# coding=utf-8
+from decimal import Decimal
+
+from peewee import fn
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import QDialog, QShortcut
+
+from controladores.ControladorBase import ControladorBase
+from controladores.venta_simple_totales import RenglonVenta, calcular_totales
+from libs import Ventanas
+from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, a_entero
+from modelos.Articulos import Articulo
+from modelos.Clientes import Cliente
+from vistas.VentaSimple import VentaSimpleAltaArticuloDialog, VentaSimpleAltaClienteDialog, \
+    VentaSimpleCantidadPrecioDialog, VentaSimpleSeleccionClienteDialog, VentaSimpleView
+
+
+class VentaSimpleController(ControladorBase):
+    _atajos_creados = []
+
+    def __init__(self):
+        super(VentaSimpleController, self).__init__()
+        self.cliente = None
+        self.view = VentaSimpleView()
+        self.conectarWidgets()
+
+    def conectarWidgets(self):
+        self.view.btnCerrar.clicked.connect(self._cerrar)
+        self.view.btnAgregar.clicked.connect(self.agregar_articulo)
+        self.view.btnEmitir.clicked.connect(self.emitir_factura)
+        self.view.btnBorrar.clicked.connect(self.borrar_renglon)
+        self.view.textArticulo.returnPressed.connect(self.agregar_articulo)
+        self.view.textCantidad.returnPressed.connect(self.agregar_articulo)
+        self.view.textCliente.returnPressed.connect(self.cargar_cliente_desde_busqueda)
+        self.view.textCliente.editingFinished.connect(self.cargar_cliente_desde_busqueda)
+        self.view.checkConsumidorFinal.stateChanged.connect(self.on_consumidor_final_changed)
+        self.atajos()
+
+    # Atajos del flujo frecuente. Cargar una venta es escribir, buscar y
+    # agregar, una linea por producto: si hay que ir al mouse entre renglones,
+    # el atajo es lo que hace que la pantalla sea rapida. El tooltip de cada
+    # boton los muestra, asi que no hay que acordarse.
+    # (secuencia, metodo, boton donde se anuncia, texto del tooltip)
+    ATAJOS = [
+        ("Ctrl+Return", "agregar_articulo", "btnAgregar",
+         "Agregar el producto (Ctrl+Return)"),
+        ("Ctrl+E", "emitir_factura", "btnEmitir",
+         "Emitir la factura (Ctrl+E)"),
+        ("Ctrl+B", "borrar_renglon", "btnBorrar",
+         "Borrar el renglón (Ctrl+B)"),
+        ("Delete", "borrar_renglon", "btnBorrar", None),
+        ("F2", "_ir_al_producto", "textArticulo",
+         "Ir al producto (F2)"),
+        ("Esc", "_cerrar", "btnCerrar", "Cerrar sin guardar (Esc)"),
+    ]
+
+    def atajos(self):
+        self._atajos_creados = []
+        for secuencia, metodo, atributo, texto in self.ATAJOS:
+            atajo = QShortcut(QKeySequence(secuencia), self.view)
+            atajo.setContext(Qt.WindowShortcut)
+            atajo.activated.connect(getattr(self, metodo))
+            # Sin referencia propia el atajo se garbage-collectea y deja de
+            # funcionar sin que se vea ningun error.
+            self._atajos_creados.append(atajo)
+            if texto:
+                getattr(self.view, atributo).setToolTip(texto)
+
+    def _ir_al_producto(self):
+        self.view.textArticulo.setFocus()
+        self.view.textArticulo.selectAll()
+
+    def _cerrar(self):
+        """Cerrar pidiendo confirmacion si hay una venta a medio cargar.
+
+        No hace falta que Cerrar() pregunte siempre: si la venta esta vacia no
+        hay nada que perder. Pero con renglones cargados, cerrar sin avisar tira
+        el trabajo de tipeo a la basura sin dejar rastro.
+        """
+        if self.view.gridVenta.rowCount() and not Ventanas.showConfirmation(
+                "Descartar la venta",
+                "La venta tiene productos cargados y todavia no se emitio.\n\n"
+                "Si cierra ahora se pierde.",
+                textoOk="Descartar", textoCancelar="Seguir cargando"):
+            return
+        self.view.Cerrar()
+
+    def on_consumidor_final_changed(self):
+        if self.view.checkConsumidorFinal.isChecked():
+            self.cliente = None
+            self.view.textCliente.setText("")
+            self.view.textDocumento.setText("")
+
+    def cargar_cliente_desde_busqueda(self):
+        busqueda = self.view.textCliente.text().strip()
+        if not busqueda or self.view.checkConsumidorFinal.isChecked() and busqueda == "Consumidor Final":
+            return
+
+        cliente = self.resolver_cliente_desde_busqueda(busqueda)
+        if not cliente:
+            if not self.confirmar_alta("Venta", "Cliente no encontrado. Desea agregarlo?"):
+                return
+            cliente = self.solicitar_alta_cliente(busqueda)
+            if not cliente:
+                return
+
+        self.cargar_cliente_en_vista(cliente)
+
+    def confirmar_alta(self, titulo, mensaje):
+        # Antes era un QMessageBox.question con "Sí" como boton por defecto:
+        # con el foco en la pantalla, apretar Enter sin querer creaba el
+        # cliente que uno todavia no habia decidido crear. Ahora el boton por
+        # defecto es cancelar.
+        return Ventanas.showConfirmation(
+            titulo, mensaje, textoOk="Crear cliente", textoCancelar="Cancelar")
+
+    def cargar_cliente_en_vista(self, cliente):
+        self.cliente = cliente
+        self.view.checkConsumidorFinal.setChecked(False)
+        self.view.textCliente.setText("{} - {}".format(cliente.idcliente, cliente.nombre))
+        documento = cliente.cuit if str(cliente.cuit).replace("-", "").strip("0") else str(cliente.dni or "")
+        self.view.textDocumento.setText(documento)
+
+    def solicitar_alta_cliente(self, busqueda):
+        dialogo = VentaSimpleAltaClienteDialog(busqueda)
+        dialogo.exec_()
+        if dialogo.result() != QDialog.Accepted:
+            return None
+
+        datos = dialogo.valores()
+        nombre = datos["nombre"]
+        if not nombre:
+            Ventanas.showAlert("Venta", "Ingrese el nombre del cliente")
+            return None
+
+        documento = datos["documento"].replace("-", "").replace(" ", "")
+        cuit = ""
+        dni = 0
+        if documento:
+            if len(documento) == 11:
+                cuit = datos["documento"]
+            elif documento.isdigit():
+                dni = int(documento)
+
+        return Cliente.create(
+            nombre=nombre,
+            domicilio=datos["domicilio"],
+            localidad=1,
+            cuit=cuit,
+            dni=dni,
+            tipodocu=0,
+            tiporesp=3,
+            formapago=1,
+            percepcion=1,
+        )
+
+    def resolver_cliente_desde_busqueda(self, busqueda):
+        clientes = self.buscar_clientes(busqueda)
+        if not clientes:
+            return None
+        if len(clientes) == 1:
+            return clientes[0]
+        return self.seleccionar_cliente(clientes)
+
+    def seleccionar_cliente(self, clientes):
+        dialogo = VentaSimpleSeleccionClienteDialog(clientes)
+        dialogo.exec_()
+        if dialogo.result() != QDialog.Accepted:
+            return None
+        return dialogo.cliente
+
+    def buscar_cliente(self, busqueda):
+        clientes = self.buscar_clientes(busqueda)
+        return clientes[0] if clientes else None
+
+    def buscar_clientes(self, busqueda):
+        texto = str(busqueda).strip()
+        posible_id = texto.split(" - ", 1)[0]
+
+        if posible_id.isdigit():
+            try:
+                return [Cliente.get_by_id(posible_id)]
+            except Exception:
+                pass
+
+        cuit = texto.replace("-", "").replace(" ", "")
+        try:
+            cliente = Cliente.select().where(Cliente.cuit == texto).first()
+            if cliente:
+                return [cliente]
+            cliente = Cliente.select().where(fn.REPLACE(Cliente.cuit, "-", "") == cuit).first()
+            if cliente:
+                return [cliente]
+        except Exception:
+            pass
+
+        if texto.isdigit():
+            try:
+                cliente = Cliente.select().where(Cliente.dni == int(texto)).first()
+                if cliente:
+                    return [cliente]
+            except Exception:
+                pass
+
+        return list(Cliente.select().where(Cliente.nombre.contains(texto)).order_by(Cliente.nombre))
+
+    @inicializar_y_capturar_excepciones
+    def agregar_articulo(self, *args, **kwargs):
+        busqueda = self.view.textArticulo.text().strip()
+        if not busqueda:
+            Ventanas.showAlert("Venta", "Ingrese un producto")
+            return
+
+        articulo = self.buscar_articulo(busqueda)
+        if not articulo:
+            if not self.confirmar_alta("Venta", "Producto no encontrado. Desea agregarlo?"):
+                return
+            articulo = self.solicitar_alta_articulo(busqueda)
+            if not articulo:
+                return
+
+        try:
+            cantidad = Decimal(self.view.textCantidad.text() or "1")
+        except Exception:
+            Ventanas.showAlert("Venta", "La cantidad debe ser numerica")
+            return
+
+        if cantidad <= 0:
+            Ventanas.showAlert("Venta", "La cantidad debe ser mayor a cero")
+            return
+
+        datos_renglon = self.solicitar_cantidad_y_precio(articulo, cantidad)
+        if not datos_renglon:
+            return
+
+        cantidad, precio = datos_renglon
+        iva = Decimal(str(articulo.tipoiva.iva))
+        subtotal = cantidad * precio
+
+        self.view.gridVenta.AgregaItem(items=[
+            str(cantidad),
+            str(articulo.idarticulo),
+            articulo.nombre,
+            str(precio),
+            str(iva),
+            str(subtotal),
+        ])
+        self.view.textArticulo.setText("")
+        self.view.textCantidad.setText("1")
+        self.recalcular_total()
+        # El foco vuelve al producto: cargar una venta es agregar linea por
+        # linea, y volver al mouse entre renglones es lo que hace lenta la
+        # pantalla.
+        self.view.textArticulo.setFocus()
+
+    def solicitar_cantidad_y_precio(self, articulo, cantidad):
+        dialogo = VentaSimpleCantidadPrecioDialog(
+            articulo=articulo,
+            cantidad=cantidad,
+            precio=Decimal(str(articulo.preciopub)),
+        )
+        dialogo.exec_()
+        if dialogo.result() != QDialog.Accepted:
+            return None
+
+        cantidad_texto, precio_texto = dialogo.valores()
+        try:
+            cantidad = Decimal(cantidad_texto or "1")
+            precio = Decimal(precio_texto or "0")
+        except Exception:
+            Ventanas.showAlert("Venta", "Cantidad y precio deben ser numericos")
+            return None
+
+        if cantidad <= 0:
+            Ventanas.showAlert("Venta", "La cantidad debe ser mayor a cero")
+            return None
+        if precio < 0:
+            Ventanas.showAlert("Venta", "El precio no puede ser negativo")
+            return None
+
+        return cantidad, precio
+
+    def solicitar_alta_articulo(self, busqueda):
+        dialogo = VentaSimpleAltaArticuloDialog(busqueda)
+        dialogo.exec_()
+        if dialogo.result() != QDialog.Accepted:
+            return None
+
+        datos = dialogo.valores()
+        nombre = datos["nombre"]
+        if not nombre:
+            Ventanas.showAlert("Venta", "Ingrese el nombre del articulo")
+            return None
+
+        try:
+            precio = Decimal(datos["precio"] or "0")
+            iva = Decimal(datos["iva"] or "21")
+        except Exception:
+            Ventanas.showAlert("Venta", "Precio e IVA deben ser numericos")
+            return None
+
+        if precio < 0:
+            Ventanas.showAlert("Venta", "El precio no puede ser negativo")
+            return None
+
+        tipoiva = "01" if iva == Decimal("21") else "01"
+        return Articulo.create(
+            nombre=nombre,
+            nombreticket=nombre[:30],
+            preciopub=precio,
+            costo=precio,
+            tipoiva=tipoiva,
+            codbarra=datos["codbarra"],
+        )
+
+    def buscar_articulo(self, busqueda):
+        try:
+            return Articulo.get_by_id(busqueda)
+        except Exception:
+            pass
+
+        try:
+            return Articulo.get(Articulo.codbarra == busqueda)
+        except Exception:
+            pass
+
+        return Articulo.select().where(Articulo.nombre.contains(busqueda)).first()
+
+    def obtener_renglones(self):
+        renglones = []
+        for fila in range(self.view.gridVenta.rowCount()):
+            renglones.append(RenglonVenta(
+                codigo=str(self.view.gridVenta.ObtenerItem(fila=fila, col="Codigo")),
+                detalle=str(self.view.gridVenta.ObtenerItem(fila=fila, col="Detalle")),
+                cantidad=Decimal(str(self.view.gridVenta.ObtenerItem(fila=fila, col="Cant."))),
+                precio_unitario=Decimal(str(self.view.gridVenta.ObtenerItem(fila=fila, col="Unitario"))),
+                iva=Decimal(str(self.view.gridVenta.ObtenerItem(fila=fila, col="IVA"))),
+            ))
+        return renglones
+
+    def recalcular_total(self):
+        responsable_inscripto = a_entero(LeerIni(clave="cat_iva", key="WSFEv1"), 0) == 1
+        totales = calcular_totales(self.obtener_renglones(), responsable_inscripto)
+        self.view.textTotal.setText(str(totales.total))
+
+    def borrar_renglon(self):
+        fila = self.view.gridVenta.currentRow()
+        if fila >= 0:
+            self.view.gridVenta.removeRow(fila)
+            self.recalcular_total()
+
+    def emitir_factura(self):
+        renglones = self.obtener_renglones()
+        if not renglones:
+            Ventanas.showAlert("Venta", "Agregue al menos un producto")
+            return
+
+        from controladores.Facturas import FacturaController
+
+        factura = FacturaController()
+        cliente_id = None
+        if not self.view.checkConsumidorFinal.isChecked():
+            if not self.cliente:
+                self.cargar_cliente_desde_busqueda()
+            if not self.cliente:
+                Ventanas.showAlert("Venta", "Seleccione un cliente válido")
+                return
+            cliente_id = self.cliente.idcliente
+
+        factura.cargar_venta_simple(
+            cliente_id=cliente_id,
+            renglones=renglones,
+            forma_pago_id=self.view.cboFormaPago.text(),
+        )
+        factura.exec_()

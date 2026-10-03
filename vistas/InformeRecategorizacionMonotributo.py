@@ -8,7 +8,7 @@ from libs.ComboBox import ComboPeriodoMonotributo, ComboActividadMono
 from libs.Etiquetas import Etiqueta
 from libs.GroupBox import Agrupacion
 from libs.Spinner import Periodo, Spinner
-from libs.Utiles import imagen
+from libs.Utiles import imagen, icono
 from modelos.CategoriasMonotributo import ComboCategoriaMono
 from vistas.VistaBase import VistaBase
 
@@ -20,7 +20,7 @@ class InfRecMonotributoView(VistaBase):
         self.setupUi(self)
 
     def setupUi(self, Form):
-        self.setWindowTitle("Informe de recategorizacion de monotributo")
+        self.setWindowTitle("Informe de recategorización de monotributo")
         self.resize(650, 150)
         layoutPpal = QVBoxLayout(Form)
         self.avance = Avance()
@@ -57,7 +57,7 @@ class InfRecMonotributoView(VistaBase):
         layoutPpal.addLayout(layoutPeriodo)
 
         layoutBotones = QHBoxLayout()
-        self.btnExcel = Boton(texto="&Excel", imagen=imagen("excel.png"))
+        self.btnExcel = Boton(texto="&Excel", imagen=icono('excel'), estilo='primario')
         self.btnCerrar = BotonCerrarFormulario()
         layoutBotones.addWidget(self.btnExcel)
         layoutBotones.addWidget(self.btnCerrar)
