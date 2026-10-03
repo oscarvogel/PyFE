@@ -245,7 +245,7 @@ class PyQRv1(PyQR):
                       tipo_doc_rec=80, nro_doc_rec=20000000001,
                       tipo_cod_aut="E", cod_aut=70417054367476,
                       ):
-        "Generar una im�gen con el c�digo QR"
+        "Generar una imágen con el código QR"
         # basado en: https://www.afip.gob.ar/fe/qr/especificaciones.asp
         datos_cmp = {
             "ver": int(ver),

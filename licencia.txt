@@ -5,13 +5,13 @@ PyAfipWS: Interfaces y herramientas para Servicios Web AFIP Copyright (C) 2008-2
 Jose Oscar Vogel <oscarvogel@gmail.com>
 Este programa se entrega ABSOLUTAMENTE SIN GARANTIA bajo la licencia GPLv3 de software libre (ver abajo),
 y no puede ser incorporado o distribuido con software propietario (no libre) sin la previa autorizacion del autor.
-Adicionalmente se debe conservar y mostrar las atribuciones de autor�a y avisos legales,
-estando prohibida la tergiversaci�n del origen de este material.
+Adicionalmente se debe conservar y mostrar las atribuciones de autoría y avisos legales,
+estando prohibida la tergiversación del origen de este material.
 
-Para solicitar soporte comercial (pago), excepciones a la licencia GPLv3 o informaci�n adicional y descargas ver:
+Para solicitar soporte comercial (pago), excepciones a la licencia GPLv3 o información adicional y descargas ver:
 http://www.servinlgsm.com.ar/
 
-Este programa utiliza bibliotecas de Software Libre / C�digo Abierto (Python, OpenSSL, httplib2, PyAfipWS, etc.)
+Este programa utiliza bibliotecas de Software Libre / Código Abierto (Python, OpenSSL, httplib2, PyAfipWS, etc.)
 gobernadas por sus respectivas licencias.
 
 

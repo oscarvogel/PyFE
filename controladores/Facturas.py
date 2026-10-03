@@ -1,5 +1,6 @@
 # coding=utf-8
 import decimal
+import logging
 import os
 
 import peewee
@@ -617,6 +618,48 @@ class FacturaController(ControladorBase):
         self.ImprimeFactura(idcabecera=cabfact.idcabfact)
         return True
 
+    def _pdf_generado(self, salida, ok, pyfpdf, cabfact):
+        """Existe el PDF? Si no, avisar con el CAE y devolver False.
+
+        Que exista el archivo es lo unico que prueba que se genero. Antes
+        ImprimeFactura devolvia True siempre: si la plantilla fallaba (por
+        ejemplo porque la libreria de PDF no es la que espera el proyecto) la
+        factura quedaba IGUAL autorizada en ARCA, pero sin documento. El
+        usuario cerraba creyendo que habia hecho todo y el cliente no recibia
+        nada, que es el peor resultado posible porque una factura autorizada
+        no se puede deshacer.
+
+        Se avisa con el CAE porque es lo que hace falta para volver a imprimir
+        la factura despues, desde Reimprimir factura.
+        """
+        if ok and os.path.isfile(salida):
+            return True
+
+        Ventanas.showError(
+            LeerIni('nombre_sistema'),
+            "La factura se autorizo pero no se pudo generar el PDF.",
+            que_hacer="La factura {} con CAE {} ya esta autorizada en ARCA y no "
+                      "se puede deshacer. Para volver a armar el PDF, corre "
+                      "Diagnostico desde Configuracion y despues usa Reimprimir "
+                      "factura. No la vuelvas a emitir: ARCA no permite dos "
+                      "comprobantes iguales.".format(
+                          getattr(cabfact, "numero", "?"),
+                          self._cae_de_pantalla()),
+            detalle="ProcesarPlantilla: {}\nArchivo esperado: {}\n"
+                    "Excepcion: {}\nTraceback: {}".format(
+                        ok,
+                        salida,
+                        DeCodifica(getattr(pyfpdf, "Excepcion", "") or ""),
+                        DeCodifica(getattr(pyfpdf, "Traceback", "") or "")))
+        return False
+
+    def _cae_de_pantalla(self):
+        """El CAE que se esta mostrando, o un texto si todavia no esta."""
+        try:
+            return self.view.lineditCAE.text() or "(sin CAE en pantalla)"
+        except Exception:
+            return "(sin CAE en pantalla)"
+
     @inicializar_y_capturar_excepciones
     def ImprimeFactura(self, idcabecera = None, mostrar = True, *args, **kwargs):
         if not idcabecera:
@@ -697,20 +740,20 @@ class FacturaController(ControladorBase):
 
         #Agrego subtotales de IVA(uno por alicuota)
         if cabfact.netoa != 0:
-            iva_id = 5 #c�digo para al�cuota del 21 %
-            base_imp = cabfact.netoa #importe neto sujeto a esta al�cuota
+            iva_id = 5 #código para alícuota del 21 %
+            base_imp = cabfact.netoa #importe neto sujeto a esta alícuota
             importe = cabfact.netoa * 21 / 100 #importe liquidado de iva
             ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
 
         if cabfact.netob != 0:
-            iva_id = 4  # c�digo para al�cuota del 10.5 %
-            base_imp = cabfact.netob  # importe neto sujeto a esta al�cuota
+            iva_id = 4  # código para alícuota del 10.5 %
+            base_imp = cabfact.netob  # importe neto sujeto a esta alícuota
             importe = cabfact.netob * 10.5 / 100  # importe liquidado de iva
             ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
 
         if cabfact.netoa == 0 and cabfact.netob == 0:
-            iva_id = 3  # c�digo para al�cuota del 21 %
-            base_imp = cabfact.netob  # importe neto sujeto a esta al�cuota
+            iva_id = 3  # código para alícuota del 21 %
+            base_imp = cabfact.netob  # importe neto sujeto a esta alícuota
             importe = 0  # importe liquidado de iva
             ok = pyfpdf.AgregarIva(iva_id, base_imp, importe)
 
@@ -727,17 +770,17 @@ class FacturaController(ControladorBase):
         for d in det:
             #Agrego detalles de cada item de la factura:
             u_mtx = 0 #unidades
-            cod_mtx = "" #c�digo de barras
+            cod_mtx = "" #código de barras
             codigo = d.idarticulo.idarticulo #codigo interno a imprimir(ej. "articulo")
             ds = d.descad.strip()
             qty = d.cantidad #cantidad
-            umed = 7 #c�digo de unidad de medida(ej. 7 para"unidades")
+            umed = 7 #código de unidad de medida(ej. 7 para"unidades")
             precio = d.precio #precio neto(A) o iva incluido(B)
             bonif = 0 #importe de descuentos
-            iva_id = FEv1().TASA_IVA[str(float(d.tipoiva.iva))] #c�digopara al�cuota del 21 %
+            iva_id = FEv1().TASA_IVA[str(float(d.tipoiva.iva))] #códigopara alícuota del 21 %
             imp_iva = d.montoiva #importe liquidado deiva
             importe = d.precio * d.cantidad  #importe total del item
-            despacho = "" #numero de despacho de importaci�n
+            despacho = "" #numero de despacho de importación
             dato_a = "" #primer dato adicional del item
             dato_b = ""
             dato_c = ""
@@ -824,15 +867,18 @@ class FacturaController(ControladorBase):
         orientacion = "portrait" #o landscape(apaisado)
         ok = pyfpdf.CrearPlantilla(papel, orientacion)
         num_copias = a_entero(LeerIni(clave='num_copias', key='FACTURA'), 1) #original, duplicado y triplicado
-        lineas_max = 24 #cantidad de linas de items porp�gina
-        qty_pos = "izq" #(cantidad a la izquierda de la descripci�n del art�culo)
+        lineas_max = 24 #cantidad de linas de items por página
+        qty_pos = "izq" #(cantidad a la izquierda de la descripción del artículo)
         #Proceso la plantilla
         ok = pyfpdf.ProcesarPlantilla(num_copias, lineas_max, qty_pos)
+        if not ok:
+            logging.error("ProcesarPlantilla fallo para la factura %s: %s",
+                          cabfact.numero, getattr(pyfpdf, "Excepcion", ""))
 
         if not os.path.isdir('facturas'):
             os.mkdir('facturas')
         try:
-            #Genero el PDF de salida seg�n la plantilla procesada
+            #Genero el PDF de salida segun la plantilla procesada
             salida = join('facturas',"{}-{}.pdf".format(cabfact.tipocomp.nombre.replace(" ", "_"), cabfact.numero))
             ok = pyfpdf.GenerarPDF(salida)
         except:
@@ -840,6 +886,22 @@ class FacturaController(ControladorBase):
             cArchivoPDF = cArchivo + '.pdf'
             salida = cArchivoPDF
             ok = pyfpdf.GenerarPDF(salida)
+
+        # Que exista el archivo es lo unico que prueba que se genero.
+        #
+        # Antes se devolvia True siempre. Si la plantilla falla (por ejemplo
+        # porque la libreria de PDF no es la que espera el proyecto) la
+        # factura queda IGUAL autorizada en ARCA, pero sin documento: el
+        # usuario cerraba creyendo que habia hecho todo y el cliente no
+        # recibia nada. Es el peor resultado posible, porque una factura
+        # autorizada no se puede deshacer.
+        #
+        # Aca se avisa, y se avisa con el CAE, que es lo que hace falta para
+        # volver a imprimirla despues desde Reimprimir factura.
+        if not self._pdf_generado(salida, ok, pyfpdf, cabfact):
+            self.facturaGenerada = None
+            return False
+
         #Abro el visor de PDF y muestro lo generado
         #(es necesario tener instalado Acrobat Reader o similar)
         imprimir = False #cambiar a True para que lo envie directo a laimpresora

@@ -230,18 +230,18 @@ class RemitoController(ControladorBase):
         for d in det:
             #Agrego detalles de cada item de la factura:
             u_mtx = 0 #unidades
-            cod_mtx = "" #c�digo de barras
+            cod_mtx = "" #código de barras
             codigo = d.producto.idarticulo #codigo interno a imprimir(ej. "articulo")
             ds = d.detalle.strip()
             qty = d.cantidad #cantidad
-            umed = 7 #c�digo de unidad de medida(ej. 7 para"unidades")
+            umed = 7 #código de unidad de medida(ej. 7 para"unidades")
             precio = d.precio #precio neto(A) o iva incluido(B)
             bonif = 0 #importe de descuentos
-            iva_id = FEv1().TASA_IVA[str(float(d.tipo_iva.iva))] #c�digopara al�cuota del 21 %
+            iva_id = FEv1().TASA_IVA[str(float(d.tipo_iva.iva))] #códigopara alícuota del 21 %
             # imp_iva = d.montoiva #importe liquidado deiva
             imp_iva = 0
             importe = d.precio * d.cantidad  #importe total del item
-            despacho = "" #numero de despacho de importaci�n
+            despacho = "" #numero de despacho de importación
             dato_a = "" #primer dato adicional del item
             dato_b = ""
             dato_c = ""
@@ -307,15 +307,15 @@ class RemitoController(ControladorBase):
         orientacion = "portrait" #o landscape(apaisado)
         ok = pyfpdf.CrearPlantilla(papel, orientacion)
         num_copias = a_entero(LeerIni(clave='num_copias', key='FACTURA'), 1) #original, duplicado y triplicado
-        lineas_max = 24 #cantidad de linas de items porp�gina
-        qty_pos = "izq" #(cantidad a la izquierda de la descripci�n del art�culo)
+        lineas_max = 24 #cantidad de linas de items por página
+        qty_pos = "izq" #(cantidad a la izquierda de la descripción del artículo)
         #Proceso la plantilla
         ok = pyfpdf.ProcesarPlantilla(num_copias, lineas_max, qty_pos)
 
         if not os.path.isdir('remitos'):
             os.mkdir('remitos')
         try:
-            #Genero el PDF de salida seg�n la plantilla procesada
+            #Genero el PDF de salida según la plantilla procesada
             salida = join('remitos',"{}-{}.pdf".format(cabrem.tipo_comprobante.nombre.replace(" ", "_"), f'{str(cabrem.ptovta).zfill(4)}{str(cabrem.numero).zfill(8)}'))
             ok = pyfpdf.GenerarPDF(salida)
         except:
