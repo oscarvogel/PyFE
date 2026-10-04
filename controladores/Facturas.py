@@ -17,6 +17,7 @@ from controladores.FacturaBranding import aplicar_marca_factura, cargar_config_m
 from libs import Ventanas, Constantes
 from libs import fpdf_compat
 from libs.instalacion import cuit_emisor
+from libs.visor import abrir_pdf
 from libs.Utiles import (LeerIni, validar_cuit, FechaMysql, ubicacion_sistema,
                          inicializar_y_capturar_excepciones, DeCodifica, imagen,
                          getFileName, FormatoFecha, formato_cuit, a_entero)
@@ -1228,10 +1229,19 @@ class FacturaController(ControladorBase):
             return False
 
         #Abro el visor de PDF y muestro lo generado
-        #(es necesario tener instalado Acrobat Reader o similar)
         imprimir = False #cambiar a True para que lo envie directo a laimpresora
         if mostrar:
-            pyfpdf.MostrarPDF(salida, imprimir)
+            abierto = abrir_pdf(salida, imprimir)
+            if not abierto:
+                Ventanas.showError(
+                    LeerIni('nombre_sistema'),
+                    "La factura se genero pero no se pudo abrir.",
+                    que_hacer="El archivo esta en {}. Abrilo con doble click, "
+                              "o probá con otro programa para los archivos PDF. "
+                              "La factura {} no se vuelve a emitir.".format(
+                                  os.path.abspath(salida), cabfact.numero),
+                    detalle="No se pudo abrir con el navegador ni con el "
+                            "visor del sistema: {}".format(salida))
 
         self.facturaGenerada = salida
         return True

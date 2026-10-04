@@ -7,6 +7,7 @@ from controladores.FE import FEv1, PyQRv1
 from libs import Ventanas, Constantes
 from libs.Utiles import DeCodifica, FechaMysql, FormatoFecha, LeerIni, getFileName, imagen, inicializar_y_capturar_excepciones, ubicacion_sistema, formato_cuit, a_entero
 from libs.instalacion import cuit_emisor
+from libs.visor import abrir_pdf
 from modelos.Articulos import Articulo
 from modelos.ParametrosSistema import ParamSist
 from modelos.Remitos import DetalleRemito, Remito
@@ -325,10 +326,18 @@ class RemitoController(ControladorBase):
             salida = cArchivoPDF
             ok = pyfpdf.GenerarPDF(salida)
         #Abro el visor de PDF y muestro lo generado
-        #(es necesario tener instalado Acrobat Reader o similar)
         imprimir = False #cambiar a True para que lo envie directo a laimpresora
         if mostrar:
-            pyfpdf.MostrarPDF(salida, imprimir)
+            abierto = abrir_pdf(salida, imprimir)
+            if not abierto:
+                Ventanas.showError(
+                    LeerIni('nombre_sistema'),
+                    "El remito se generó pero no se pudo abrir.",
+                    que_hacer="El archivo está en {}. Abrilo con doble click, "
+                              "o probá con otro programa para los archivos PDF.".format(
+                                  os.path.abspath(salida)),
+                    detalle="No se pudo abrir con el navegador ni con el "
+                            "visor del sistema: {}".format(salida))
 
         self.remitoGenerado = salida
         

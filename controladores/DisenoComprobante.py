@@ -33,6 +33,7 @@ from controladores.FacturaBranding import cargar_config_marca_factura
 from libs import Ventanas
 from libs.Utiles import (LeerIni, inicializar_y_capturar_excepciones,
                          ubicacion_sistema)
+from libs.visor import abrir_pdf
 from modelos.ParametrosSistema import ParamSist
 from vistas.DisenoComprobante import COLORES, LIMITE_LEYENDA, LIMITE_WEB
 from vistas.DisenoComprobante import DisenoComprobanteView
@@ -435,9 +436,11 @@ class DisenoComprobanteController(ControladorBase):
 
     @staticmethod
     def _abrir_muestra(salida):
-        """Abre el PDF con el visor del sistema. False si no se pudo."""
-        try:
-            os.startfile(salida)
-            return True
-        except Exception:
-            return False
+        """Abre el PDF de la muestra. False si no se pudo.
+
+        Va por el navegador y no por el visor del sistema por lo mismo que
+        los comprobantes: Foxit y otros visores de instancia unica ignoran el
+        segundo archivo si ya tienen uno abierto, y la muestra se abre
+        justamente cuando el operador esta probando varias.
+        """
+        return bool(abrir_pdf(salida))
