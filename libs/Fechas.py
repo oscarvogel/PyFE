@@ -10,6 +10,22 @@ from PyQt5.uic.properties import QtGui
 from libs.Etiquetas import Etiqueta
 
 
+def inicio_del_anio(hoy=None):
+    """El 1 de enero del año en curso, para los filtros de fecha que abren.
+
+    Una pantalla de reimpresión se abre para buscar un comprobante que ya se
+    emitió, y eso casi nunca es de hoy: lo tipico es que el cliente pida de
+    nuevo la factura de hace dos meses. Con 30 dias por defecto, esa factura
+    no aparece, y como no habia ningun aviso se lee como "no hay nada".
+
+    El filtro de cliente no tiene ese problema (vacio son todas), asi que
+    dejar el de fecha en 30 dias dejaba los dos filtros con reglas distintas:
+    uno opcional y el otro obligatorio.
+    """
+    hoy = hoy or datetime.date.today()
+    return datetime.date(hoy.year, 1, 1)
+
+
 class Fecha(QDateEdit):
 
     proximoWidget = None

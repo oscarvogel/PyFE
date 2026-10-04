@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout
 
 from libs.Botones import Boton, BotonCerrarFormulario
 from libs.Etiquetas import EtiquetaTitulo, Etiqueta
-from libs.Fechas import Fecha
+from libs.Fechas import Fecha, inicio_del_anio
 from libs.Formulario import Formulario
 from libs.Grillas import Grilla
 from libs.Utiles import imagen, icono
@@ -26,8 +26,11 @@ class ReImprimeFacturaView(Formulario):
         self.lblNombreCliente = Etiqueta()
         self.controles['cliente'].widgetNombre = self.lblNombreCliente
         self.layoutCliente.addWidget(self.lblNombreCliente)
-        self.ArmaEntrada(boxlayout=self.layoutCliente,nombre='fecha', control=Fecha())
-        self.controles['fecha'].setFecha(-30)
+        self.ArmaEntrada(boxlayout=self.layoutCliente, nombre='fecha',
+                         texto='Desde', control=Fecha())
+        self.controles['fecha'].setFecha(inicio_del_anio())
+        self.controles['fecha'].setToolTip(
+            "Se listan los comprobantes desde esta fecha hasta hoy.")
         self.gridDatos = Grilla()
         self.gridDatos.enabled = True
         self.gridDatos.textoVacio = "No hay comprobantes de este período"

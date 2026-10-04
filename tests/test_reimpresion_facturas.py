@@ -73,9 +73,9 @@ def qt():
     return QApplication.instance() or QApplication([])
 
 
-def _factura_de_prueba(tipo_exporta):
+def _factura_de_prueba(tipo_exporta, fecha="2026-10-04"):
     return _Falso(
-        fecha="2026-10-04",
+        fecha=fecha,
         numero="100100000001",
         total=Decimal("25000"),
         idcabfact=1,
@@ -144,8 +144,19 @@ def _monkey_facturas(monkeypatch, filas):
     return _monkey(monkeypatch, filas, Cabfact)
 
 
+def _sql_y_params(consulta):
+    """El WHERE y los valores con los que se arma la consulta.
+
+    El doble de `_Consulta` devuelve filas fijas y NO aplica el WHERE, asi que
+    contar filas no puede probar el filtro: seria verde siempre. Lo que si se
+    puede mirar es que fecha se termina buscando.
+    """
+    return consulta.select_real(consulta.modelo)\
+        .where(*consulta.condiciones).sql()
+
+
 def _where_de(consulta):
-    """El WHERE de la consulta, no el SELECT entero.
+    """Solo el WHERE, no el SELECT entero.
 
     Dos cosas hacen que esto no sea trivial:
 
@@ -159,8 +170,7 @@ def _where_de(consulta):
     El `select` que se usa es el de peewee, no el del modelo: en estos tests el
     del modelo esta parcheado con un doble que no sabe responder `.sql()`.
     """
-    sql, _params = consulta.select_real(consulta.modelo)\
-        .where(*consulta.condiciones).sql()
+    sql, _params = _sql_y_params(consulta)
     return sql.split(" WHERE ", 1)[-1]
 
 
@@ -269,6 +279,89 @@ def test_la_columna_oculta_sigue_sirviendo_para_imprimir(qt):
         g.AgregaItem(items=["2026-10-04", "CONSUMIDOR FINAL", "100100000001",
                             Decimal("25000"), 7, 1])
         assert g.ObtenerItem(fila=0, col="idcabecera") == 7
+    finally:
+        v.close()
+
+
+# --------------------------------------------------------- periodo por defecto
+
+
+def test_la_fecha_arranca_en_el_principio_del_anio(qt):
+    """La pantalla tiene que abrir mostrando algo, no los ultimos 30 dias.
+
+    Es el caso que reporto el operador: escribio el cliente, le dio Cargar y no
+    aparecio nada. La unica comprobante de ese cliente era de julio y la
+    pantalla arrancaba el 4 de septiembre. Encima no decia por que: una
+    grilla vacia se lee como "no hay nada guardado".
+    """
+    from vistas.ReImprimeFactura import ReImprimeFacturaView
+
+    # Sin importar `inicio_del_anio` a proposito: si el test lo importara,
+    # contra la version vieja de la vista fallaria al importar y no al
+    # afirmar, que no dice nada del bug.
+    anio = datetime.date.today().year
+
+    v = ReImprimeFacturaView()
+    try:
+        assert v.controles["fecha"].date().toPyDate() == datetime.date(anio, 1, 1), \
+            "la pantalla no arranca mostrando todo el ano"
+    finally:
+        v.close()
+
+
+def test_al_cargar_se_busca_desde_la_fecha_de_la_pantalla(qt, monkeypatch):
+    """La consulta se arma con la fecha que esta escrita arriba.
+
+    Este es el bug: la pantalla mostraba una fecha y por eso la comprobante de
+    julio no entraba. Con el doble no se puede contar filas (no filtra), pero
+    si se puede mirar que fecha se termina buscando.
+    """
+    from controladores.ReImprimeFactura import ReImprimeFacturaController
+
+    anio = datetime.date.today().year
+    consulta = _monkey_facturas(monkeypatch, [])
+    c = ReImprimeFacturaController()
+    try:
+        c.view.controles["cliente"].setText("1")
+        c.CargaFacturasCliente()
+        sql, params = _sql_y_params(consulta)
+        assert datetime.date(anio, 1, 1) in params, \
+            "la consulta no busca desde la fecha que muestra la pantalla: %r" % (params,)
+        assert "fecha" in sql
+    finally:
+        c.view.close()
+
+
+def test_el_filtro_de_fecha_sigue_acotando(qt, monkeypatch):
+    """Ampliar el período por defecto no lo convierte en "traeme todo".
+
+    Con la fecha en hoy, lo que se busca es hoy: el filtro tiene que seguir
+    sirviendo para acotar, que es para lo que esta.
+    """
+    from controladores.ReImprimeFactura import ReImprimeFacturaController
+
+    consulta = _monkey_facturas(monkeypatch, [])
+    c = ReImprimeFacturaController()
+    try:
+        c.view.controles["fecha"].setFecha(datetime.date(2026, 10, 4))
+        c.view.controles["cliente"].setText("1")
+        c.CargaFacturasCliente()
+        _sql, params = _sql_y_params(consulta)
+        assert datetime.date(2026, 10, 4) in params
+        assert datetime.date(2026, 1, 1) not in params, \
+            "la consulta se armo con una fecha que no es la de la pantalla"
+    finally:
+        c.view.close()
+
+
+def test_la_fecha_de_remitos_abre_igual_que_la_de_facturas(qt):
+    """Las dos pantallas son la misma consulta con otro comprobante."""
+    from vistas.ReImprimeRemito import ReImprimeRemitoView
+
+    anio = datetime.date.today().year
+    v = ReImprimeRemitoView()
+    try:
+        assert v.controles["fecha"].date().toPyDate() == datetime.date(anio, 1, 1)
     finally:
         v.close()
 
