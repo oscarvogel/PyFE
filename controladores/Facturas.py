@@ -16,9 +16,12 @@ from controladores.FE import FEv1, PyQRv1
 from controladores.FacturaBranding import aplicar_marca_factura, cargar_config_marca_factura, obtener_formato_factura
 from libs import Ventanas, Constantes
 from libs import fpdf_compat
+from libs.instalacion import cuit_emisor
+from libs.visor import abrir_pdf
 from libs.Utiles import (LeerIni, validar_cuit, FechaMysql, ubicacion_sistema,
                          inicializar_y_capturar_excepciones, DeCodifica, imagen,
-                         getFileName, FormatoFecha, formato_cuit, a_entero)
+                         getFileName, FormatoFecha, formato_cuit, a_entero,
+                         escribir_pdf)
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Clientes import Cliente
@@ -121,7 +124,7 @@ class FacturaController(ControladorBase):
                 self.view.lineEditDocumento.setInputMask("99-99999999-9")
                 if ParamSist.ObtenerParametro("EMITE_FCE") == "S":
                     wsfecred = WsFECred()
-                    obligado, minimo = wsfecred.ConsultarMontoObligado(cliente.cuit.replace('-',''), LeerIni('cuit', key='WSFEv1'))
+                    obligado, minimo = wsfecred.ConsultarMontoObligado(cliente.cuit.replace('-',''), cuit_emisor())
                     if obligado and not self.informo:
                         Ventanas.showAlert("Sistema", "Se debe emitir FCE al cliente desde un monto de {}".format(minimo))
                 self.informo = True
@@ -350,8 +353,15 @@ class FacturaController(ControladorBase):
     _progreso = None
 
     def GrabaFactura(self):
+        """Emite la factura. Devuelve True si la factura quedo autorizada.
+
+        Antes no devolvia nada y el unico que lo llamaba era el boton del
+        formulario, que no necesita saber. Ahora tambien lo llama la venta
+        rapida, que si: tiene que limpiar la pantalla si salio bien y
+        dejarla con los renglones si salio mal.
+        """
         if not self.Validacion():
-            return
+            return False
 
         # Confirmacion antes de algo que no se puede deshacer: una factura
         # autorizada ante ARCA existe mas alla de esta app, y anularla es otro
@@ -361,7 +371,7 @@ class FacturaController(ControladorBase):
                 "La factura se va a autorizar ante ARCA y no se puede deshacer "
                 "desde aca.\n\nRevise el importe y el cliente antes de confirmar.",
                 textoOk="Emitir", textoCancelar="Volver a revisar"):
-            return
+            return False
 
         self.view.btnGrabarFactura.setEnabled(False)
         self.SilenciarError = True
@@ -369,21 +379,27 @@ class FacturaController(ControladorBase):
             # Los datos se leen ACa, en el hilo principal: la pantalla y la
             # base no se tocan desde el hilo de trabajo.
             datos = self._datos_emision()
-            self._emitir_en_hilo(datos)
+            emitida = self._emitir_en_hilo(datos)
         finally:
             self.SilenciarError = False
             self.view.btnGrabarFactura.setEnabled(True)
             self._hilo = None
             self._worker = None
             self._progreso = None
+        return emitida
 
     def _emitir_en_hilo(self, datos):
         """Emite en un hilo de trabajo y espera el resultado.
 
-        While antes de arrancar el hilo, se cierran los datos de la pantalla y
-        el boton queda deshabilitado, asi que no hay forma de que cambien
+        Antes de arrancar el hilo, se cierran los datos de la pantalla y el
+        boton queda deshabilitado, asi que no hay forma de que cambien
         mientras ARCA procesa. Es lo que hace seguro tomar la foto de los
         datos en un solo momento.
+
+        Devuelve True solo si la factura quedo autorizada y guardada. Cada
+        salida anticipada devuelve False, y el que se emite sin guardar
+        tambien: autorizada sin guardar es un problema que hay que avisar, no
+        una venta terminada.
         """
         estado = {"ok": False, "aviso": None}
         listo = threading.Event()
@@ -434,7 +450,7 @@ class FacturaController(ControladorBase):
                           "aparece, reimprima el PDF desde Reimprimir factura; "
                           "si no aparece, llame y lo verificamos con el CAE.",
                 detalle="El hilo de emisión terminó sin devolver resultado.")
-            return
+            return False
 
         ok = self._aplicar_resultado(estado["ok"], estado["aviso"])
 
@@ -447,7 +463,7 @@ class FacturaController(ControladorBase):
                           "Configuracion. Si es un rechazo de ARCA, el codigo "
                           "de observacion esta en el detalle.",
                 detalle=self._mensaje_error_emision())
-            return
+            return False
 
         # Guardar la factura SIEMPRE en el hilo principal: peewee no es
         # thread-safe y esta es la unica parte que escribe en la base.
@@ -464,11 +480,14 @@ class FacturaController(ControladorBase):
                               "cargar a mano, pero no la vuelva a emitir.".format(
                                   self.view.lineditCAE.text() or "(sin CAE)"),
                     detalle=self._mensaje_error_emision())
-                return
+                return False
 
         # La factura quedo autorizada y guardada: se cierra la pantalla, que ya
-        # cumplio su parte.
+        # cumplio su parte. Cuando la pantalla nunca se mostro, cerrar una
+        # ventana oculta no hace nada, y por eso se puede emitir desde la venta
+        # rapida sin abrirla.
         self.view.Cerrar()
+        return True
 
     def _etapa(self, nombre):
         """Avanza el progreso, si hay alguno abierto."""
@@ -573,7 +592,7 @@ class FacturaController(ControladorBase):
             "alias": LeerIni("ALIASFCE", key='FACTURA'),
             "percepcion_detalle": percepcion_detalle,
             "percepcion_alicuota": percepcion_alicuota,
-            "cuit": LeerIni(clave='cuit', key='WSFEv1'),
+            "cuit": cuit_emisor(),
         }
 
         if concepto_productos and concepto_servicios:
@@ -678,7 +697,8 @@ class FacturaController(ControladorBase):
             if datos["tiene_asociado"]:
                 wsfev1.AgregarCmpAsoc(
                     91, datos["asociado_pto"], datos["asociado_nro"],
-                    LeerIni(clave='cat_iva', key='cuit'), FechaMysql())
+                    a_entero(LeerIni(clave='cat_iva', key='WSFEv1'), 1),
+                    FechaMysql())
 
         if round(float(datos["imp_trib"]), 3) != 0:
             base_imp = round(float(datos["imp_total"])
@@ -847,37 +867,65 @@ class FacturaController(ControladorBase):
         self.ImprimeFactura(idcabecera=cabfact.idcabfact)
         return True
 
-    def _pdf_generado(self, salida, ok, pyfpdf, cabfact):
-        """Existe el PDF? Si no, avisar con el CAE y devolver False.
+    def _pdf_generado(self, salida, ok, pyfpdf, cabfact, motivo=None):
+        """Se genero el PDF? Si no, avisar con el CAE y devolver False.
 
-        Que exista el archivo es lo unico que prueba que se genero. Antes
-        ImprimeFactura devolvia True siempre: si la plantilla fallaba (por
-        ejemplo porque la libreria de PDF no es la que espera el proyecto) la
-        factura quedaba IGUAL autorizada en ARCA, pero sin documento. El
-        usuario cerraba creyendo que habia hecho todo y el cliente no recibia
-        nada, que es el peor resultado posible porque una factura autorizada
-        no se puede deshacer.
+        El chequeo tiene que ser el resultado real de la escritura, no la
+        existencia del archivo.
+
+        Por que no alcanza con que el archivo este
+        ------------------------------------------
+        Antes se aceptaba que el archivo existiera. Con fpdf2 no se puede
+        pedir el valor de retorno de `GenerarPDF` (`Template.render()` esta
+        anotado -> None, escribe el archivo y no devuelve nada; el envoltorio
+        de pyfepdf se come la excepcion), asi que la existencia del archivo
+        era la unica prueba disponible. Y no alcanza: fpdf2 abre el archivo de
+        salida en modo escritura antes de escribir una linea, asi que si el
+        destino esta abierto en un visor, el archivo se trunca a CERO bytes y
+        recien ahi falla. El comprobante anterior se perdia, quedaba un
+        archivo vacio y, como existia, la app reportaba exito.
+
+        Eso se reprodujo con Foxit PDF Reader abierto: `PermissionError` en
+        `Path(name).write_bytes(self.buffer)`, archivo de 0 bytes, sin aviso.
+
+        Ahora el PDF se arma a un temporal y se pasa al destino recien
+        terminado (`escribir_pdf`), asi que `ok` es el resultado real de la
+        escritura y el archivo anterior nunca se toca si algo falla.
 
         Se avisa con el CAE porque es lo que hace falta para volver a imprimir
         la factura despues, desde Reimprimir factura.
         """
-        if ok and os.path.isfile(salida):
+        if ok:
             return True
 
+        # Lo mas comun: un visor de PDF tiene el comprobante abierto y Windows
+        # no deja reemplazarlo. Foxit lo hace siempre, porque ademas corre
+        # como instancia unica.
+        bloqueado = bool(motivo) and "no se pudo reemplazar" in motivo
         Ventanas.showError(
             LeerIni('nombre_sistema'),
             "La factura se autorizo pero no se pudo generar el PDF.",
-            que_hacer="La factura {} con CAE {} ya esta autorizada en ARCA y no "
-                      "se puede deshacer. Para volver a armar el PDF, corre "
-                      "Diagnostico desde Configuracion y despues usa Reimprimir "
-                      "factura. No la vuelvas a emitir: ARCA no permite dos "
-                      "comprobantes iguales.".format(
-                          getattr(cabfact, "numero", "?"),
-                          self._cae_de_pantalla()),
+            que_hacer=("Cerrá el comprobante {} que tenés abierto en el visor de "
+                       "PDF y volvé a imprimirlo. No se toco el archivo "
+                       "anterior. La factura {} con CAE {} ya esta autorizada en "
+                       "ARCA y no se puede deshacer: no la vuelvas a emitir, ARCA "
+                       "no permite dos comprobantes iguales.".format(
+                           os.path.basename(salida),
+                           getattr(cabfact, "numero", "?"),
+                           self._cae_de_pantalla())
+                       if bloqueado else
+                       "La factura {} con CAE {} ya esta autorizada en ARCA y no "
+                       "se puede deshacer. Para volver a armar el PDF, corre "
+                       "Diagnostico desde Configuracion y despues usa Reimprimir "
+                       "factura. No la vuelvas a emitir: ARCA no permite dos "
+                       "comprobantes iguales.".format(
+                           getattr(cabfact, "numero", "?"),
+                           self._cae_de_pantalla())),
             detalle="ProcesarPlantilla: {}\nArchivo esperado: {}\n"
-                    "Excepcion: {}\nTraceback: {}".format(
+                    "Motivo: {}\nExcepcion: {}\nTraceback: {}".format(
                         ok,
                         salida,
+                        motivo,
                         DeCodifica(getattr(pyfpdf, "Excepcion", "") or ""),
                         DeCodifica(getattr(pyfpdf, "Traceback", "") or "")))
         return False
@@ -891,13 +939,34 @@ class FacturaController(ControladorBase):
 
     @inicializar_y_capturar_excepciones
     def ImprimeFactura(self, idcabecera = None, mostrar = True, *args, **kwargs):
+        """Imprime una factura ya guardada.
+
+        No hace nada raro: carga el comprobante y se lo pasa a
+        _armar_comprobante, que es el que arma el PDF. La vista previa del
+        diseno usa ese mismo metodo con datos de mentira, para que lo que el
+        cliente ve sea exactamente lo que sale impreso.
+        """
         if not idcabecera:
             return
         cabfact = Cabfact().get_by_id(idcabecera)
+        return self._armar_comprobante(cabfact, mostrar=mostrar)
+
+    def _armar_comprobante(self, cabfact, salida=None, mostrar=True,
+                           renglones=None):
+        """Arma el PDF de un comprobante. No escribe nada en la base.
+
+        `salida` es donde se escribe. Si no se pasa, va a
+        facturas/<tipo>-<numero>.pdf, que es donde la deja una impresion normal.
+
+        `renglones` son los items del comprobante. Si no se pasan, se buscan en
+        detfact por el id del comprobante, como siempre. Se pasan solo para la
+        vista previa del diseno, que arma un comprobante de mentira y no puede
+        meter filas en la base de verdad.
+        """
         print("imprimir factura {}".format(cabfact.numero))
         pyfpdf = FEPDF()
         #cuit del emisor
-        pyfpdf.CUIT = LeerIni(clave='cuit', key='WSFEv1')
+        pyfpdf.CUIT = cuit_emisor()
         #establezco formatos (cantidad de decimales):
         pyfpdf.FmtCantidad = "0.4"
         pyfpdf.FmtPrecio = "0.2"
@@ -995,8 +1064,10 @@ class FacturaController(ControladorBase):
             importe = cabfact.percepciondgr #importe liquidado de este tributo
             ok = pyfpdf.AgregarTributo(tributo_id, Desc, base_imp, alic, importe)
 
-        det = Detfact().select().where(Detfact.idcabfact == cabfact.idcabfact)
-        for d in det:
+        if renglones is None:
+            renglones = Detfact().select().where(
+                Detfact.idcabfact == cabfact.idcabfact)
+        for d in renglones:
             #Agrego detalles de cada item de la factura:
             u_mtx = 0 #unidades
             cod_mtx = "" #código de barras
@@ -1044,8 +1115,8 @@ class FacturaController(ControladorBase):
         # Pie de la pagina: credito de quien hizo el programa.
         # Va aca y no en el bloque del emisor, porque el bloque del
         # emisor identifica a QUIEN FACTURA, y ese es el cliente.
-        ok = pyfpdf.AggregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
-        ok = pyfpdf.AgregarDato("CUIT", formato_cuit(LeerIni(clave='cuit', key='WSFEv1')))
+        ok = pyfpdf.AgregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
+        ok = pyfpdf.AgregarDato("CUIT", formato_cuit(cuit_emisor()))
         ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='iibb', key='FACTURA'))
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))
         ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='inicio', key='FACTURA')))
@@ -1056,7 +1127,7 @@ class FacturaController(ControladorBase):
         fecha = FormatoFecha(cabfact.desde, formato='afip')
         cuit = ParamSist.ObtenerParametro("CUIT_EMPRESA").replace('-', '')
         if not cuit:
-            cuit = LeerIni(clave='cuit', key='WSFEv1').replace('-', '')
+            cuit = cuit_emisor()
         pto_vta = punto_vta
         tipo_cmp = tipo_cbte
         nro_cmp = cbte_nro
@@ -1078,7 +1149,8 @@ class FacturaController(ControladorBase):
             pyfpdf.AgregarDato('CBUFCE', LeerIni('CBUFCE', key='FACTURA'))
             pyfpdf.AgregarDato('ALIASFCE', LeerIni('ALIASFCE', key='FACTURA'))
             pyfpdf.AgregarDato('nombre_condvta', Constantes.COND_VTA['T'])
-            ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura-fce.csv")
+            ruta_formato = ubicacion_sistema() + "/plantillas/factura-fce.csv"
+            ok = pyfpdf.CargarFormato(ruta_formato)
         else:
             #Cargo el formato desde el archivo CSV(opcional)
             #(carga todos los campos a utilizar desde la planilla)
@@ -1087,6 +1159,23 @@ class FacturaController(ControladorBase):
             formato = obtener_formato_factura(os.getcwd(), config_marca, "plantillas/factura_qr.csv")
             ok = pyfpdf.CargarFormato(str(formato))
             aplicar_marca_factura(pyfpdf, os.getcwd(), config_marca)
+
+        # Si el formato no cargo, NO se sigue de largo. CargarFormato se come la
+        # excepcion y devuelve False, y antes el resultado no se miraba: se
+        # armaba la plantilla con un formato vacio y el error terminaba
+        # apareciendo lineas mas abajo como 'no se pudo generar el PDF', sin
+        # relacion con la causa real, que era un archivo que no existe.
+        if not ok:
+            Ventanas.showError(
+                LeerIni('nombre_sistema'),
+                "No se encontro la plantilla de la factura.",
+                que_hacer="Falta el archivo {}. Esta en el programa, asi que "
+                          "lo mas probable es que la instalacion este "
+                          "incompleta: vuelva a instalar.".format(
+                              os.path.basename(str(ruta_formato))),
+                detalle="CargarFormato devolvio False para {}".format(
+                    ruta_formato))
+            return False
         #Creo plantilla para esta factura(papel A4vertical):
 
         if LeerIni(clave='homo') == 'S':
@@ -1099,10 +1188,14 @@ class FacturaController(ControladorBase):
         # (izquierda), codigos que existian en fpdf 1.7 y que fpdf2 no
         # entiende. Sin esta traduccion el PDF no se genera y la factura queda
         # autorizada en ARCA sin documento. Ver libs/fpdf_compat.py.
-        _alineados = fpdf_compat.normalizar_plantilla(pyfpdf)
-        if _alineados:
-            logging.debug("plantilla: %s campos con alineacion antigua (D/I)",
-                          _alineados)
+        _alineados, _fuentes, _fondos = fpdf_compat.normalizar_plantilla(pyfpdf)
+        if _alineados or _fuentes or _fondos:
+            # Los fondos importan mas de lo que parecen: con los valores
+            # heredados de fpdf 1.7 la factura salia con la pagina negra.
+            logging.debug(
+                "plantilla normalizada para fpdf2: %s alineaciones, %s fuentes, "
+                "%s fondos heredados puestos en blanco",
+                _alineados, _fuentes, _fondos)
         num_copias = a_entero(LeerIni(clave='num_copias', key='FACTURA'), 1) #original, duplicado y triplicado
         lineas_max = 24 #cantidad de linas de items por página
         qty_pos = "izq" #(cantidad a la izquierda de la descripción del artículo)
@@ -1112,17 +1205,22 @@ class FacturaController(ControladorBase):
             logging.error("ProcesarPlantilla fallo para la factura %s: %s",
                           cabfact.numero, getattr(pyfpdf, "Excepcion", ""))
 
-        if not os.path.isdir('facturas'):
-            os.mkdir('facturas')
+        # El PDF se arma a un temporal y recien despues se pasa al destino. Si
+        # el destino esta abierto en un visor, escribirlo directo lo trunca a
+        # cero bytes y se pierde el comprobante anterior. Ver escribir_pdf.
         try:
-            #Genero el PDF de salida segun la plantilla procesada
-            salida = join('facturas',"{}-{}.pdf".format(cabfact.tipocomp.nombre.replace(" ", "_"), cabfact.numero))
-            ok = pyfpdf.GenerarPDF(salida)
-        except:
+            if salida is None:
+                salida = join('facturas', "{}-{}.pdf".format(
+                    cabfact.tipocomp.nombre.replace(" ", "_"), cabfact.numero))
+            generado, salida, motivo = escribir_pdf(pyfpdf.GenerarPDF, salida)
+        except Exception as error:
+            # Si la ruta no se puede escribir, se cae al archivo que le
+            # sugiera el sistema. Es lo que hacia antes, con la diferencia de
+            # que la vista previa ya trae su propia ruta.
             cArchivo = getFileName("factura", False)
-            cArchivoPDF = cArchivo + '.pdf'
-            salida = cArchivoPDF
-            ok = pyfpdf.GenerarPDF(salida)
+            salida = cArchivo + '.pdf'
+            generado, salida, motivo = escribir_pdf(pyfpdf.GenerarPDF, salida)
+        ok = generado
 
         # Que exista el archivo es lo unico que prueba que se genero.
         #
@@ -1135,15 +1233,24 @@ class FacturaController(ControladorBase):
         #
         # Aca se avisa, y se avisa con el CAE, que es lo que hace falta para
         # volver a imprimirla despues desde Reimprimir factura.
-        if not self._pdf_generado(salida, ok, pyfpdf, cabfact):
+        if not self._pdf_generado(salida, ok, pyfpdf, cabfact, motivo):
             self.facturaGenerada = None
             return False
 
         #Abro el visor de PDF y muestro lo generado
-        #(es necesario tener instalado Acrobat Reader o similar)
         imprimir = False #cambiar a True para que lo envie directo a laimpresora
         if mostrar:
-            pyfpdf.MostrarPDF(salida, imprimir)
+            abierto = abrir_pdf(salida, imprimir)
+            if not abierto:
+                Ventanas.showError(
+                    LeerIni('nombre_sistema'),
+                    "La factura se genero pero no se pudo abrir.",
+                    que_hacer="El archivo esta en {}. Abrilo con doble click, "
+                              "o probá con otro programa para los archivos PDF. "
+                              "La factura {} no se vuelve a emitir.".format(
+                                  os.path.abspath(salida), cabfact.numero),
+                    detalle="No se pudo abrir con el navegador ni con el "
+                            "visor del sistema: {}".format(salida))
 
         self.facturaGenerada = salida
         return True

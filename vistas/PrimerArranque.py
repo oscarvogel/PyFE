@@ -19,16 +19,12 @@ from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
 from libs.Utiles import validar_cuit
 from libs.Constantes import NOMBRE_PRODUCTO
 
-CATEGORIAS_IVA = [
-    ("1 - Responsable Inscripto", "1"),
-    ("4 - Responsable Exento", "4"),
-    ("5 - Responsable No Inscripto", "5"),
-    ("6 - Responsable Monotributo", "6"),
-    ("8 - Proveedor Exterior", "8"),
-    ("9 -Cliente Exterior", "9"),
-    ("10 - IVA Liberado - Ley Nº 19.640", "10"),
-    ("13 - Responsable Monotributo - Social", "13"),
-]
+# La lista sale de libs/catalogos.py y no se escribe aca. Estaba duplicada y
+# le faltaban el 7 (Sujeto No Categorizado) y el 16 (Monotributo Trabajador
+# Independiente), que ARCA si define. El orden es el de la tabla de ARCA.
+def _categorias_iva():
+    from libs.catalogos import CATEGORIAS_IVA_EMISOR
+    return [(etiqueta, str(codigo)) for codigo, etiqueta in CATEGORIAS_IVA_EMISOR]
 
 
 class DialogoPrimerArranque(QDialog):
@@ -113,7 +109,7 @@ class DialogoPrimerArranque(QDialog):
         formFact = QFormLayout(gbFact)
 
         self.cmbCatIva = QComboBox()
-        for etiqueta, valor in CATEGORIAS_IVA:
+        for etiqueta, valor in _categorias_iva():
             self.cmbCatIva.addItem(etiqueta, valor)
         idx = self.cmbCatIva.findData("6")
         if idx >= 0:

@@ -22,10 +22,21 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM plantillas\ son el PAPEL de la factura: sin ellas no hay PDF, por mas que
+REM la app autorice y guarde el comprobante. factura_qr.csv es el formato por
+REM defecto, factura-fce.csv el de las FCE, logo.png el que se imprime, y
+REM remito.csv el de los remitos.
+REM
+REM Se copian TODAS las .csv y los .png del ejemplo, y no una lista escrita a
+REM mano: la lista anterior se habia quedado corta y el instalador deliveraba
+REM una app sin poder facturar en papel. Se copian enteras y sin /B para que
+REM la fecha de los archivos no varies en cada build.
 if not exist dist\plantillas mkdir dist\plantillas
-copy /Y plantillas\factura_marca.csv dist\plantillas\ >nul
-copy /Y plantillas\logo-vogel-ejemplo.png dist\plantillas\ >nul
-copy /Y plantillas\factura-fondo-vogel-ejemplo.png dist\plantillas\ >nul
+xcopy /E /I /Y /D plantillas\*.csv dist\plantillas\ >nul
+xcopy /E /I /Y /D plantillas\*.png dist\plantillas\ >nul
+REM El logo de la marca va aparte porque tiene su propia carpeta en imagenes.
+if not exist dist\plantillas\factura-fondo-vogel-ejemplo.png copy /Y plantillas\factura-fondo-vogel-ejemplo.png dist\plantillas\ >nul
+if not exist dist\plantillas\logo-vogel-ejemplo.png copy /Y plantillas\logo-vogel-ejemplo.png dist\plantillas\ >nul
 
 REM conf\, imagenes\ y temas\ van SUELTOS junto al .exe, no empaquetados
 REM adentro. El sistema.ini los referencia con rutas relativas

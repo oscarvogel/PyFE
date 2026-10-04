@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import QVBoxLayout, QTabWidget, QWidget, QGridLayout, QHBox
 
 from libs import Ventanas
 from libs.Botones import Boton
+from libs.busqueda import contiene
 from libs.Checkbox import CheckBox
 from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import Etiqueta
@@ -56,16 +57,23 @@ class ABM(VistaBase):
     def initUi(self, *args, **kwargs):
         self.resize(906, 584)
         nombre_tabla = self.model._meta.table_name.title() if self.model else ''
-        self.setWindowTitle("ABM de {}".format(nombre_tabla))
+        # El titulo va solo en la barra de la ventana. Antes se repetia tambien
+        # como etiqueta adentro, y con dos lineas que dicen lo mismo arriba de
+        # la pantalla queda como un tital sin proposito. El prefijo "ABM de"
+        # tambien sobra: la pantalla se abre desde la barra lateral, donde ya
+        # se sabe que es un alta-baja-modificacion.
+        self.setWindowTitle(nombre_tabla)
         self.verticalLayout = QVBoxLayout(self)
-        self.lblTitulo = Etiqueta(tamanio=15, texto="ABM de {}".format(nombre_tabla))
-        self.verticalLayout.addWidget(self.lblTitulo)
 
         self.tabWidget = QTabWidget()
         self.tabLista = QWidget()
         self.gridLayout = QGridLayout(self.tabLista)
 
-        self.lineEditBusqueda = EntradaTexto(self.tabLista, placeholderText="Busqueda")
+        # "Buscar" y no "Buscar por nombre": hay ABMs que filtran por otra cosa
+        # (los parametros del sistema, por parametro; los impuestos, por
+        # detalle), y un cartel que miente sobre lo que busca es peor que uno
+        # que no precisa.
+        self.lineEditBusqueda = EntradaTexto(self.tabLista, placeholderText="Buscar")
         self.lineEditBusqueda.setObjectName("lineEditBusqueda")
         self.gridLayout.addWidget(self.lineEditBusqueda, 0, 0, 1, 1)
 
@@ -79,7 +87,9 @@ class ABM(VistaBase):
                                         for x in self.camposAMostrar]
         else:
             self.tableView.cabeceras = []
-        self.tableView.ArmaCabeceras()
+        # Y sus tipos, que salen del campo del modelo y no de adivinar con la
+        # primera fila: ver _formatos_de_campos.
+        self.tableView.ArmaCabeceras(formatos=self._formatos_de_campos())
         self.gridLayout.addWidget(self.tableView, 1, 0, 1, 1)
         self.horizontalLayout = QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
@@ -128,6 +138,43 @@ class ABM(VistaBase):
     def BotonesAdicionales(self):
         pass
 
+    # Que tipo de columna le corresponde a cada campo de peewee. La grilla
+    # formatea y alinea segun esto.
+    TIPOS_DE_CAMPO = {
+        'AutoField': 'Entero',
+        'BigAutoField': 'Entero',
+        'IntegerField': 'Entero',
+        'SmallIntegerField': 'Entero',
+        'BigIntegerField': 'Entero',
+        'ForeignKeyField': 'Entero',
+        'DecimalField': 'Moneda',
+        'FloatField': 'Decimal',
+        'BooleanField': 'Bool',
+        'DateField': 'Date',
+        'DateTimeField': 'Date',
+        'CharField': 'String',
+        'FixedCharField': 'String',
+        'TextField': 'String',
+    }
+
+    def _formatos_de_campos(self):
+        """El tipo de cada columna, deducido del campo del modelo.
+
+        Sin esto la grilla no sabe que "Idcliente" es un codigo: se lo deduce
+        con la primera fila, y hasta entonces elige que columna se estira por
+        la longitud del encabezado, que es justo como el id se quedaba con
+        732 de 959 px. Y el id, ya deducido como numero, se mostraba como
+        "1,00" con dos decimales que no significan nada.
+
+        Un tipo que no se reconoce no se declara (queda vacio): mejor que la
+        grilla lo descubra sola con la primera fila, como antes, a que
+        declararlo mal y formatear un importe como un codigo.
+        """
+        if not self.camposAMostrar:
+            return []
+        return [self.TIPOS_DE_CAMPO.get(type(campo).__name__, '')
+                for campo in self.camposAMostrar]
+
     def ArmaTabla(self):
         self.tableView.setRowCount(0)
         if not self.model: #si no esta establecido el modelo no hago nada
@@ -140,7 +187,7 @@ class ABM(VistaBase):
 
         if self.lineEditBusqueda.text():
             if self.ordenBusqueda:
-                data = data.where(self.ordenBusqueda.contains(self.lineEditBusqueda.text()))
+                data = data.where(contiene(self.ordenBusqueda, self.lineEditBusqueda.text()))
             else:
                 Ventanas.showAlert("Sistema", "Orden no establecido y no se puede realizar la busqueda")
 
@@ -208,7 +255,6 @@ class ABM(VistaBase):
             Ventanas.showAlert("Sistema", "No tenes establecido el campo clave y no podemos continuar")
 
         id = self.tableView.ObtenerItem(fila=self.tableView.currentRow(), col=self.campoClave.column_name.capitalize())
-        print(self.tableView.currentRow(), id)
         data = self.model.select().where(self.campoClave == id).dicts()
         self.tabDetalle.setEnabled(True)
         self.tabWidget.setCurrentIndex(1)
@@ -222,7 +268,6 @@ class ABM(VistaBase):
         if not data:
             return
         for d in data:
-            print(d)
             for k in d:
                 if k in self.controles:
                     if k == self.campoClave.column_name:

@@ -146,38 +146,202 @@ class VentaSimpleAltaArticuloDialog(Formulario):
 
 
 class VentaSimpleSeleccionClienteDialog(Formulario):
-    def __init__(self, clientes):
+    """Elegir un cliente de los que coinciden con lo que se escribio.
+
+    Recibe COMO buscar, no la lista: el buscador se vuelve a consultar cada vez
+    que se escribe, que es lo que hace falta cuando hay miles de clientes. Con
+    la lista ya armada no habia forma de acotar sin cerrar el dialogo y volver
+    a escribir desde la venta.
+    """
+
+    def __init__(self, buscador, busqueda=""):
         Formulario.__init__(self)
-        self.clientes = list(clientes)
+        self.buscador = buscador          # callable(texto) -> (clientes, total)
+        self.busqueda_inicial = busqueda
+        self.clientes = []
+        self.total = 0
         self.cliente = None
         self.setupUi(self)
+        self.buscar(busqueda)
 
     def setupUi(self, Form):
         self.setWindowTitle("Seleccionar cliente")
-        self.resize(560, 320)
+        self.resize(560, 420)
 
         self.layoutPpal = QVBoxLayout(Form)
         self.lblTitulo = EtiquetaTitulo(texto="Seleccionar cliente")
         self.layoutPpal.addWidget(self.lblTitulo)
 
+        self.txtBuscar = EntradaTexto(
+            placeholderText="Buscar por nombre, CUIT o DNI")
+        self.txtBuscar.setObjectName("txtBuscar")
+        self.txtBuscar.setText(self.busqueda_inicial)
+        self.txtBuscar.textChanged.connect(self.buscar)
+        self.txtBuscar.returnPressed.connect(self._aceptar_primero)
+        self.layoutPpal.addWidget(self.txtBuscar)
+
         self.listaClientes = QListWidget()
-        for cliente in self.clientes:
-            documento = cliente.cuit if str(cliente.cuit).replace("-", "").strip("0") else str(cliente.dni or "")
-            self.listaClientes.addItem("{} - {} - {}".format(cliente.idcliente, cliente.nombre, documento))
-        if self.clientes:
-            self.listaClientes.setCurrentRow(0)
         self.listaClientes.itemDoubleClicked.connect(self.accept)
         self.layoutPpal.addWidget(self.listaClientes)
+
+        # Sin esto no hay forma de saber si la lista esta completa o recortada:
+        # con 800 coincidencias y 100 filas, ver 100 no dice si falta nada.
+        self.lblCuenta = Etiqueta("")
+        self.lblCuenta.setObjectName("lblCuenta")
+        self.layoutPpal.addWidget(self.lblCuenta)
 
         self.botones = botonera_dialogo()
         self.botones.accepted.connect(self.accept)
         self.botones.rejected.connect(self.reject)
         self.layoutPpal.addWidget(self.botones)
 
+    def buscar(self, texto):
+        """Vuelve a consultar y redibuja la lista."""
+        self.clientes = []
+        self.listaClientes.clear()
+
+        texto = str(texto or "").strip()
+        if not texto:
+            # Volcar todos los clientes no es una busqueda: es una pantalla
+            # imposible de usar, y ademas esconde que hay que acotar.
+            self.lblCuenta.setText("Escribi para buscar entre los clientes.")
+            return
+
+        self.clientes, self.total = self.buscador(texto)
+        for cliente in self.clientes:
+            documento = cliente.cuit if str(cliente.cuit).replace("-", "").strip("0") else str(cliente.dni or "")
+            self.listaClientes.addItem("{} - {} - {}".format(
+                cliente.idcliente, cliente.nombre, documento))
+        if self.clientes:
+            self.listaClientes.setCurrentRow(0)
+
+        if self.total > len(self.clientes):
+            self.lblCuenta.setText(
+                "Mostrando {} de {} coincidencias. Seguí escribiendo para acotar.".format(
+                    len(self.clientes), self.total))
+        else:
+            self.lblCuenta.setText(
+                "{} coincidencia{}".format(self.total, "" if self.total == 1 else "s"))
+
+    def _aceptar_primero(self):
+        """Enter elige el de arriba, sin necesidad del mouse."""
+        if self.listaClientes.currentRow() < 0 and self.listaClientes.count():
+            self.listaClientes.setCurrentRow(0)
+        self.accept()
+
     def accept(self):
         fila = self.listaClientes.currentRow()
-        if fila >= 0:
+        if fila >= 0 and fila < len(self.clientes):
             self.cliente = self.clientes[fila]
+        Formulario.accept(self)
+
+
+class VentaSimpleSeleccionArticuloDialog(Formulario):
+    """Elegir un articulo del catalogo, sin tener que acordarse el nombre.
+
+    Es el hermano de VentaSimpleSeleccionClienteDialog y existe por el mismo
+    motivo: con el campo de producto vacio, Enter tiene que hacer algo util, y
+    lo util es abrir el catalogo. Antes decia "Ingrese un producto", que es un
+    aviso de que no se entendio que hacer.
+
+    Recibe COMO buscar, no la lista, por la misma razon que el de clientes: el
+    buscador se vuelve a consultar cada vez que se escribe, que es lo que hace
+    falta cuando hay catalogo de verdad y no dos articulos de prueba.
+    """
+
+    def __init__(self, buscador, busqueda=""):
+        Formulario.__init__(self)
+        self.buscador = buscador          # callable(texto) -> (articulos, total)
+        self.busqueda_inicial = busqueda
+        self.articulos = []
+        self.total = 0
+        self.articulo = None
+        self.setupUi(self)
+        self.buscar(busqueda)
+
+    def setupUi(self, Form):
+        self.setWindowTitle("Seleccionar producto")
+        self.resize(560, 420)
+
+        self.layoutPpal = QVBoxLayout(Form)
+        self.lblTitulo = EtiquetaTitulo(texto="Seleccionar producto")
+        self.layoutPpal.addWidget(self.lblTitulo)
+
+        self.txtBuscar = EntradaTexto(
+            placeholderText="Buscar por nombre, código o código de barras")
+        self.txtBuscar.setObjectName("txtBuscar")
+        self.txtBuscar.setText(self.busqueda_inicial)
+        self.txtBuscar.textChanged.connect(self.buscar)
+        self.txtBuscar.returnPressed.connect(self._aceptar_primero)
+        self.layoutPpal.addWidget(self.txtBuscar)
+
+        self.listaArticulos = QListWidget()
+        self.listaArticulos.itemDoubleClicked.connect(self.accept)
+        self.layoutPpal.addWidget(self.listaArticulos)
+
+        # Igual que en el de clientes: con la lista recortada hay que poder
+        # decir cuantas hay de verdad, o 100 filas no dicen si falta algo.
+        self.lblCuenta = Etiqueta("")
+        self.lblCuenta.setObjectName("lblCuenta")
+        self.layoutPpal.addWidget(self.lblCuenta)
+
+        self.botones = botonera_dialogo()
+        self.botones.accepted.connect(self.accept)
+        self.botones.rejected.connect(self.reject)
+        self.layoutPpal.addWidget(self.botones)
+
+    def buscar(self, texto):
+        """Vuelve a consultar y redibuja la lista."""
+        self.articulos = []
+        self.listaArticulos.clear()
+
+        texto = str(texto or "").strip()
+        if not texto:
+            # Volcar el catalogo entero no es una busqueda. Ademas, con un
+            # catalogo chico uno quiere ver todo, asi que se lo ofrece: los
+            # primeros, avisando que hay mas.
+            self.articulos, self.total = self.buscador("")
+            for articulo in self.articulos:
+                self.listaArticulos.addItem(self._texto(articulo))
+            self.lblCuenta.setText(
+                "Escribi para acotar. {} producto{} en el catalogo.".format(
+                    self.total, "" if self.total == 1 else "s"))
+            if self.articulos:
+                self.listaArticulos.setCurrentRow(0)
+            return
+
+        self.articulos, self.total = self.buscador(texto)
+        for articulo in self.articulos:
+            self.listaArticulos.addItem(self._texto(articulo))
+        if self.articulos:
+            self.listaArticulos.setCurrentRow(0)
+
+        if self.total > len(self.articulos):
+            self.lblCuenta.setText(
+                "Mostrando {} de {} coincidencias. Seguí escribiendo para "
+                "acotar.".format(len(self.articulos), self.total))
+        else:
+            self.lblCuenta.setText(
+                "{} coincidencia{}".format(
+                    self.total, "" if self.total == 1 else "s"))
+
+    def _texto(self, articulo):
+        codigo = str(articulo.codbarra or "").strip()
+        if codigo:
+            return "{} - {} - {}".format(articulo.idarticulo, articulo.nombre,
+                                        codigo)
+        return "{} - {}".format(articulo.idarticulo, articulo.nombre)
+
+    def _aceptar_primero(self):
+        """Enter elige el de arriba, sin necesidad del mouse."""
+        if self.listaArticulos.currentRow() < 0 and self.listaArticulos.count():
+            self.listaArticulos.setCurrentRow(0)
+        self.accept()
+
+    def accept(self):
+        fila = self.listaArticulos.currentRow()
+        if fila >= 0 and fila < len(self.articulos):
+            self.articulo = self.articulos[fila]
         Formulario.accept(self)
 
 

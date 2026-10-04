@@ -38,6 +38,7 @@ from PyQt5.QtWidgets import QApplication  # noqa: E402
 app = QApplication.instance() or QApplication(sys.argv)
 
 from libs.Utiles import LeerIni, DeCodifica  # noqa: E402
+from libs.instalacion import cuit_emisor  # noqa: E402
 from controladores.FE import FEv1  # noqa: E402
 
 if LeerIni("homo") != "S":
@@ -49,7 +50,7 @@ pto = args.pto or int(LeerIni(clave="pto_vta", key="WSFEv1") or 1)
 wsfe = FEv1()
 wsfe.Autenticar()
 wsfe.SetTicketAcceso(ta_string=wsfe.Autenticar())
-wsfe.Cuit = LeerIni(clave="cuit", key="WSFEv1")
+wsfe.Cuit = cuit_emisor()
 wsfe.Conectar("")
 
 hasta = args.hasta

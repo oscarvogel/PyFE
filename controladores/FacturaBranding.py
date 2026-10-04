@@ -45,7 +45,13 @@ def cargar_config_marca_factura():
 
     return ConfigMarcaFactura(
         activa=_es_si(_leer_parametro(ParamSist, "FACTURA_MARCA_ACTIVA", "N")),
-        formato=_leer_parametro(ParamSist, "FACTURA_MARCA_FORMATO", "plantillas/factura_marca.csv"),
+        # Vacio a proposito: la marca se SUMA encima de la plantilla fiscal de
+        # siempre, que tiene las lineas de la grilla y los cuadros de los
+        # totales. Antes el default era factura_marca.csv, un diseno mas pobre,
+        # y con eso activar la marca hacia perder el formato fiscal sin
+        # avisar. Para usar otra plantilla a proposito se la carga en el
+        # parametro, y la pantalla lo ofrece como opcion.
+        formato=_leer_parametro(ParamSist, "FACTURA_MARCA_FORMATO", ""),
         logo=_leer_parametro(ParamSist, "FACTURA_MARCA_LOGO", ""),
         fondo=_leer_parametro(ParamSist, "FACTURA_MARCA_FONDO", ""),
         web=_leer_parametro(ParamSist, "FACTURA_MARCA_WEB", ""),
@@ -74,17 +80,29 @@ def obtener_formato_factura(base_dir, config, formato_default):
 
 
 def aplicar_marca_factura(pyfpdf, base_dir, config):
-    if not config.activa:
-        return False
+    """Agrega la capa de marca encima de la plantilla que ya se cargo.
 
+    Devuelve la lista de lo que NO se pudo aplicar, para que la pantalla lo
+    diga. Antes devolvia un booleano y se comia el motivo.
+
+    Importante: cada parte es independiente. No hace falta tener logo para que
+    salgan la web, la leyenda y el fondo. Antes el 'return False' por falta de
+    logo se llevaba TODO, y un cliente que quiere solo su color de acento se
+    quedaba sin marca y sin aviso.
+    """
+    if not config.activa:
+        return []
+
+    pendientes = []
     base = Path(base_dir)
     logo = _resolver_path(base, config.logo)
     fondo = _resolver_path(base, config.fondo)
 
-    if not logo or not logo.exists():
-        return False
-
-    pyfpdf.AgregarDato("logo", str(logo))
+    if logo and logo.exists():
+        pyfpdf.AgregarDato("logo", str(logo))
+    elif config.logo:
+        # Se pidio un logo con una ruta que no existe. No se aborta el resto.
+        pendientes.append("el logo {}".format(config.logo))
 
     if fondo and fondo.exists():
         pyfpdf.AgregarCampo(
@@ -105,6 +123,8 @@ def aplicar_marca_factura(pyfpdf, base_dir, config):
             str(fondo),
             -20,
         )
+    elif config.fondo:
+        pendientes.append("el fondo {}".format(config.fondo))
 
     if config.web:
         pyfpdf.AgregarCampo(
@@ -146,7 +166,7 @@ def aplicar_marca_factura(pyfpdf, base_dir, config):
             2,
         )
 
-    return True
+    return pendientes
 
 
 def crear_ejemplo_vogel(base_dir, fuentes_logo=None):

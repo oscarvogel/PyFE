@@ -65,6 +65,19 @@ CLIENTES_FALSOS = [
 ]
 
 
+def _buscador_falso(texto):
+    """Buscador para el render del selector de cliente, sin base de datos.
+
+    El dialogo recibe COMO buscar, no la lista: filtra en memoria lo que sea que
+    se le pase y devuelve (coincidencias, total) como el controlador real.
+    """
+    termino = str(texto or "").lower()
+    if not termino:
+        return [], 0
+    encontrados = [c for c in CLIENTES_FALSOS if termino in c.nombre.lower()]
+    return encontrados, len(encontrados)
+
+
 # Vistas que se intentan renderizar.
 # (etiqueta, modulo, clase, ancho, alto, argumentos[, metodo])
 # Solo las que se construyen sin base de datos.
@@ -82,7 +95,7 @@ VISTAS = [
     ("CantidadPrecio", "vistas.VentaSimple", "VentaSimpleCantidadPrecioDialog", 0, 0,
      (_ArticuloStub(), 2, 1500.0)),
     ("SeleccionCliente", "vistas.VentaSimple", "VentaSimpleSeleccionClienteDialog", 0, 0,
-     (CLIENTES_FALSOS,)),
+     (_buscador_falso, "ferre")),
     ("PrimerArranque", "vistas.PrimerArranque", "DialogoPrimerArranque", 620, 560, ()),
 ]
 

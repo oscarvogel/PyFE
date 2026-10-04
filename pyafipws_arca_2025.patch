@@ -1,0 +1,316 @@
+diff --git a/pyemail.py b/pyemail.py
+index 77d3559..1870d89 100644
+--- a/pyemail.py
++++ b/pyemail.py
+@@ -11,6 +11,7 @@
+ # for more details.
+ 
+ "Módulo para enviar correos electrónicos"
++
+ from __future__ import print_function
+ from __future__ import absolute_import
+ 
+@@ -34,7 +35,7 @@ from email.mime.application import MIMEApplication
+ from email.mime.multipart import MIMEMultipart
+ import sys, os
+ import smtplib
+-from configparser import SafeConfigParser
++from configparser import ConfigParser
+ 
+ 
+ DEBUG = False
+@@ -42,6 +43,7 @@ DEBUG = False
+ 
+ class PyEmail(object):
+     "Interfaz para enviar correos de Factura Electrónica"
++
+     _public_methods_ = [
+         "Conectar",
+         "Crear",
+@@ -93,7 +95,7 @@ class PyEmail(object):
+                 self.smtp.starttls()
+             if usuario and clave:
+                 if sys.version_info[0] < 3:
+-                    #convertir a string (hmac necesita string "bytes")
++                    # convertir a string (hmac necesita string "bytes")
+                     if isinstance(usuario, str):
+                         usuario = usuario.encode("utf8")
+                     if isinstance(clave, str):
+@@ -151,7 +153,7 @@ class PyEmail(object):
+             msg["Reply-to"] = remitente or self.ResponderA
+             msg["To"] = ", ".join(to)
+             if self.CC:
+-                msg["CC"] = u", ".join(self.CC)
++                msg["CC"] = ", ".join(self.CC)
+                 to += self.CC
+             if self.BCC:
+                 to += self.BCC
+@@ -276,6 +278,7 @@ def main():
+     elif "/prueba" in sys.argv:
+         pyemail = PyEmail()
+         import getpass
++
+         i = sys.argv.index("/prueba")
+         if i + 2 < len(sys.argv):
+             usuario = sys.argv[sys.argv.index("/prueba") + 1]
+@@ -283,14 +286,16 @@ def main():
+         else:
+             usuario = input("usuario:")
+             clave = getpass.getpass("clave:")
+-        ok = pyemail.Conectar("smtp.gmail.com", usuario=usuario, clave=clave, puerto=587)
++        ok = pyemail.Conectar(
++            "smtp.gmail.com", usuario=usuario, clave=clave, puerto=587
++        )
+         print("login ok?", ok, pyemail.Excepcion)
+         print(pyemail.Traceback)
+         ok = pyemail.Enviar(usuario, "prueba", usuario, "prueba!", None)
+         print("mail enviado?", ok, pyemail.Excepcion)
+         ok = pyemail.Salir()
+     else:
+-        config = SafeConfigParser()
++        config = ConfigParser()
+         config.read("rece.ini")
+ 
+         if "/debug" in sys.argv:
+@@ -327,5 +332,6 @@ def main():
+         else:
+             print(pyemail.Traceback)
+ 
++
+ if __name__ == "__main__":
+-    main()
+\ No newline at end of file
++    main()
+diff --git a/pyfepdf.py b/pyfepdf.py
+index af32267..b640628 100644
+--- a/pyfepdf.py
++++ b/pyfepdf.py
+@@ -767,12 +767,15 @@ class FEPDF(object):
+                 import locale
+ 
+                 locale.setlocale(locale.LC_ALL, loc)
+-                return locale.format_string(
+-                    fmt,
+-                    Decimal(str(i).replace(",", ".")),
+-                    grouping=True,
+-                    monetary=monetary,
+-                )
++                try:
++                    return locale.format_string(
++                        fmt,
++                        Decimal(str(i).replace(",", ".")),
++                        grouping=True,
++                        monetary=monetary,
++                    )
++                except TypeError:
++                    return (fmt % Decimal(str(i).replace(",", "."))).replace(".", ",")
+             else:
+                 return (fmt % Decimal(str(i).replace(",", "."))).replace(".", ",")
+         else:
+diff --git a/requirements.txt b/requirements.txt
+index e949a24..b0b6cc1 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -3,7 +3,7 @@ httplib2==0.20.4; python_version > '3'
+ pysimplesoap==1.08.14; python_version <= '2.7'
+ pysimplesoap==1.8.22; python_version > '3'
+ cryptography==3.3.2; python_version <= '2.7'
+-cryptography==41.0.1; python_version > '3'
++cryptography; python_version > '3'
+ fpdf>=1.7.2
+ dbf>=0.88.019
+ Pillow<=9.5.0; platform_machine!='x86_64'
+diff --git a/ws_sr_padron.py b/ws_sr_padron.py
+index 9903e20..683f512 100644
+--- a/ws_sr_padron.py
++++ b/ws_sr_padron.py
+@@ -44,7 +44,7 @@ from pyafipws.utils import (
+     SoapFault,
+     safe_console,
+ )
+-from configparser import SafeConfigParser
++import configparser
+ from pyafipws.padron import TIPO_CLAVE, PROVINCIAS
+ 
+ 
+diff --git a/wsaa.py b/wsaa.py
+index f8ff886..394f78b 100644
+--- a/wsaa.py
++++ b/wsaa.py
+@@ -242,6 +242,8 @@ def sign_tra_openssl(tra, cert=CERT, privatekey=PRIVATEKEY, passphrase=""):
+     except OSError as e:
+         if e.errno == 2:
+             warnings.warn("El ejecutable de OpenSSL no esta disponible en el PATH")
++        else:
++            print(e)
+         raise
+ 
+ 
+diff --git a/wscdc.py b/wscdc.py
+index f4ef54b..e652a87 100644
+--- a/wscdc.py
++++ b/wscdc.py
+@@ -28,7 +28,7 @@ __license__ = "LGPL-3.0-or-later"
+ __version__ = "3.03a"
+ 
+ import sys, os, time
+-from configparser import SafeConfigParser
++import configparser
+ from pyafipws.utils import inicializar_y_capturar_excepciones, BaseWS, get_install_dir
+ from pyafipws.utils import leer, escribir, leer_dbf, guardar_dbf, N, A, I, json
+ 
+@@ -369,7 +369,7 @@ def main():
+     global CONFIG_FILE
+     if len(sys.argv) > 1 and sys.argv[1][0] not in "-/":
+         CONFIG_FILE = sys.argv.pop(1)
+-    config = SafeConfigParser()
++    config = configparser.ConfigParser()
+     if sys.version_info[0] < 3 :
+         config.read(CONFIG_FILE, encoding="latin-1")
+     else:
+diff --git a/wsfev1.py b/wsfev1.py
+index bb93275..6d5efa6 100644
+--- a/wsfev1.py
++++ b/wsfev1.py
+@@ -171,24 +171,76 @@ class WSFEv1(BaseWS):
+ 
+     def __analizar_errores(self, ret):
+         "Comprueba y extrae errores si existen en la respuesta XML"
++        if not hasattr(self, "Errores"):
++            self.Errores = []
++        if not hasattr(self, "Eventos"):
++            self.Eventos = []
++        if not hasattr(self, "ErrCode"):
++            self.ErrCode = ""
++        if not hasattr(self, "ErrMsg"):
++            self.ErrMsg = ""
+         if "Errors" in ret:
+-            errores = ret["Errors"]
++            errores = self.__normalizar_items_respuesta(ret["Errors"], "Err")
+             for error in errores:
+                 self.Errores.append(
+                     "%s: %s"
+                     % (
+-                        error["Err"]["Code"],
+-                        error["Err"]["Msg"],
++                        error.get("Code", ""),
++                        error.get("Msg", ""),
+                     )
+                 )
+-            self.ErrCode = " ".join([str(error["Err"]["Code"]) for error in errores])
++            self.ErrCode = " ".join([str(error.get("Code", "")) for error in errores])
+             self.ErrMsg = "\n".join(self.Errores)
+         if "Events" in ret:
+-            events = ret["Events"]
++            events = self.__normalizar_items_respuesta(ret["Events"], "Evt")
+             self.Eventos = [
+-                "%s: %s" % (evt["Evt"]["Code"], evt["Evt"]["Msg"]) for evt in events
++                "%s: %s" % (evt.get("Code", ""), evt.get("Msg", "")) for evt in events
+             ]
+ 
++    def __normalizar_items_respuesta(self, contenedor, nombre_item):
++        if not contenedor:
++            return []
++        if isinstance(contenedor, dict):
++            item = contenedor.get(nombre_item, contenedor)
++            if isinstance(item, (list, tuple)):
++                return item
++            return [item]
++        items = contenedor if isinstance(contenedor, (list, tuple)) else [contenedor]
++        normalizados = []
++        for item in items:
++            if isinstance(item, dict) and nombre_item in item:
++                normalizados.append(item[nombre_item])
++            else:
++                normalizados.append(item)
++        return [item for item in normalizados if isinstance(item, dict)]
++
++    def __normalizar_errores_respuesta(self, contenedor):
++        return self.__normalizar_items_respuesta(contenedor, "Err")
++
++    def __normalizar_eventos_respuesta(self, contenedor):
++        return self.__normalizar_items_respuesta(contenedor, "Evt")
++
++    def __normalizar_observaciones_respuesta(self, contenedor):
++        return self.__normalizar_items_respuesta(contenedor, "Obs")
++
++    def __obtener_primer_item_respuesta(self, contenedor, nombre_item):
++        items = self.__normalizar_items_respuesta(contenedor, nombre_item)
++        return items[0] if items else {}
++
++    def __limpiar_valores_vacios(self, datos):
++        limpios = {}
++        for clave, valor in datos.items():
++            if valor is None:
++                continue
++            if isinstance(valor, dict):
++                valor = self.__limpiar_valores_vacios(valor)
++                if not valor:
++                    continue
++            if valor in ([], ()):
++                continue
++            limpios[clave] = valor
++        return limpios
++
+     @inicializar_y_capturar_excepciones
+     def Dummy(self):
+         "Obtener el estado de los servidores de la AFIP"
+@@ -373,9 +425,8 @@ class WSFEv1(BaseWS):
+                     "PtoVta": f["punto_vta"],
+                     "CbteTipo": f["tipo_cbte"],
+                 },
+-                "FeDetReq": [
+-                    {
+-                        "FECAEDetRequest": {
++                "FeDetReq": {
++                    "FECAEDetRequest": self.__limpiar_valores_vacios({
+                             "Concepto": f["concepto"],
+                             "DocTipo": f["tipo_doc"],
+                             "DocNro": f["nro_doc"],
+@@ -472,23 +523,26 @@ class WSFEv1(BaseWS):
+                                 for actividad in f["actividades"]
+                             ]
+                             or None,
+-                        }
+-                    }
+-                ],
++                    })
++                },
+             },
+         )
+ 
+         result = ret["FECAESolicitarResult"]
+         if "FeCabResp" in result:
+             fecabresp = result["FeCabResp"]
+-            fedetresp = result["FeDetResp"][0]["FECAEDetResponse"]
++            fedetresp = self.__obtener_primer_item_respuesta(
++                result["FeDetResp"], "FECAEDetResponse"
++            )
++            errores = self.__normalizar_errores_respuesta(result.get("Errors", []))
++            observaciones = self.__normalizar_observaciones_respuesta(
++                fedetresp.get("Observaciones", [])
++            )
+ 
+             # Reprocesar en caso de error (recuperar CAE emitido anteriormente)
+-            if self.Reprocesar and ("Errors" in result or "Observaciones" in fedetresp):
+-                for error in result.get("Errors", []) + fedetresp.get(
+-                    "Observaciones", []
+-                ):
+-                    err_code = str(error.get("Err", error.get("Obs"))["Code"])
++            if self.Reprocesar and (errores or observaciones):
++                for error in errores + observaciones:
++                    err_code = str(error.get("Code", ""))
+                     if fedetresp["Resultado"] == "R" and err_code == "10016":
+                         # guardo los mensajes xml originales
+                         xml_request = self.client.xml_request
+@@ -509,8 +563,8 @@ class WSFEv1(BaseWS):
+ 
+             self.Resultado = fecabresp["Resultado"]
+             # Obs:
+-            for obs in fedetresp.get("Observaciones", []):
+-                self.Observaciones.append("%(Code)s: %(Msg)s" % (obs["Obs"]))
++            for obs in observaciones:
++                self.Observaciones.append("%(Code)s: %(Msg)s" % obs)
+             self.Obs = "\n".join(self.Observaciones)
+             self.CAE = fedetresp["CAE"] and str(fedetresp["CAE"]) or ""
+             self.EmisionTipo = "CAE"

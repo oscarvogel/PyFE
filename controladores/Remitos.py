@@ -5,7 +5,9 @@ from controladores.FPDFv1 import FEPDFv1
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1, PyQRv1
 from libs import Ventanas, Constantes
-from libs.Utiles import DeCodifica, FechaMysql, FormatoFecha, LeerIni, getFileName, imagen, inicializar_y_capturar_excepciones, ubicacion_sistema, formato_cuit, a_entero
+from libs.Utiles import DeCodifica, FechaMysql, FormatoFecha, LeerIni, getFileName, imagen, inicializar_y_capturar_excepciones, ubicacion_sistema, formato_cuit, a_entero, escribir_pdf
+from libs.instalacion import cuit_emisor
+from libs.visor import abrir_pdf
 from modelos.Articulos import Articulo
 from modelos.ParametrosSistema import ParamSist
 from modelos.Remitos import DetalleRemito, Remito
@@ -173,7 +175,7 @@ class RemitoController(ControladorBase):
         print("imprimir Remito {}".format(cabrem.numero))
         pyfpdf = FEPDFv1()
         #cuit del emisor
-        pyfpdf.CUIT = LeerIni(clave='cuit', key='WSFEv1')
+        pyfpdf.CUIT = cuit_emisor()
         #establezco formatos (cantidad de decimales):
         pyfpdf.FmtCantidad = "0.4"
         pyfpdf.FmtPrecio = "0.2"
@@ -270,8 +272,8 @@ class RemitoController(ControladorBase):
         # Pie de la pagina: credito de quien hizo el programa.
         # Va aca y no en el bloque del emisor, porque el bloque del
         # emisor identifica a QUIEN FACTURA, y ese es el cliente.
-        ok = pyfpdf.AggregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
-        ok = pyfpdf.AgregarDato("CUIT", formato_cuit(LeerIni(clave='cuit', key='WSFEv1')))
+        ok = pyfpdf.AgregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
+        ok = pyfpdf.AgregarDato("CUIT", formato_cuit(cuit_emisor()))
         ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='iibb', key='FACTURA'))
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))
         ok = pyfpdf.AgregarDato("INICIO", "Fecha inicio actividades: {}".format(LeerIni(clave='inicio', key='FACTURA')))
@@ -282,7 +284,7 @@ class RemitoController(ControladorBase):
         fecha = FormatoFecha(cabrem.fecha, formato='afip')
         cuit = ParamSist.ObtenerParametro("CUIT_EMPRESA").replace('-', '')
         if not cuit:
-            cuit = LeerIni(clave='cuit', key='WSFEv1').replace('-', '')
+            cuit = cuit_emisor()
         pto_vta = punto_vta
         tipo_cmp = tipo_cbte
         nro_cmp = cbte_nro
@@ -314,23 +316,50 @@ class RemitoController(ControladorBase):
 
         if not os.path.isdir('remitos'):
             os.mkdir('remitos')
+        # El PDF se arma a un temporal y recien despues se pasa al destino: si
+        # esta abierto en un visor, escribirlo directo lo trunca a cero bytes
+        # y se pierde el remito anterior. Ver libs.Utiles.escribir_pdf.
         try:
             #Genero el PDF de salida según la plantilla procesada
             salida = join('remitos',"{}-{}.pdf".format(cabrem.tipo_comprobante.nombre.replace(" ", "_"), f'{str(cabrem.ptovta).zfill(4)}{str(cabrem.numero).zfill(8)}'))
-            ok = pyfpdf.GenerarPDF(salida)
-        except:
+            generado, salida, motivo = escribir_pdf(pyfpdf.GenerarPDF, salida)
+        except Exception:
             cArchivo = getFileName("remito", False)
             cArchivoPDF = cArchivo + '.pdf'
             salida = cArchivoPDF
-            ok = pyfpdf.GenerarPDF(salida)
+            generado, salida, motivo = escribir_pdf(pyfpdf.GenerarPDF, salida)
+
+        if not generado:
+            Ventanas.showError(
+                LeerIni('nombre_sistema'),
+                "No se pudo generar el PDF del remito.",
+                que_hacer=("Cerrá el PDF {} que tenés abierto y volvé a "
+                           "imprimirlo. No se toco el archivo anterior.".format(
+                               os.path.basename(salida))
+                           if "no se pudo reemplazar" in (motivo or "")
+                           else "Volvé a imprimirlo. No se toco el archivo "
+                                "anterior. Detalle: {}".format(motivo)),
+                detalle="Motivo: {}\nExcepcion: {}".format(
+                    motivo, DeCodifica(getattr(pyfpdf, "Excepcion", "") or "")))
+            self.remitoGenerado = None
+            return False
         #Abro el visor de PDF y muestro lo generado
-        #(es necesario tener instalado Acrobat Reader o similar)
         imprimir = False #cambiar a True para que lo envie directo a laimpresora
         if mostrar:
-            pyfpdf.MostrarPDF(salida, imprimir)
+            abierto = abrir_pdf(salida, imprimir)
+            if not abierto:
+                Ventanas.showError(
+                    LeerIni('nombre_sistema'),
+                    "El remito se generó pero no se pudo abrir.",
+                    que_hacer="El archivo está en {}. Abrilo con doble click, "
+                              "o probá con otro programa para los archivos PDF.".format(
+                                  os.path.abspath(salida)),
+                    detalle="No se pudo abrir con el navegador ni con el "
+                            "visor del sistema: {}".format(salida))
 
         self.remitoGenerado = salida
-        
+        return True
+
     @inicializar_y_capturar_excepciones
     def onNumeroEditingFinished(self, *args, **kwargs):
         try:

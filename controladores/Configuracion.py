@@ -2,6 +2,7 @@
 from controladores.ControladorBase import ControladorBase
 from libs import Ventanas
 from libs.Utiles import LeerIni, GrabarIni, desencriptar, encriptar, inicializar_y_capturar_excepciones
+from libs.catalogos import nombre_condicion_iva
 from modelos.ParametrosSistema import ParamSist
 from vistas.Configuracion import ConfiguracionView
 
@@ -42,6 +43,8 @@ class ConfiguracionController(ControladorBase):
             self.view.controles['password'].setText(_password)
         self.view.controles['num_copias'].setText(LeerIni(clave='num_copias', key='FACTURA'))
         self.view.controles['cat_iva'].setIndex(LeerIni(clave='cat_iva', key='WSFEv1'))
+        self.view.controles['pto_vta'].setText(LeerIni(clave='pto_vta', key='WSFEv1'))
+        self.view.controles['inicio'].setText(LeerIni(clave='inicio', key='FACTURA'))
         self.view.controles['cbufce'].setText(LeerIni(clave='cbufce', key='FACTURA'))
         self.view.controles['aliasfce'].setText(LeerIni(clave='aliasfce', key='FACTURA'))
         if LeerIni('homo') == 'N':
@@ -79,6 +82,20 @@ class ConfiguracionController(ControladorBase):
             from libs.secretos import persistir_password_base
             persistir_password_base(self.view.controles['password'].text())
         GrabarIni(clave='cat_iva', key='WSFEv1', valor=self.view.controles['cat_iva'].text())
+        GrabarIni(clave='pto_vta', key='WSFEv1', valor=self.view.controles['pto_vta'].text())
+        GrabarIni(clave='inicio', key='FACTURA', valor=self.view.controles['inicio'].text())
+
+        # La condicion frente al IVA que sale en el pie de la factura no es un
+        # texto que alguien escriba: sale de la categoria de IVA que se acaba
+        # de elegir. Antes no la escribia NADIE, ni el asistente ni esta
+        # pantalla, asi que en una instalacion nueva esa linea salia en blanco
+        # en todos los comprobantes.
+        #
+        # Si en el .ini ya hay algo escrito se respeta: puede ser una
+        # categoria que esta app todavia no conoce y que alguien cargo a mano.
+        if not (LeerIni(clave='iva', key='FACTURA') or '').strip():
+            GrabarIni(clave='iva', key='FACTURA',
+                      valor=nombre_condicion_iva(self.view.controles['cat_iva'].text()))
         GrabarIni(clave='cbufce', key='FACTURA', valor=self.view.controles['cbufce'].text())
         GrabarIni(clave='aliasfce', key='FACTURA', valor=self.view.controles['aliasfce'].text())
         if LeerIni('homo') == 'N':

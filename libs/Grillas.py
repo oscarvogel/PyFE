@@ -324,6 +324,36 @@ class Grilla(QTableWidget):
             ancho.setSectionResizeMode(
                 i, QHeaderView.Stretch if i == elegida else QHeaderView.Interactive)
 
+    def _reparte_anchos_con_datos(self):
+        """Reparte los anchos cuando ya se sabe que hay en cada columna.
+
+        Con la tabla vacia (que es como nace) no hay forma de distinguir un
+        codigo angosto de una columna de texto larga, asi que se decide por el
+        texto del encabezado y gana la que tiene el nombre mas largo. En el
+        ABM de clientes eso elegia "Idcliente" (9 letras) por sobre "Nombre"
+        (6), y el codigo se llevaba 732 de los 959 px: los nombres quedaban
+        cortados en dos renglones con 700 px de blanco al lado.
+
+        Con la primera fila ya se distinguen: un codigo es numerico, y
+        `_estirar_la_mas_larga` deja los numericos fuera de las candidatas.
+        """
+        encabezado = self.horizontalHeader()
+        columnas = min(self.columnCount(), len(self.cabeceras))
+        # Todo a Interactive antes de medir. Con una seccion en Stretch el
+        # ancho lo impone Qt: ni resizeColumnsToContents ni setColumnWidth la
+        # tocan, y el codigo se queda con el ancho que le habia tocado antes.
+        for col in range(columnas):
+            encabezado.setSectionResizeMode(col, QHeaderView.Interactive)
+        self.resizeColumnsToContents()
+        for col in range(columnas):
+            # El encabezado es lo unico que explica que hay en la columna: si
+            # queda mas angosto que su propio texto se lee "Idclien...".
+            minimo = max(56, min(220, len(str(self.cabeceras[col])) * 9 + 24))
+            ancho = self.columnWidth(col)
+            if 0 < ancho < minimo:
+                self.setColumnWidth(col, minimo)
+        self._estirar_la_mas_larga(self.cabeceras)
+
     def _alinea_encabezados(self):
         for col, tipo in self.formatos.items():
             if col >= self.columnCount():
@@ -407,6 +437,13 @@ class Grilla(QTableWidget):
                     # primera fila se formatearia con el tipo por defecto y
                     # las siguientes con el declarado, y una columna
                     # quedaria con "21,00" arriba y "21" abajo.
+                    #
+                    # Sin tipo declarado se asume Decimal y no se intenta
+                    # adivinar: una columna de importes a la que se le pasa un
+                    # 0 de arranque (la fila de "Saldo Inicial" de la ficha
+                    # del cliente) se volveria "Entero" y ahi los 1.234,56 se
+                    # muestran como 1.235. Ver "1,00" de mas en un codigo
+                    # molesta; redondear un importe no.
                     if col not in self.formatos:
                         self.formatos[col] = 'Decimal'
                     # El texto de la celda es para MIRAR. El valor real se
@@ -477,6 +514,9 @@ class Grilla(QTableWidget):
                 # declarado los tipos: asi todas las tablas de la app quedan
                 # bien sin tocar las 30 pantallas una por una.
                 self._alinea_encabezados()
+                # Y recien ahi se reparte el sobrante: con la tabla vacia no se
+                # puede saber que "Idcliente" es un codigo y "Nombre" un texto.
+                self._reparte_anchos_con_datos()
 
     def OcultaColumnas(self):
         for x in self.columnasOcultas:
@@ -516,6 +556,9 @@ class Grilla(QTableWidget):
 
         self.setItem(fila, numCol, item)
         self.resizeColumnsToContents()
+        # Editar una celda no puede dejar la tabla de nuevo con la columna de
+        # codigo ocupando media pantalla: se vuelve a repartir el sobrante.
+        self._reparte_anchos_con_datos()
         #self.dataChanged()
 
     def ObtenerItem(self, fila, col):

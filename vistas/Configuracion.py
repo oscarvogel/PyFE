@@ -27,8 +27,16 @@ class ConfiguracionView(Formulario):
         self.ArmaEntrada('iibb', boxlayout=self.layoutCUIT)
         self.layoutCopias = self.ArmaEntrada('num_copias', texto=u'Nº de copias de factura',
                                              control=ComboCopiasFE())
-        self.ArmaEntrada('cat_iva', texto='Categoria IVA (1: Resp. Inscripto, 4 Exento, 6: Monotributo)',
+        # El texto ya no dice '(1: Resp. Inscripto, 4 Exento, 6: Monotributo)'
+        # porque el combo trae los diez codigos de ARCA, no tres.
+        self.ArmaEntrada('cat_iva', texto='Categoria de IVA de la empresa',
                          boxlayout=self.layoutCopias, control=ComboTipoRespIVA())
+        # Punto de venta e inicio de actividades los pide el asistente de
+        # primer arranque, pero antes no se podian corregir desde aca: habia
+        # que editar el .ini a mano.
+        self.layoutEmision = self.ArmaEntrada('pto_vta', texto='Punto de venta')
+        self.ArmaEntrada('inicio', texto='Inicio de actividades',
+                         boxlayout=self.layoutEmision)
 
         self.lblTituloParametros = EtiquetaTitulo(texto='Parametros')
         self.verticalLayoutDatos.addWidget(self.lblTituloParametros)

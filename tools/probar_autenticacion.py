@@ -31,6 +31,7 @@ if RAIZ not in sys.path:
 sys.argv = [sys.argv[0]]
 
 from libs.Utiles import LeerIni  # noqa: E402
+from libs.instalacion import cuit_emisor  # noqa: E402
 from controladores.DiagnosticoAfip import DiagnosticoAfip  # noqa: E402
 
 print("=== ENTORNO DE PRUEBA ===")
@@ -41,7 +42,7 @@ print("base      : sqlite  ({})".format(os.path.abspath("sistema.db")
                                        else "se crea al arrancar"))
 print("modo      : {}".format("HOMOLOGACION" if LeerIni("homo") == "S"
                               else "PRODUCCION  <-- esto NO deberia pasar"))
-print("CUIT      : {}".format(LeerIni(clave="cuit", key="WSFEv1")))
+print("CUIT      : {}".format(cuit_emisor()))
 print("cert      : {}".format(LeerIni(clave="cert_homo", key="WSAA")))
 print("clave     : {}".format(LeerIni(clave="privatekey_homo", key="WSAA")))
 print("")

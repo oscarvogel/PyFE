@@ -41,6 +41,7 @@ from controladores.CargaFacturasProveedor import CargaFacturaProveedorController
 from controladores.CentroCostos import CentroCostoController
 from controladores.Clientes import ClientesController
 from controladores.Configuracion import ConfiguracionController
+from controladores.DisenoComprobante import DisenoComprobanteController
 from controladores.ConstatacionComprobantes import ConstatacionComprobantesController
 from controladores.ConsultaCAE import ConsultaCAEController
 from controladores.ConsultaCtaCte import ConsultaCtaCteController
@@ -105,8 +106,37 @@ class Main(ControladorBase):
                 GrabarIni(clave='ultima_copia', key='param', valor=FechaMysql())
         self.CreaTablas()
         self.Migraciones()
+        self.AvisarPendientesDeInstalacion()
         self.conectarWidgets()
         self.initUi()
+
+    def AvisarPendientesDeInstalacion(self):
+        """Dice que falta para poder emitir, si falta algo.
+
+        Va aca y no en el asistente de primer arranque porque el chequeo mira
+        la base recien sembrada, y cuando corre el asistente todavia no hay
+        conexion: la base se arma despues, en este import.
+
+        Solo avisa si hay algo pendiente. Una vez que el usuario cargo los
+        certificados y corrigio lo que faltaba, no vuelve a molestar.
+        """
+        from libs import Ventanas
+        from libs.listo_para_facturar import (chequear_instalacion, formatear,
+                                              pendientes)
+
+        try:
+            pasos = chequear_instalacion()
+        except Exception as e:
+            # El chequeo no puede ser la razon por la que la app no arranca.
+            print("No se pudo revisar la instalacion: {}".format(type(e).__name__))
+            return
+
+        if not pendientes(pasos):
+            return
+
+        Ventanas.showAlert(
+            LeerIni("nombre_sistema"),
+            "Todavia falta para poder emitir:\n\n{}".format(formatear(pasos)))
 
     def initUi(self):
         """La vista lee sola la configuracion del encabezado y la barra de estado.
@@ -220,6 +250,8 @@ class Main(ControladorBase):
             # -- Configuracion
             "configuracion": lambda: self._abrir(ConfiguracionController,
                                                 usar_exec=False),
+            "diseno-comprobante": lambda: self._abrir(
+                DisenoComprobanteController, usar_exec=False),
             "parametros": lambda: self._abrir(ABMParamSistController),
             "correo-reportes": lambda: self._abrir(ConfiguracionCorreoController),
             "firma-email": lambda: self._abrir(FirmaCorreoElectronicoController),

@@ -71,6 +71,62 @@ def AbrirArchivo(cArchivo=None):
         else:  # linux variants
             subprocess.call(('xdg-open', cArchivo))
 
+
+def escribir_pdf(generar, destino):
+    """Arma el PDF a un temporal y recien despues lo pasa al destino.
+
+    `generar` es la funcion que arma el PDF y acepta la ruta donde escribir.
+
+    Devuelve `(ok, destino, motivo)`. Con `ok` en False, `motivo` dice por que
+    y el archivo de destino queda **intacto**.
+
+    Por que el temporal y no escribir directo
+    ------------------------------------------
+    fpdf2 abre el archivo de salida en modo escritura antes de escribir una
+    sola linea. Si el destino esta abierto en un visor de PDF, Windows no lo
+    deja: el archivo se trunca a 0 bytes y recien ahi la libreria se da
+    cuenta. El resultado es doble y malo: se perdio el PDF anterior y quedo un
+    archivo vacio. Y como el archivo existe, cualquier chequeo de "se genero"
+    lo daba por bueno, asi que la app reportaba exito con un comprobante de
+    cero bytes.
+
+    Eso se reprodujo con Foxit PDF Reader abierto: `PermissionError` en
+    `Path(name).write_bytes(self.buffer)`, archivo de 0 bytes, ningun aviso.
+
+    Escribir a un temporal no tiene el problema: el temporal es nuevo y no
+    puede estar bloqueado, y el destino se reemplaza de una sola vez, que en
+    Windows y en Linux es atomico si estan en el mismo volumen. Si el
+    destino esta bloqueado, el error pasa a ser del `os.replace`, que es donde
+    corresponde, y el PDF viejo sigue ahi.
+    """
+    destino = os.path.abspath(destino)
+    carpeta = os.path.dirname(destino) or "."
+    if not os.path.isdir(carpeta):
+        os.makedirs(carpeta)
+
+    descriptor, temporal = tempfile.mkstemp(prefix="pyfe-", suffix=".pdf",
+                                            dir=carpeta)
+    os.close(descriptor)
+    try:
+        generar(temporal)
+        if not os.path.isfile(temporal) or os.path.getsize(temporal) == 0:
+            return False, destino, "el generador no escribio ningun archivo"
+        os.replace(temporal, destino)
+        return True, destino, None
+    except PermissionError as error:
+        return False, destino, (
+            "no se pudo reemplazar {}: {} ({}). Es el que tenés abierto en el "
+            "visor de PDF.".format(os.path.basename(destino), error.strerror,
+                                   getattr(error, "winerror", "")))
+    except Exception as error:
+        return False, destino, "{}: {}".format(type(error).__name__, error)
+    finally:
+        if os.path.isfile(temporal):
+            try:
+                os.unlink(temporal)
+            except OSError:
+                pass
+
 #leo el archivo de configuracion del sistema
 #recibe la clave y el key a leer en caso de que tenga mas de una seccion el archivo
 

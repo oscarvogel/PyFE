@@ -12,6 +12,7 @@
 #consultar datos del padron de la afip online
 from controladores.FE import FEv1
 from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, AbrirArchivo
+from libs.instalacion import cuit_emisor
 from pyafipws.padron import PadronAFIP
 from pyafipws.ws_sr_padron import WSSrPadronA5
 
@@ -30,7 +31,7 @@ class PadronAfip(WSSrPadronA5):
         ta = wsfev1.Autenticar(service='ws_sr_padron_a5')
         # ta = wsfev1.Autenticar(service='ws_sr_padron_a13')
         self.SetTicketAcceso(ta_string=ta)
-        self.Cuit = LeerIni(clave='cuit', key='WSFEv1') #cuit de la empresa/persona
+        self.Cuit = cuit_emisor() #cuit de la empresa/persona
 
         if LeerIni(clave='homo') == 'N':
             self.WSDL = "https://aws.afip.gov.ar/sr-padron/webservices/personaServiceA5?wsdl"

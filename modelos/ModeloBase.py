@@ -56,15 +56,38 @@ class ModeloBase(Model):
         database = db
 
 
+# Las formas en que un bit puede llegar. El CSV es la fuente de los maestros
+# y ahi todo es TEXTO, asi que '1' es lo habitual y no un caso raro.
+_BIT_VERDADEROS = ('1', 'true', 't', 's', 'si', 'sí', 'x', 'y')
+
+
+def _a_bit(valor):
+    """Normaliza a un booleano cualquier forma en que llegue un bit.
+
+    Antes el codigo hacia `value == 1`, y en un CSV los valores son texto:
+    '1' == 1 es False en Python. O sea que TODOS los bits de los CSV se
+    guardaban en cero sin que nadie se enterara: cargar 15 filas y devolver
+    15, como si hubiera ido bien.
+    """
+    if valor is None:
+        return False
+    if isinstance(valor, (bytes, bytearray)):
+        # MySQL devuelve un BIT(1) como b'\x01' / b'\x00'.
+        return any(valor)
+    if isinstance(valor, str):
+        return valor.strip().lower() in _BIT_VERDADEROS
+    return bool(valor)
+
+
 class BitBooleanField(BooleanField):
     field_type = 'Bit'
 
     def db_value(self, value):
         if isinstance(db, SqliteDatabase):
-            return value == 1
+            return _a_bit(value)
+        # En MySQL el valor pasaba tal cual. No se toca: no hay evidencia de
+        # que ese camino este mal, y no se puede probar desde aca.
         return value
 
     def python_value(self, value):
-        if isinstance(db, SqliteDatabase):
-            return value == 1
-        return value == b'\01'
+        return _a_bit(value)

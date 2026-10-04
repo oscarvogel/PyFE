@@ -193,13 +193,23 @@ class ComboTipoBaseDatos(Combo):
         ])
 
 class ComboTipoRespIVA(Combo):
+    """La categoria de IVA de la empresa, con TODOS los codigos.
+
+    Antes tenia tres (1, 4 y 6) y la lista estaba escrita en el lugar. Con una
+    categoria fuera de esos tres, que es lo normal en un estudio contable,
+    setIndex no encontraba el dato, el combo se vaciaba, y al guardar
+    Configuracion el cat_iva quedaba en blanco: abrir la pantalla y apretar
+    Grabar borraba la categoria de IVA de la empresa.
+
+    Ahora sale de libs/catalogos.py, que es donde esta la lista de verdad.
+    """
 
     def __init__(self, parent=None, *args, **kwargs):
         Combo.__init__(self, parent, *args, **kwargs)
+        from libs.catalogos import CATEGORIAS_IVA_EMISOR
         self.CargaDatosValores(data={
-            '1': 'Responsable Inscripto',
-            '4': 'Exento',
-            '6': 'Monotributo'
+            str(codigo): etiqueta
+            for codigo, etiqueta in CATEGORIAS_IVA_EMISOR
         })
 
 class ComboCopiasFE(Combo):
