@@ -14,13 +14,18 @@ from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, a_entero
 from modelos.Articulos import Articulo
 from modelos.Clientes import Cliente
 from vistas.VentaSimple import VentaSimpleAltaArticuloDialog, VentaSimpleAltaClienteDialog, \
-    VentaSimpleCantidadPrecioDialog, VentaSimpleSeleccionClienteDialog, VentaSimpleView
+    VentaSimpleCantidadPrecioDialog, VentaSimpleSeleccionArticuloDialog, \
+    VentaSimpleSeleccionClienteDialog, VentaSimpleView
 
 
 # Cuantos clientes se traen a la lista. Es un tope, no un filtro: por abajo el
 # total, asi que el dialogo puede decir cuantos hay en total y el operador
 # sigue acotando. 100 es lo que entra comodo en la pantalla sin scroll.
 LIMITE_BUSQUEDA_CLIENTES = 100
+
+# Igual que el de clientes: es un tope, no un filtro, por abajo esta el
+# total asi que el dialogo puede decir cuantos hay en total.
+LIMITE_BUSQUEDA_ARTICULOS = 100
 
 
 class VentaSimpleController(ControladorBase):
@@ -288,10 +293,24 @@ class VentaSimpleController(ControladorBase):
 
     @inicializar_y_capturar_excepciones
     def agregar_articulo(self, *args, **kwargs):
+        """Agrega un renglon, segun lo que haya escrito en el campo.
+
+        Campo vacio: se abre el catalogo. Con el cliente, Enter abre un
+        selector; con el producto decia "Ingrese un producto", que deja al
+        operador sin salida si no se acuerda el nombre exacto. El selector
+        deja seguir escribiendo para acotar, que es lo que hace falta con un
+        catalogo de verdad.
+
+        Campo con texto: se busca, y si no aparece se ofrece darlo de alta.
+        Ese camino no se toca, porque es el que permite cargar algo nuevo sin
+        salir de la pantalla.
+        """
         busqueda = self.view.textArticulo.text().strip()
         if not busqueda:
-            Ventanas.showAlert("Venta", "Ingrese un producto")
-            return
+            articulo = self.seleccionar_articulo("")
+            if not articulo:
+                return
+            return self._agregar_este_articulo(articulo)
 
         articulo = self.buscar_articulo(busqueda)
         if not articulo:
@@ -303,6 +322,15 @@ class VentaSimpleController(ControladorBase):
             if not articulo:
                 return
 
+        return self._agregar_este_articulo(articulo)
+
+    def _agregar_este_articulo(self, articulo):
+        """Pide cantidad y precio y agrega la linea.
+
+        Aca convergen los dos caminos: el que viene del selector del catalogo
+        y el que viene de haber escrito el nombre. La linea se arma igual, y
+        con la misma validacion de cantidad.
+        """
         try:
             cantidad = Decimal(self.view.textCantidad.text() or "1")
         except Exception:
@@ -396,6 +424,68 @@ class VentaSimpleController(ControladorBase):
             tipoiva=tipoiva,
             codbarra=datos["codbarra"],
         )
+
+    def _articulo_exacto(self, texto):
+        """Si el texto identifica a un solo articulo, lo devuelve.
+
+        Codigo, codigo de barras y nombre exacto se buscan con igualdad: son
+        indices, y con "contiene" el codigo 1 encontraria el 10, el 11 y el
+        100.
+        """
+        try:
+            return Articulo.get_by_id(texto)
+        except Exception:
+            pass
+
+        try:
+            return Articulo.get(Articulo.codbarra == texto)
+        except Exception:
+            pass
+
+        return Articulo.get_or_none(Articulo.nombre == texto)
+
+    def _coincidencias_articulo(self, texto, limite=None):
+        """Los articulos que coinciden con lo escrito, y cuantos hay en total.
+
+        El total va aparte del recorte a proposito: sin el, una lista de 100
+        filas no dice si se ve todo el catalogo o solo una parte.
+        """
+        texto = str(texto or "").strip()
+
+        if not texto:
+            # El catalogo entero, recortado. Es lo que muestra el selector
+            # cuando se abre sin escribir nada: uno quiere ver que hay.
+            consulta = Articulo.select()
+            total = consulta.count()
+            if limite is None:
+                limite = LIMITE_BUSQUEDA_ARTICULOS
+            return list(consulta.order_by(Articulo.nombre).limit(limite)), total
+
+        exacto = self._articulo_exacto(texto)
+        if exacto:
+            return [exacto], 1
+
+        consulta = Articulo.select().where(buscar_texto(Articulo.nombre, texto))
+        total = consulta.count()
+        if limite is None:
+            limite = LIMITE_BUSQUEDA_ARTICULOS
+        return list(consulta.order_by(Articulo.nombre).limit(limite)), total
+
+    def seleccionar_articulo(self, busqueda):
+        """Abre el catalogo y devuelve el articulo elegido, o None.
+
+        A diferencia del selector de clientes, este no lleva candado: no
+        necesita, porque el campo de producto no tiene editingFinished
+        conectado, solo returnPressed. O sea que abrir el dialogo modal no
+        vuelve a disparar la entrada que lo abrio. El del cliente si lo
+        necesita, y por eso lleva el suyo.
+        """
+        dialogo = VentaSimpleSeleccionArticuloDialog(
+            self._coincidencias_articulo, busqueda=busqueda)
+        dialogo.exec_()
+        if dialogo.result() != QDialog.Accepted:
+            return None
+        return dialogo.articulo
 
     def buscar_articulo(self, busqueda):
         try:
