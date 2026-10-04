@@ -93,6 +93,7 @@ class MigracionBaseDatos(ControladorBase):
         # todas. El orden con RealizaMigraciones es al reves justamente por
         # eso: no depende de que las de esquema hayan salido bien.
         self.CorregirCondicionIvaReceptor()
+        self.CorregirBitsDeMaestros()
 
         self.RealizaMigraciones()
 
@@ -379,6 +380,70 @@ class MigracionBaseDatos(ControladorBase):
         except:
             logging.error("Error:", sys.exc_info()[0])
         return len(datos)
+
+    def CorregirBitsDeMaestros(self):
+        """Vuelve a poner los bits de los maestros como dice el CSV.
+
+        Los bits se guardaban mal desde el CSV (ver
+        modelos/ModeloBase.py::_a_bit), asi que en toda base creada hasta ahora
+        estan en cero. El caso que se ve es tipocomp.exporta, que deja la
+        reimpresion de facturas, el Libro IVA Ventas y los RG 3685 con la lista
+        vacia aunque haya facturas guardadas.
+
+        Solo toca filas cuyo valor difiere del CSV, no inserta ni borra, y es
+        idempotente. Un tipo que no este en el CSV se queda como esta: puede ser
+        uno que creo el administrador.
+        """
+        import csv
+        from modelos.ModeloBase import _a_bit
+
+        campos_bit = {
+            'tipoiva': None,
+        }
+        # Un solo maestro por ahora, y a proposito: agregar el segundo cuando
+        # se haya encontrado uno que este roto, no antes.
+        try:
+            from modelos.Tipocomprobantes import TipoComprobante
+        except Exception as e:
+            logging.debug("No se pudo leer TipoComprobante: %s", e)
+            return 0
+
+        ruta = os.path.join('data', 'tipocomprobante.csv')
+        if not os.path.isfile(ruta):
+            logging.debug("No esta %s, se omite la correccion de bits", ruta)
+            return 0
+
+        try:
+            with open(ruta, newline='') as archivo:
+                filas = list(csv.reader(archivo, delimiter=','))
+        except (IOError, OSError) as e:
+            logging.debug("No se pudo abrir %s: %s", ruta, e)
+            return 0
+        del campos_bit
+
+        corregidas = []
+        for fila in filas[1:]:
+            if not fila or not fila[0].strip() or len(fila) < 5:
+                continue
+            try:
+                codigo = int(fila[0])
+                esperado = _a_bit(fila[4])
+            except (ValueError, TypeError):
+                continue
+            tipo = TipoComprobante.get_or_none(TipoComprobante.codigo == codigo)
+            if tipo is None or tipo.exporta == esperado:
+                continue
+            tipo.exporta = esperado
+            tipo.save()
+            corregidas.append("{} ({}) exporta={}".format(
+                tipo.nombre, codigo, esperado))
+
+        if corregidas:
+            logging.warning(
+                "Se corrigio el bit 'exporta' de estos tipos de comprobante, "
+                "que venian en cero por un error al leer el CSV: %s",
+                "; ".join(corregidas))
+        return len(corregidas)
 
     def MigrarVersion3(self):
         correos = CorreoEnviado()
