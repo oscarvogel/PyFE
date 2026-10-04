@@ -41,6 +41,7 @@ from controladores.CargaFacturasProveedor import CargaFacturaProveedorController
 from controladores.CentroCostos import CentroCostoController
 from controladores.Clientes import ClientesController
 from controladores.Configuracion import ConfiguracionController
+from controladores.DisenoComprobante import DisenoComprobanteController
 from controladores.ConstatacionComprobantes import ConstatacionComprobantesController
 from controladores.ConsultaCAE import ConsultaCAEController
 from controladores.ConsultaCtaCte import ConsultaCtaCteController
@@ -249,6 +250,8 @@ class Main(ControladorBase):
             # -- Configuracion
             "configuracion": lambda: self._abrir(ConfiguracionController,
                                                 usar_exec=False),
+            "diseno-comprobante": lambda: self._abrir(
+                DisenoComprobanteController, usar_exec=False),
             "parametros": lambda: self._abrir(ABMParamSistController),
             "correo-reportes": lambda: self._abrir(ConfiguracionCorreoController),
             "firma-email": lambda: self._abrir(FirmaCorreoElectronicoController),

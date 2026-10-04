@@ -930,9 +930,30 @@ class FacturaController(ControladorBase):
 
     @inicializar_y_capturar_excepciones
     def ImprimeFactura(self, idcabecera = None, mostrar = True, *args, **kwargs):
+        """Imprime una factura ya guardada.
+
+        No hace nada raro: carga el comprobante y se lo pasa a
+        _armar_comprobante, que es el que arma el PDF. La vista previa del
+        diseno usa ese mismo metodo con datos de mentira, para que lo que el
+        cliente ve sea exactamente lo que sale impreso.
+        """
         if not idcabecera:
             return
         cabfact = Cabfact().get_by_id(idcabecera)
+        return self._armar_comprobante(cabfact, mostrar=mostrar)
+
+    def _armar_comprobante(self, cabfact, salida=None, mostrar=True,
+                           renglones=None):
+        """Arma el PDF de un comprobante. No escribe nada en la base.
+
+        `salida` es donde se escribe. Si no se pasa, va a
+        facturas/<tipo>-<numero>.pdf, que es donde la deja una impresion normal.
+
+        `renglones` son los items del comprobante. Si no se pasan, se buscan en
+        detfact por el id del comprobante, como siempre. Se pasan solo para la
+        vista previa del diseno, que arma un comprobante de mentira y no puede
+        meter filas en la base de verdad.
+        """
         print("imprimir factura {}".format(cabfact.numero))
         pyfpdf = FEPDF()
         #cuit del emisor
@@ -1034,8 +1055,10 @@ class FacturaController(ControladorBase):
             importe = cabfact.percepciondgr #importe liquidado de este tributo
             ok = pyfpdf.AgregarTributo(tributo_id, Desc, base_imp, alic, importe)
 
-        det = Detfact().select().where(Detfact.idcabfact == cabfact.idcabfact)
-        for d in det:
+        if renglones is None:
+            renglones = Detfact().select().where(
+                Detfact.idcabfact == cabfact.idcabfact)
+        for d in renglones:
             #Agrego detalles de cada item de la factura:
             u_mtx = 0 #unidades
             cod_mtx = "" #código de barras
@@ -1173,16 +1196,20 @@ class FacturaController(ControladorBase):
             logging.error("ProcesarPlantilla fallo para la factura %s: %s",
                           cabfact.numero, getattr(pyfpdf, "Excepcion", ""))
 
-        if not os.path.isdir('facturas'):
-            os.mkdir('facturas')
         try:
-            #Genero el PDF de salida segun la plantilla procesada
-            salida = join('facturas',"{}-{}.pdf".format(cabfact.tipocomp.nombre.replace(" ", "_"), cabfact.numero))
+            if salida is None:
+                if not os.path.isdir('facturas'):
+                    os.mkdir('facturas')
+                #Genero el PDF de salida segun la plantilla procesada
+                salida = join('facturas',"{}-{}.pdf".format(
+                    cabfact.tipocomp.nombre.replace(" ", "_"), cabfact.numero))
             ok = pyfpdf.GenerarPDF(salida)
         except:
+            # Si la ruta no se puede escribir, se cae al archivo que le
+            # sugiera el sistema. Es lo que hacia antes, con la diferencia de
+            # que la vista previa ya trae su propia ruta.
             cArchivo = getFileName("factura", False)
-            cArchivoPDF = cArchivo + '.pdf'
-            salida = cArchivoPDF
+            salida = cArchivo + '.pdf'
             ok = pyfpdf.GenerarPDF(salida)
 
         # Que exista el archivo es lo unico que prueba que se genero.
