@@ -1156,10 +1156,14 @@ class FacturaController(ControladorBase):
         # (izquierda), codigos que existian en fpdf 1.7 y que fpdf2 no
         # entiende. Sin esta traduccion el PDF no se genera y la factura queda
         # autorizada en ARCA sin documento. Ver libs/fpdf_compat.py.
-        _alineados = fpdf_compat.normalizar_plantilla(pyfpdf)
-        if _alineados:
-            logging.debug("plantilla: %s campos con alineacion antigua (D/I)",
-                          _alineados)
+        _alineados, _fuentes, _fondos = fpdf_compat.normalizar_plantilla(pyfpdf)
+        if _alineados or _fuentes or _fondos:
+            # Los fondos importan mas de lo que parecen: con los valores
+            # heredados de fpdf 1.7 la factura salia con la pagina negra.
+            logging.debug(
+                "plantilla normalizada para fpdf2: %s alineaciones, %s fuentes, "
+                "%s fondos heredados puestos en blanco",
+                _alineados, _fuentes, _fondos)
         num_copias = a_entero(LeerIni(clave='num_copias', key='FACTURA'), 1) #original, duplicado y triplicado
         lineas_max = 24 #cantidad de linas de items por página
         qty_pos = "izq" #(cantidad a la izquierda de la descripción del artículo)

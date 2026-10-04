@@ -66,6 +66,64 @@ def normalizar_fuentes(elementos):
     return cambiados
 
 
+# Los fondos que en fpdf 1.7 significaban 'sin relleno' y que fpdf2 pinta.
+# 0x00FFFF es cian y 0x000000 es negro: con fpdf2 la factura salia con la
+# pagina negra y los textos cian.
+FONDOS_HEREDADOS_SIN_RELLENO = (0x000000, 0x00FFFF)
+FONDO_BLANCO = 0xFFFFFF
+
+# Solo los campos de TEXTO. Las imagenes, las lineas y los codigos de barras
+# necesitan fondo transparente: pintarles encima tapa justo lo que tienen que
+# mostrar. En las plantillas, los campos de texto son tipo 'T' (o 't' minuscula
+# en factura_qr.csv, que tiene una fila asi).
+TIPOS_DE_TEXTO = ("T", "t")
+
+
+def normalizar_fondos(elementos):
+    """Los fondos heredados de fpdf 1.7 dejan de pintarse con fpdf2.
+
+    Las plantillas viejas ponen en la columna de fondo 65535 (cian) y 0 (negro)
+    para casi todo, y en fpdf 1.7 esos valores no se pintaban: eran la manera
+    de decir 'sin relleno'. fpdf2 los pinta, porque su plantilla declara
+
+        background: Optional[int] = None    # None = sin relleno
+        if background is None: fill = False
+        else:                 fill = True
+
+    o sea que CUALQUIER entero se pinta, incluido el 0. Con eso la factura
+    salia con la pagina negra (el marco 'Cuadro', de 200 x 278 mm, relleno de
+    negro) y los textos cian.
+
+    Que se ponga depende del tipo, porque no es lo mismo:
+
+    - Texto: va a BLANCO. Es lo que ya usa factura_marca.csv, que es la
+      plantilla escrita para fpdf2 y por lo tanto la que se sabe que dibuja
+      bien. Un texto sin relleno tambien andaria, pero el blanco es el valor
+      probado.
+    - Marcos, lineas, imagenes y codigos de barras: SIN RELLENO. Un marco
+      pintado tapa la pagina entera, una linea pintada tapa la linea, y una
+      imagen pintada tapa la imagen.
+    """
+    cambiados = 0
+    for elemento in elementos or []:
+        fondo = elemento.get("background")
+        # En las plantillas el color llega como int ya convertido, pero puede
+        # llegar como texto si el campo se cargo a mano.
+        if isinstance(fondo, str):
+            try:
+                fondo = int(fondo, 16)
+            except ValueError:
+                continue
+        if fondo not in FONDOS_HEREDADOS_SIN_RELLENO:
+            continue
+        if elemento.get("type") in TIPOS_DE_TEXTO:
+            elemento["background"] = FONDO_BLANCO
+        else:
+            elemento["background"] = None
+        cambiados += 1
+    return cambiados
+
+
 def normalizar_align(elementos):
     """Traduce los align de una lista de elementos de plantilla.
 
@@ -182,11 +240,14 @@ def normalizar_plantilla(pyfpdf):
     Se llama despues de CrearPlantilla(), que es cuando existe el Template.
     Si la plantilla todavia no esta, no hace nada: no es un error, solo que
     todavia no hay nada que traducir.
+
+    Devuelve cuantos campos toco cada cosa: (alineacion, fuentes, fondos).
     """
     _instalar_has_key()
     _relajar_setitem()
     plantilla = getattr(pyfpdf, "template", None)
     if plantilla is None:
-        return 0, 0
+        return 0, 0, 0
     return (normalizar_align(plantilla.elements),
-            normalizar_fuentes(plantilla.elements))
+            normalizar_fuentes(plantilla.elements),
+            normalizar_fondos(plantilla.elements))
