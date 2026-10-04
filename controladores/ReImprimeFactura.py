@@ -7,6 +7,7 @@ from controladores.EnvioEmail import EnvioEmailController
 from controladores.Facturas import FacturaController
 from libs.Utiles import inicializar_y_capturar_excepciones
 from modelos.Cabfact import Cabfact
+from modelos.Clientes import Cliente
 from modelos.Emailcliente import EmailCliente
 from modelos.Tipocomprobantes import TipoComprobante
 from vistas.ReImprimeFactura import ReImprimeFacturaView
@@ -28,15 +29,19 @@ class ReImprimeFacturaController(ControladorBase):
 
     def CargaFacturasCliente(self):
         self.view.gridDatos.setRowCount(0)
-        if not self.view.controles['cliente'].text():
-            return
-        cab = Cabfact().select(Cabfact, TipoComprobante).join(TipoComprobante)\
-            .where(Cabfact.fecha >= self.view.controles['fecha'].date().toPyDate(),
-                                       Cabfact.cliente == self.view.controles['cliente'].text())
+        condiciones = [Cabfact.fecha >= self.view.controles['fecha'].date().toPyDate()]
+        cliente = self.view.controles['cliente'].text().strip()
+        if cliente:
+            condiciones.append(Cabfact.cliente == cliente)
+        cab = Cabfact().select(Cabfact, TipoComprobante, Cliente)\
+            .join(TipoComprobante, on=(Cabfact.tipocomp == TipoComprobante.codigo))\
+            .join(Cliente, on=(Cabfact.cliente == Cliente.idcliente))\
+            .where(*condiciones).order_by(Cabfact.fecha.desc())
         for c in cab:
             if c.tipocomp.exporta:
                 item = [
-                    c.fecha, c.numero, c.total, c.idcabfact
+                    c.fecha, c.cliente.nombre, c.numero, c.total,
+                    c.idcabfact, c.cliente.idcliente
                 ]
                 self.view.gridDatos.AgregaItem(items=item)
 
@@ -47,25 +52,34 @@ class ReImprimeFacturaController(ControladorBase):
 
     @inicializar_y_capturar_excepciones
     def EnviarPorCorreo(self, *args, **kwargs):
-        if self.view.gridDatos.currentRow() != -1:
-            factura = FacturaController()
-            factura.ImprimeFactura(self.view.gridDatos.ObtenerItem(
-                fila=self.view.gridDatos.currentRow(), col='idcabecera'),
-            mostrar=False)
-            emaicliente = EmailCliente.select().where(EmailCliente.idcliente == self.view.controles['cliente'].text())
-            controlador = EnvioEmailController()
-            controlador.adjuntos = []
-            # controlador.archivo_firma = "prueba.html"
-            controlador.adjuntos = factura.facturaGenerada
-            controlador.ActualizaListaAdjuntos()
-            controlador.cliente = self.view.controles['cliente'].text()
-            controlador.view.textAsunto.setText(
-                f'Envio comprobante {os.path.basename(factura.facturaGenerada)}'
-            )
-            controlador.view.textPara.setText(
-                ','.join(e.email for e in emaicliente)
-            )
-            controlador.exec_()
+        fila = self.view.gridDatos.currentRow()
+        if fila == -1:
+            return
+        # El destinatario sale de la fila elegida y no del campo de arriba: la
+        # pantalla lista las comprobantes de todos los clientes del periodo y
+        # ese campo puede estar vacio, en cuyo caso antes no encontraba ni los
+        # mail ni el cliente del comprobante.
+        idcliente = self.view.gridDatos.ObtenerItem(fila=fila, col='idcliente')
+        if not idcliente:
+            return
+        factura = FacturaController()
+        factura.ImprimeFactura(self.view.gridDatos.ObtenerItem(
+            fila=fila, col='idcabecera'),
+        mostrar=False)
+        emaicliente = EmailCliente.select().where(EmailCliente.idcliente == idcliente)
+        controlador = EnvioEmailController()
+        controlador.adjuntos = []
+        # controlador.archivo_firma = "prueba.html"
+        controlador.adjuntos = factura.facturaGenerada
+        controlador.ActualizaListaAdjuntos()
+        controlador.cliente = idcliente
+        controlador.view.textAsunto.setText(
+            f'Envio comprobante {os.path.basename(factura.facturaGenerada)}'
+        )
+        controlador.view.textPara.setText(
+            ','.join(e.email for e in emaicliente)
+        )
+        controlador.exec_()
             # emaicliente = EmailCliente.select().where(EmailCliente.idcliente == self.view.controles['cliente'].text())
             # items = []
             # for e in emaicliente:

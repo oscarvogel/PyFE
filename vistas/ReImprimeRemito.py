@@ -10,45 +10,48 @@ from libs.Utiles import imagen, icono
 from modelos import Clientes
 
 
-class ReImprimeFacturaView(Formulario):
+class ReImprimeRemitoView(Formulario):
+    """La pantalla de remitos es propia, no la de facturas reusada.
+
+    Antes el controlador de remitos se construia con `ReImprimeFacturaView()`, y
+    por eso "Reimprimir remito" abria una ventana titulada "Reimpresion de
+    facturas" con un boton de enviar por correo que no tiene a quien mandarle:
+    un remito no se manda, se imprime.
+    """
 
     def __init__(self, *args, **kwargs):
         Formulario.__init__(self, *args, **kwargs)
         self.setupUi(self)
 
     def setupUi(self, Form):
-        self.setWindowTitle("Reimpresión de facturas")
+        self.setWindowTitle("Reimpresión de remitos")
         self.verticalLayoutDatos = QVBoxLayout(Form)
 
         self.lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
         self.verticalLayoutDatos.addWidget(self.lblTitulo)
-        self.layoutCliente = self.ArmaEntrada('cliente',control=Clientes.Valida())
+        self.layoutCliente = self.ArmaEntrada('cliente', control=Clientes.Valida())
         self.lblNombreCliente = Etiqueta()
         self.controles['cliente'].widgetNombre = self.lblNombreCliente
         self.layoutCliente.addWidget(self.lblNombreCliente)
-        self.ArmaEntrada(boxlayout=self.layoutCliente,nombre='fecha', control=Fecha())
+        self.ArmaEntrada(boxlayout=self.layoutCliente, nombre='fecha', control=Fecha())
         self.controles['fecha'].setFecha(-30)
         self.gridDatos = Grilla()
         self.gridDatos.enabled = True
-        self.gridDatos.textoVacio = "No hay comprobantes de este período"
-        # Las dos ultimas son las que usa el boton Imprimir para recuperar el
-        # comprobante y el de correo para saber a quien mandarselo: hacen
-        # falta en la fila, no a la vista. Escondidas liberan el ancho que se
-        # iba en un nombre de campo de la base.
+        self.gridDatos.textoVacio = "No hay remitos de este período"
+        # 'idcabecera' es el idremito: lo usa el boton Imprimir para recuperar
+        # el remito. Va en la fila, no a la vista.
         cabeceras = [
-            'Fecha', 'Cliente', 'Comprobante', 'Total', 'idcabecera', 'idcliente'
+            'Fecha', 'Cliente', 'Remito', 'Total', 'idcabecera'
         ]
         self.verticalLayoutDatos.addWidget(self.gridDatos)
         self.gridDatos.ArmaCabeceras(cabeceras=cabeceras)
-        self.gridDatos.columnasOcultas = [4, 5]
+        self.gridDatos.columnasOcultas = [4]
         self.gridDatos.OcultaColumnas()
         self.layoutBotones = QHBoxLayout()
         self.btnImprimir = Boton(texto="Imprimir", imagen=icono('imprimir'))
         self.btnCargar = Boton(texto="Cargar", imagen=icono('buscar'))
-        self.envioCorreo = Boton(texto="Enviar por correo", imagen=icono('email'))
         self.btnCerrar = BotonCerrarFormulario()
         self.layoutBotones.addWidget(self.btnCargar)
         self.layoutBotones.addWidget(self.btnImprimir)
-        self.layoutBotones.addWidget(self.envioCorreo)
         self.layoutBotones.addWidget(self.btnCerrar)
         self.verticalLayoutDatos.addLayout(self.layoutBotones)
