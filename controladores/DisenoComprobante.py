@@ -178,7 +178,7 @@ class DisenoComprobanteController(ControladorBase):
                 "COLOR_" + clave.replace("color_", "").upper(), defecto))
 
     @inicializar_y_capturar_excepciones
-    def GrabaParametros(self, *args, **kwargs):
+    def GrabaParametros(self, *args, avisar=True, **kwargs):
         malos = self.view.colores_invalidos()
         if malos:
             Ventanas.showAlert(
@@ -211,11 +211,17 @@ class DisenoComprobanteController(ControladorBase):
 
         # Se avisa lo que no se pudo aplicar, en vez de tragarselo. La marca se
         # guarda igual: el operador la quiere activa, y lo que falta se le dice.
-        self._avisar_pendientes()
+        self._avisar_pendientes(avisar=avisar)
         return True
 
-    def _avisar_pendientes(self):
-        """Que parte del diseño no se va a ver, y por que."""
+    def _avisar_pendientes(self, avisar=True):
+        """Que parte del diseño no se va a ver, y por que.
+
+        Con avisar=False no muestra ni el 'Diseño guardado' ni los pendientes:
+        es lo que usa la vista previa, que ya tiene su propio cartel con la
+        ruta del PDF. Poner un modal entre apretar el boton y ver el
+        comprobante hace que parezca que no paso nada.
+        """
         from controladores.FacturaBranding import (aplicar_marca_factura,
                                                    cargar_config_marca_factura)
         from libs import Ventanas
@@ -226,20 +232,49 @@ class DisenoComprobanteController(ControladorBase):
 
         from pyafipws.pyfepdf import FEPDF
         pendientes = aplicar_marca_factura(FEPDF(), os.getcwd(), config)
-        if pendientes:
+        if pendientes and avisar:
             Ventanas.showAlert(
                 "Diseño guardado, con partes sin aplicar",
                 "Se guardó todo, pero esto no se va a ver en el comprobado:\n\n{}\n\n"
                 "El resto del diseño sí se aplica.".format(
                     "\n".join("- {}".format(p) for p in pendientes)))
-        else:
+        elif avisar:
             Ventanas.showAlert(
                 "Diseño guardado",
                 "El comprobante va a salir con este diseño desde la próxima "
                 "impresión.")
 
+    def _avisar_ruta_fuera(self, logo="", fondo=""):
+        """La imagen quedo fuera de la carpeta del programa.
+
+        Se guarda igual, con la ruta absoluta, porque el operador la quiere
+        asi. Pero hay que avisarle: en otra maquina ese archivo no va a estar y
+        el logo no va a salir. Es mejor saberlo ahora que descubrirlo en la
+        primera factura del cliente.
+        """
+        if logo or fondo:
+            Ventanas.showAlert(
+                "La imagen quedó fuera del programa",
+                "Se guardó, pero en otra máquina no va a estar y esa parte "
+                "del diseño no se va a ver.\n\n{}\n\nSi querés que viaje "
+                "con el programa, copiala a la carpeta 'imagenes' y "
+                "volvé a elegirla desde ahí.".format(
+                    "\n".join(x for x in (logo, fondo) if x)))
+
     def _parametros(self):
-        """Los diez, en el orden y con el nombre que espera FacturaBranding."""
+        """Los diez, en el orden y con el nombre que espera FacturaBranding.
+
+        El logo y el fondo se guardan con ruta relativa a la carpeta de la app
+        cuando el archivo esta adentro, para que la instalacion viaje. Ver
+        _guardar_como_para_esta_maquina.
+        """
+        logo_guardado, logo_fuera = self._guardar_como_para_esta_maquina(
+            self.view.controles['logo'].text().strip())
+        fondo_guardado, fondo_fuera = self._guardar_como_para_esta_maquina(
+            self.view.controles['fondo'].text().strip())
+        if logo_fuera or fondo_fuera:
+            self._avisar_ruta_fuera(logo_guardado if logo_fuera else "",
+                                    fondo_guardado if fondo_fuera else "")
         parametros = [
             ("ACTIVA", self.view.controles['activa'].text()),
             # Vacio = se usa la plantilla fiscal de siempre y la marca se suma
@@ -248,8 +283,8 @@ class DisenoComprobanteController(ControladorBase):
             # Perder el formato fiscal al activar la marca es justo al reves
             # de lo que se quiere.
             ("FORMATO", self.view.controles['formato'].text().strip()),
-            ("LOGO", self.view.controles['logo'].text().strip()),
-            ("FONDO", self.view.controles['fondo'].text().strip()),
+            ("LOGO", logo_guardado),
+            ("FONDO", fondo_guardado),
             ("WEB", self.view.controles['web'].text().strip()[:LIMITE_WEB]),
             ("LEYENDA", self.view.controles['leyenda'].text().strip()[:LIMITE_LEYENDA]),
         ]
@@ -260,6 +295,41 @@ class DisenoComprobanteController(ControladorBase):
             parametros.append(("COLOR_" + clave.replace("color_", "").upper(),
                                 valor))
         return parametros
+
+    @staticmethod
+    def _guardar_como_para_esta_maquina(ruta):
+        """Si el archivo esta dentro de la app, guarda la ruta relativa.
+
+        Una ruta absoluta a la maquina donde se desarrollo el sistema no viaja:
+        en la maquina del cliente el archivo no esta, y la marca desaparece sin
+        avisar. Relativa si, porque la instalacion se lleva la carpeta entera.
+
+        Si el archivo esta fuera de la app, se deja absoluta y se avisa: es un
+        problema real que el operador tiene que saber, y esconderlo seria peor
+        que el problema.
+        """
+        if not ruta:
+            return ruta, False
+        if not os.path.isabs(ruta):
+            # Ya viene en la forma que viaja. No se toca.
+            #
+            # Ojo con no pasar esto por abspath(): resolveria contra el
+            # directorio ACTUAL, no contra la carpeta de la app, y el
+            # parametro Portable terminaba guardado como una ruta absoluta
+            # de la maquina desde la que se corrio el programa. Que es
+            # justamente lo que hay que evitar.
+            return ruta.replace("\\", "/"), False
+
+        base = os.path.abspath(ubicacion_sistema())
+        completa = os.path.abspath(ruta)
+        try:
+            relativa = os.path.relpath(completa, base)
+        except ValueError:
+            # Distintas unidades (C: y otra): no hay ruta relativa posible.
+            return ruta, True
+        if relativa.startswith(".."):
+            return ruta, True
+        return relativa.replace("\\", "/"), False
 
     @staticmethod
     def _existen(ruta):
@@ -280,7 +350,7 @@ class DisenoComprobanteController(ControladorBase):
         vista previa muestra el diseno viejo y el operador no puede ver lo que
         acaba de hacer.
         """
-        if not self.GrabaParametros():
+        if not self.GrabaParametros(avisar=False):
             return False
 
         # El codigo del QR lleva el CUIT, y la libreria lo pasa a int. Sin
@@ -296,10 +366,18 @@ class DisenoComprobanteController(ControladorBase):
                 "Configuración de inicio > CUIT.")
             return False
 
-        # En la carpeta temporal: un comprobante de muestra no debe quedar
-        # mezclado con las facturas de verdad, que se reimprimen despues.
-        carpeta = tempfile.mkdtemp(prefix="comprobante_prueba_")
-        salida = os.path.join(carpeta, "comprobante-de-prueba.pdf")
+        # Ruta FIJA y no una carpeta aleatoria en la temporal. Con nombre
+        # aleatorio el PDF se perdia entre carpetas del sistema, que es
+        # exactamente lo que pasa cuando el operador dice 'no se ve': se
+        # generaba 25 veces en 25 carpetas y no habia forma de encontrarlo.
+        #
+        # Fuera de 'facturas/' a proposito: esa carpeta se usa para
+        # reimprimir las facturas de verdad, y una muestra sin guardar
+        # guardada no deberia aparecer en los listados.
+        carpeta = os.path.join(ubicacion_sistema(), "comprobantes de prueba")
+        if not os.path.isdir(carpeta):
+            os.makedirs(carpeta, exist_ok=True)
+        salida = os.path.join(carpeta, "ultimo.pdf")
 
         try:
             factura = _ImpresorDeMuestra()
@@ -319,12 +397,19 @@ class DisenoComprobanteController(ControladorBase):
                             getattr(factura, "Excepcion", ""))
                 return False
 
+            # Se levanta la ventana antes de abrir el visor: si el PDF se
+            # abre detras de la app, el operador no ve nada y concluye que no
+            # se genero.
+            self._traer_adelante()
+            abierta = self._abrir_muestra(salida)
             self.view.setTextStatusBar("Muestra: {}".format(salida))
-            if not self._abrir_muestra(salida):
+            if not abierta:
                 Ventanas.showAlert(
                     "Comprobante de prueba",
                     "Se generó la muestra pero no se pudo abrir sola.\n\n"
-                    "Está en:\n{}".format(salida))
+                    "Está en:\n{}\n\nLa próxima vez la encontrás en la "
+                    "carpeta 'comprobantes de prueba', al lado del "
+                    "programa.".format(salida))
             return True
         except Exception as e:
             Ventanas.showError(
@@ -334,6 +419,19 @@ class DisenoComprobanteController(ControladorBase):
                           "corríalo y volvé a probar.",
                 detalle="{}: {}".format(type(e).__name__, e))
             return False
+
+    def _traer_adelante(self):
+        """Pone la ventana de diseño arriba del todo.
+
+        Sin esto el visor del PDF se abre detrás de la app y parece que no
+        pasó nada.
+        """
+        for widget in (self.view, self):
+            try:
+                widget.raise_()
+                widget.activateWindow()
+            except Exception:
+                pass
 
     @staticmethod
     def _abrir_muestra(salida):
