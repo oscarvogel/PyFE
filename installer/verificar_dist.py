@@ -45,6 +45,17 @@ RECURSOS_TEMA = [
 ]
 
 
+# Los archivos que el codigo pide en tiempo de ejecucion. Si falta alguno, la
+# app arranca, autoriza y guarda, pero NO genera el PDF. Son el papel de la
+# factura: sin esto no hay documento para entregar.
+ARCHIVOS_QUE_SI_SI_SE_USAN = [
+    "plantillas/factura_qr.csv",     # formato por defecto (Facturas.py)
+    "plantillas/factura-fce.csv",    # comprobantes electronicos (FCE)
+    "plantillas/logo.png",           # logo del emisor impreso
+    "plantillas/remito.csv",         # remitos
+]
+
+
 def verificar(dist):
     problemas, avisos = [], []
 
@@ -73,6 +84,15 @@ def verificar(dist):
     for relativo in RECURSOS_TEMA:
         if not os.path.isfile(os.path.join(dist, relativo)):
             problemas.append("falta el recurso del tema {}".format(relativo.replace("\\", "/")))
+
+    # Las plantillas de la factura. Estas NO son un detalle: sin ellas la app
+    # autoriza y guarda el comprobante pero no genera el PDF, y el cliente se
+    # queda sin documento. Pasaron meses sin que nada las pidiera.
+    for relativo in ARCHIVOS_QUE_SI_SI_SE_USAN:
+        if not os.path.isfile(os.path.join(dist, relativo.replace("/", os.sep))):
+            problemas.append(
+                "falta {}: sin esta plantilla la factura se autoriza y se "
+                "guarda pero NO se imprime".format(relativo))
 
     return problemas, avisos
 

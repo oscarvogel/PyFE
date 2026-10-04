@@ -1117,7 +1117,8 @@ class FacturaController(ControladorBase):
             pyfpdf.AgregarDato('CBUFCE', LeerIni('CBUFCE', key='FACTURA'))
             pyfpdf.AgregarDato('ALIASFCE', LeerIni('ALIASFCE', key='FACTURA'))
             pyfpdf.AgregarDato('nombre_condvta', Constantes.COND_VTA['T'])
-            ok = pyfpdf.CargarFormato(ubicacion_sistema() + "/plantillas/factura-fce.csv")
+            ruta_formato = ubicacion_sistema() + "/plantillas/factura-fce.csv"
+            ok = pyfpdf.CargarFormato(ruta_formato)
         else:
             #Cargo el formato desde el archivo CSV(opcional)
             #(carga todos los campos a utilizar desde la planilla)
@@ -1126,6 +1127,23 @@ class FacturaController(ControladorBase):
             formato = obtener_formato_factura(os.getcwd(), config_marca, "plantillas/factura_qr.csv")
             ok = pyfpdf.CargarFormato(str(formato))
             aplicar_marca_factura(pyfpdf, os.getcwd(), config_marca)
+
+        # Si el formato no cargo, NO se sigue de largo. CargarFormato se come la
+        # excepcion y devuelve False, y antes el resultado no se miraba: se
+        # armaba la plantilla con un formato vacio y el error terminaba
+        # apareciendo lineas mas abajo como 'no se pudo generar el PDF', sin
+        # relacion con la causa real, que era un archivo que no existe.
+        if not ok:
+            Ventanas.showError(
+                LeerIni('nombre_sistema'),
+                "No se encontro la plantilla de la factura.",
+                que_hacer="Falta el archivo {}. Esta en el programa, asi que "
+                          "lo mas probable es que la instalacion este "
+                          "incompleta: vuelva a instalar.".format(
+                              os.path.basename(str(ruta_formato))),
+                detalle="CargarFormato devolvio False para {}".format(
+                    ruta_formato))
+            return False
         #Creo plantilla para esta factura(papel A4vertical):
 
         if LeerIni(clave='homo') == 'S':
