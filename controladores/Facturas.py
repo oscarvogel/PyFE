@@ -20,7 +20,8 @@ from libs.instalacion import cuit_emisor
 from libs.visor import abrir_pdf
 from libs.Utiles import (LeerIni, validar_cuit, FechaMysql, ubicacion_sistema,
                          inicializar_y_capturar_excepciones, DeCodifica, imagen,
-                         getFileName, FormatoFecha, formato_cuit, a_entero)
+                         getFileName, FormatoFecha, formato_cuit, a_entero,
+                         escribir_pdf)
 from modelos.Articulos import Articulo
 from modelos.Cabfact import Cabfact
 from modelos.Clientes import Cliente
@@ -866,58 +867,65 @@ class FacturaController(ControladorBase):
         self.ImprimeFactura(idcabecera=cabfact.idcabfact)
         return True
 
-    def _pdf_generado(self, salida, ok, pyfpdf, cabfact):
-        """Existe el PDF? Si no, avisar con el CAE y devolver False.
+    def _pdf_generado(self, salida, ok, pyfpdf, cabfact, motivo=None):
+        """Se genero el PDF? Si no, avisar con el CAE y devolver False.
 
-        Que exista el archivo es lo unico que prueba que se genero. Antes
-        ImprimeFactura devolvia True siempre: si la plantilla fallaba (por
-        ejemplo porque la libreria de PDF no es la que espera el proyecto) la
-        factura quedaba IGUAL autorizada en ARCA, pero sin documento. El
-        usuario cerraba creyendo que habia hecho todo y el cliente no recibia
-        nada, que es el peor resultado posible porque una factura autorizada
-        no se puede deshacer.
+        El chequeo tiene que ser el resultado real de la escritura, no la
+        existencia del archivo.
+
+        Por que no alcanza con que el archivo este
+        ------------------------------------------
+        Antes se aceptaba que el archivo existiera. Con fpdf2 no se puede
+        pedir el valor de retorno de `GenerarPDF` (`Template.render()` esta
+        anotado -> None, escribe el archivo y no devuelve nada; el envoltorio
+        de pyfepdf se come la excepcion), asi que la existencia del archivo
+        era la unica prueba disponible. Y no alcanza: fpdf2 abre el archivo de
+        salida en modo escritura antes de escribir una linea, asi que si el
+        destino esta abierto en un visor, el archivo se trunca a CERO bytes y
+        recien ahi falla. El comprobante anterior se perdia, quedaba un
+        archivo vacio y, como existia, la app reportaba exito.
+
+        Eso se reprodujo con Foxit PDF Reader abierto: `PermissionError` en
+        `Path(name).write_bytes(self.buffer)`, archivo de 0 bytes, sin aviso.
+
+        Ahora el PDF se arma a un temporal y se pasa al destino recien
+        terminado (`escribir_pdf`), asi que `ok` es el resultado real de la
+        escritura y el archivo anterior nunca se toca si algo falla.
 
         Se avisa con el CAE porque es lo que hace falta para volver a imprimir
         la factura despues, desde Reimprimir factura.
         """
-        # El archivo es lo que prueba que se genero, y es lo UNICO que
-        # prueba, porque con fpdf2 GenerarPDF devuelve None: Template.render()
-        # esta anotado -> None, escribe el archivo y no devuelve nada. Pedir
-        # ese valor de retorno hacia que TODAS las facturas se reportaran como
-        # fallidas, con el PDF generado al lado. Con fpdf 1.7 render() si
-        # devolvia algo, por eso el chequeo se escribio con `ok and ...` y no
-        # se noto el cambio al migrar a fpdf2.
-        #
-        # La excepcion es un False explicito: si la libreria dice que fallo,
-        # se avisa aunque el archivo exista. Con fpdf2 eso no pasa (el
-        # envoltorio se come la excepcion y devuelve None igual), pero si
-        # alguna vez GenerarPDF vuelve a devolver algo, el False sigue siendo
-        # una senal que hay que respetar.
-        #
-        # Aceptar None con archivo no es arriesgado: la salida es
-        # `facturas/<tipo>-<numero>.pdf`, determinista por numero de
-        # comprobante, y ARCA no reutiliza numeros. Un archivo con ese nombre
-        # es siempre el PDF de esa factura, y el escenario del archivo previo
-        # es el de una reimpresion, donde tener el viejo es lo que se quiere.
-        if ok is False:
-            pass
-        elif os.path.isfile(salida):
+        if ok:
             return True
 
+        # Lo mas comun: un visor de PDF tiene el comprobante abierto y Windows
+        # no deja reemplazarlo. Foxit lo hace siempre, porque ademas corre
+        # como instancia unica.
+        bloqueado = bool(motivo) and "no se pudo reemplazar" in motivo
         Ventanas.showError(
             LeerIni('nombre_sistema'),
             "La factura se autorizo pero no se pudo generar el PDF.",
-            que_hacer="La factura {} con CAE {} ya esta autorizada en ARCA y no "
-                      "se puede deshacer. Para volver a armar el PDF, corre "
-                      "Diagnostico desde Configuracion y despues usa Reimprimir "
-                      "factura. No la vuelvas a emitir: ARCA no permite dos "
-                      "comprobantes iguales.".format(
-                          getattr(cabfact, "numero", "?"),
-                          self._cae_de_pantalla()),
+            que_hacer=("Cerrá el comprobante {} que tenés abierto en el visor de "
+                       "PDF y volvé a imprimirlo. No se toco el archivo "
+                       "anterior. La factura {} con CAE {} ya esta autorizada en "
+                       "ARCA y no se puede deshacer: no la vuelvas a emitir, ARCA "
+                       "no permite dos comprobantes iguales.".format(
+                           os.path.basename(salida),
+                           getattr(cabfact, "numero", "?"),
+                           self._cae_de_pantalla())
+                       if bloqueado else
+                       "La factura {} con CAE {} ya esta autorizada en ARCA y no "
+                       "se puede deshacer. Para volver a armar el PDF, corre "
+                       "Diagnostico desde Configuracion y despues usa Reimprimir "
+                       "factura. No la vuelvas a emitir: ARCA no permite dos "
+                       "comprobantes iguales.".format(
+                           getattr(cabfact, "numero", "?"),
+                           self._cae_de_pantalla())),
             detalle="ProcesarPlantilla: {}\nArchivo esperado: {}\n"
-                    "Excepcion: {}\nTraceback: {}".format(
+                    "Motivo: {}\nExcepcion: {}\nTraceback: {}".format(
                         ok,
                         salida,
+                        motivo,
                         DeCodifica(getattr(pyfpdf, "Excepcion", "") or ""),
                         DeCodifica(getattr(pyfpdf, "Traceback", "") or "")))
         return False
@@ -1197,21 +1205,22 @@ class FacturaController(ControladorBase):
             logging.error("ProcesarPlantilla fallo para la factura %s: %s",
                           cabfact.numero, getattr(pyfpdf, "Excepcion", ""))
 
+        # El PDF se arma a un temporal y recien despues se pasa al destino. Si
+        # el destino esta abierto en un visor, escribirlo directo lo trunca a
+        # cero bytes y se pierde el comprobante anterior. Ver escribir_pdf.
         try:
             if salida is None:
-                if not os.path.isdir('facturas'):
-                    os.mkdir('facturas')
-                #Genero el PDF de salida segun la plantilla procesada
-                salida = join('facturas',"{}-{}.pdf".format(
+                salida = join('facturas', "{}-{}.pdf".format(
                     cabfact.tipocomp.nombre.replace(" ", "_"), cabfact.numero))
-            ok = pyfpdf.GenerarPDF(salida)
-        except:
+            generado, salida, motivo = escribir_pdf(pyfpdf.GenerarPDF, salida)
+        except Exception as error:
             # Si la ruta no se puede escribir, se cae al archivo que le
             # sugiera el sistema. Es lo que hacia antes, con la diferencia de
             # que la vista previa ya trae su propia ruta.
             cArchivo = getFileName("factura", False)
             salida = cArchivo + '.pdf'
-            ok = pyfpdf.GenerarPDF(salida)
+            generado, salida, motivo = escribir_pdf(pyfpdf.GenerarPDF, salida)
+        ok = generado
 
         # Que exista el archivo es lo unico que prueba que se genero.
         #
@@ -1224,7 +1233,7 @@ class FacturaController(ControladorBase):
         #
         # Aca se avisa, y se avisa con el CAE, que es lo que hace falta para
         # volver a imprimirla despues desde Reimprimir factura.
-        if not self._pdf_generado(salida, ok, pyfpdf, cabfact):
+        if not self._pdf_generado(salida, ok, pyfpdf, cabfact, motivo):
             self.facturaGenerada = None
             return False
 

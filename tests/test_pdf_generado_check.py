@@ -1,24 +1,34 @@
 # coding=utf-8
-"""Tests de _pdf_generado, el aviso de 'no se pudo generar el PDF'.
+"""El aviso de "no se pudo generar el PDF", sobre todo el de fpdf2.
 
 Que estaba pasando
 ------------------
-GenerarPDF devuelve None aunque el PDF se haya generado bien: con fpdf2
-(fpdf 2.8.7) Template.render() esta anotado -> None, escribe el archivo y no
-devuelve nada. Y _pdf_generado hacia `if ok and os.path.isfile(salida)`, o
-sea que exigia un valor de retorno que la libreria ya no da.
+Con fpdf2 (fpdf 2.8.7) `Template.render()` esta anotado -> None: escribe el
+archivo y no devuelve nada. Y el chequeo hacia `if ok and os.path.isfile(...)`,
+o sea que exigia un valor de retorno que la libreria ya no daba. Con fpdf 1.7,
+de donde venia el proyecto, render() si devolvia algo verdadero; el proyecto
+migro a fpdf2 y el chequeo se dio vuelta sin que nadie lo notara.
 
 Efecto: cada factura impresa avisaba "La factura se autorizo pero no se pudo
-generar el PDF" CON el PDF generado, y dejaba facturaGenerada en None. Con
-fpdf 1.7, que es de donde venia el proyecto, render() si devolvia algo
-verdadero; el proyecto migro a fpdf2 y el chequeo se dio vuelta sin que nadie
-lo notara.
+generar el PDF" CON el PDF generado al lado, y dejaba `facturaGenerada` en
+None.
 
-Estos tests no dependen de la base ni de ARCA: llaman al metodo directo con un
-archivo de verdad.
+Que quedo de ese arreglo, y por que ahora es distinto
+-----------------------------------------------------
+La salida fue aceptar que el archivo exista como prueba de que se genero. No
+alcanza: fpdf2 abre el archivo de salida en modo escritura antes de escribir
+una linea, asi que si esta abierto en un visor de PDF, Windows no lo deja y el
+archivo se trunca a CERO bytes. El archivo existia (vacio) y la app reportaba
+exito. Reproducido con Foxit PDF Reader abierto.
+
+Ahora la escritura pasa por `libs.Utiles.escribir_pdf`, que arma a un temporal
+y recien despues reemplaza el destino. El `ok` que llega aca es el resultado
+real, y el archivo anterior nunca se toca si algo falla.
+Ver tests/test_pdf_bloqueado.py.
+
+Estos tests no dependen de la base ni de ARCA: llaman al metodo directo.
 """
 
-import io
 import os
 import sys
 
@@ -73,43 +83,44 @@ def controlador(qt, avisos, tmp_path):
     return FacturaController()
 
 
-def test_el_pdf_existe_aunque_ok_venga_vacio(controlador, tmp_path,
-                                           sin_avisos):
-    """El caso de fpdf2: ok es None y el archivo esta.
+def test_la_escritura_confirmada_no_avisa(controlador, tmp_path, sin_avisos):
+    """El camino normal de fpdf2: la escritura se sabe por `escribir_pdf`.
 
-    Con el chequeo anterior esto daba False y saltava el aviso de que la
-    factura quedo autorizada sin comprobante, que es la peor alarma posible
-    porque el comprobante estaba ahi.
+    Antes esto se resolvia mirando que el archivo existiera. Ya no: se mira el
+    resultado de la escritura, que es lo unico que no miente cuando la
+    libreria no devuelve nada.
     """
     destino = tmp_path / "factura.pdf"
-    destino.write_bytes(b"%PDF-1.4\n%%EOF\n")
 
-    assert controlador._pdf_generado(str(destino), None, _Falso(Excepcion=""),
+    assert controlador._pdf_generado(str(destino), True, _Falso(Excepcion=""),
                                      None) is True
 
 
-def test_sin_archivo_sigue_avisando(controlador, tmp_path):
-    """Sin archivo, tiene que avisar: para eso esta este chequeo."""
+def test_escribir_sin_archivo_avisa(controlador, tmp_path):
+    """Sin archivo tiene que avisar: para eso esta este chequeo."""
     destino = tmp_path / "no-existe.pdf"
 
-    resultado = controlador._pdf_generado(str(destino), True,
-                                          _Falso(Excepcion=""), None)
+    resultado = controlador._pdf_generado(str(destino), False,
+                                          _Falso(Excepcion=""), None,
+                                          "el generador no escribio nada")
 
     assert resultado is False
     assert avisos, "sin archivo tiene que avisar: para eso existe el chequeo"
 
 
-def test_el_ok_verdadero_no_alcanza_sin_archivo(controlador, tmp_path, avisos):
-    """Un ok que dice que si, pero sin archivo, es un fallo igual.
+def test_un_ok_que_dice_que_si_no_alcanza_sin_escribir(controlador, tmp_path,
+                                                       avisos):
+    """Un ok que dice que si es la senal de la escritura, no del archivo.
 
-    Con fpdf 1.7 el ok era lo unico que se podia mirar, y por eso el chequeo
-    aceptaba un ok sin comprobar nada. El archivo es lo que prueba.
+    El archivo es consecuencia de la escritura, no al reves. Si `ok` dice que
+    se escribio y el archivo no esta, el problema esta en `escribir_pdf`, y lo
+    que tiene que avisar el es ella.
     """
     destino = tmp_path / "tampoco-existe.pdf"
 
     assert controlador._pdf_generado(str(destino), True,
-                                     _Falso(Excepcion=""), None) is False
-    assert avisos
+                                     _Falso(Excepcion=""), None) is True
+    assert avisos == []
 
 
 def test_generar_pdf_devuelve_none_igual_genera(controlador, tmp_path,
@@ -117,7 +128,9 @@ def test_generar_pdf_devuelve_none_igual_genera(controlador, tmp_path,
     """La razon de fondo: la libreria no devuelve nada. Documentado en un test.
 
     Si alguna vez GenerarPDF vuelve a devolver algo, este test avisa y se puede
-    volver a usar `ok` como senal secundaria.
+    volver a usar `ok` como senal secundaria. AUNQUE el chequeo de la escritura
+    deberia seguir siendo el que manda: con fpdf2 devuelve None igual habiendo
+    fallado.
     """
     from pyafipws.pyfepdf import FEPDF
     import inspect
@@ -126,4 +139,4 @@ def test_generar_pdf_devuelve_none_igual_genera(controlador, tmp_path,
     assert retorno in (inspect.Signature.empty, None), \
         ("GenerarPDF ahora devuelve {!r}. Si la libreria cambio, revisar si "
          "conviene volver a usar el valor de retorno como senal, aunque el "
-         "chequeo del archivo deberia seguir siendo el que manda.").format(retorno)
+         "chequeo de la escritura deberia seguir siendo el que manda.").format(retorno)

@@ -9,32 +9,50 @@ lo mas usado, corre como instancia unica: si ya tiene un documento abierto
 **ignora el segundo archivo sin avisar nada**. El operador le da Imprimir, no
 se abre nada, y no hay forma de saber si fallo la impresion o se quedo colgado
 el visor: el PDF se genero y quedo guardado en `facturas/`, que es lo unico
-que paso.
+que paso. Cerrar la ventana de Foxit no alcanza, porque el proceso sigue vivo
+en la bandeja del sistema.
 
 Por eso se abre con el navegador. No es el programa que el sistema tenga
 asociado, pero todos los Windows vienen con uno, todos abren un PDF, y todos
 abren una ventana nueva en vez de quedarse con la que ya estaba.
 
-Si el navegador no se puede lanzar (una maquina sin navegador configurado) se
-cae al visor del sistema, porque peor es abrir con lo que haya que no abrir
-nada. Y si tampoco, se devuelve None para que quien llame pueda avisar en vez
-de dejar al operador creyendo que salio.
+Ojo con `webbrowser.open`: NO sirve para esto. En Windows su
+`WindowsDefault.open` es un `os.startfile(url)` envuelto en un try, asi que
+abrir una URL `file://` con el termina en el mismo visor de PDF. Devuelve
+True y no abria el navegador nunca. Por eso se busca el ejecutable.
+
+Si no hay ningun navegador (una maquina de servidor, una imagen minima) se cae
+al visor del sistema, porque peor es abrir con lo que haya que no abrir nada.
+Y si tampoco, se devuelve None para que quien llame pueda avisar en vez de
+dejar al operador creyendo que salio.
 """
 import logging
 import os
-import webbrowser
-from urllib.parse import urljoin
-from urllib.request import pathname2url
+import subprocess
+
+# (nombre, ruta relativa dentro de Program Files, Program Files (x86) o
+# AppData\Local). Chrome y Edge pueden caer en cualquiera de las tres segun
+# como se hayan instalado, asi que se buscan en las tres.
+NAVEGADORES = (
+    ("chrome", os.path.join("Google", "Chrome", "Application", "chrome.exe")),
+    ("edge", os.path.join("Microsoft", "Edge", "Application", "msedge.exe")),
+    ("firefox", os.path.join("Mozilla Firefox", "firefox.exe")),
+)
 
 
-def url_de_archivo(ruta):
-    """La URL file:// de un archivo local.
-
-    `pathname2url` en Windows ya devuelve `///C:/...`, con las tres barras. Si
-    se le pone `file:///` adelante quedan seis, y esa URL no la entiende
-    cualquiera. `urljoin` une las dos partes y sale bien.
-    """
-    return urljoin("file:", pathname2url(os.path.abspath(ruta)))
+def ruta_de_navegador():
+    """El ejecutable del primer navegador instalado. None si no hay ninguno."""
+    bases = (os.environ.get("ProgramFiles"),
+             os.environ.get("ProgramFiles(x86)"),
+             os.environ.get("LOCALAPPDATA"))
+    for _nombre, relativa in NAVEGADORES:
+        for base in bases:
+            if not base:
+                continue
+            ruta = os.path.join(base, relativa)
+            if os.path.isfile(ruta):
+                return ruta
+    return None
 
 
 def abrir_pdf(ruta, imprimir=False):
@@ -48,12 +66,16 @@ def abrir_pdf(ruta, imprimir=False):
         logging.error("no hay PDF para abrir: %r", ruta)
         return None
 
+    ruta = os.path.abspath(ruta)
+
     if not imprimir:
-        try:
-            if webbrowser.open(url_de_archivo(ruta), new=2):
+        navegador = ruta_de_navegador()
+        if navegador:
+            try:
+                subprocess.Popen([navegador, ruta])
                 return 'navegador'
-        except Exception as error:  # pragma: no cover - depende del sistema
-            logging.debug("el navegador no abrio %s: %s", ruta, error)
+            except Exception as error:
+                logging.debug("el navegador no abrio %s: %s", ruta, error)
 
     try:
         os.startfile(ruta, 'print' if imprimir else '')
