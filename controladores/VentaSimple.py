@@ -149,13 +149,19 @@ class VentaSimpleController(ControladorBase):
         finally:
             self._resolviendo_cliente = False
 
-    def confirmar_alta(self, titulo, mensaje):
-        # Antes era un QMessageBox.question con "Sí" como boton por defecto:
-        # con el foco en la pantalla, apretar Enter sin querer creaba el
-        # cliente que uno todavia no habia decidido crear. Ahora el boton por
-        # defecto es cancelar.
+    def confirmar_alta(self, titulo, mensaje, textoOk="Crear cliente"):
+        """Pregunta si se crea lo que no se encontro, y el boton lo nombra.
+
+        El texto del boton lo pasa quien pregunta, y no un valor fijo: esta
+        misma funcion se usa para el cliente y para el producto, y con un
+        texto fijo el boton decia "Crear cliente" encima de un mensaje que
+        decia "Producto no encontrado". Un boton que contradice el mensaje
+        hace dudar de toda la pantalla.
+
+        El boton por defecto sigue siendo cancelar, como antes.
+        """
         return Ventanas.showConfirmation(
-            titulo, mensaje, textoOk="Crear cliente", textoCancelar="Cancelar")
+            titulo, mensaje, textoOk=textoOk, textoCancelar="Cancelar")
 
     def cargar_cliente_en_vista(self, cliente):
         self.cliente = cliente
@@ -289,7 +295,9 @@ class VentaSimpleController(ControladorBase):
 
         articulo = self.buscar_articulo(busqueda)
         if not articulo:
-            if not self.confirmar_alta("Venta", "Producto no encontrado. Desea agregarlo?"):
+            if not self.confirmar_alta(
+                    "Venta", "Producto no encontrado. Desea agregarlo?",
+                    textoOk="Crear producto"):
                 return
             articulo = self.solicitar_alta_articulo(busqueda)
             if not articulo:

@@ -120,7 +120,10 @@ def test_cliente_no_encontrado_propone_alta_y_lo_carga(monkeypatch):
     # tiene un cliente llamado "Cliente nuevo". Parecia que cubria el camino
     # de "no encontrado" y en realidad no lo cubria.
     monkeypatch.setattr(controller, "buscar_clientes", lambda busqueda, limite=None: [])
-    monkeypatch.setattr(controller, "confirmar_alta", lambda titulo, mensaje: True)
+    # confirmar_alta recibe textoOk: el boton lo nombra segun lo que se
+    # va a crear, asi que el parche tiene que aceptar el parametro.
+    monkeypatch.setattr(controller, "confirmar_alta",
+                        lambda titulo, mensaje, textoOk="Crear cliente": True)
     monkeypatch.setattr(controller, "solicitar_alta_cliente", lambda busqueda: ClienteNuevo())
     controller.view.textCliente.setText("Cliente nuevo")
 
@@ -190,7 +193,10 @@ def test_articulo_no_encontrado_propone_alta_y_lo_agrega(monkeypatch):
 
     controller = VentaSimpleController()
     monkeypatch.setattr(controller, "buscar_articulo", lambda busqueda: None)
-    monkeypatch.setattr(controller, "confirmar_alta", lambda titulo, mensaje: True)
+    # confirmar_alta recibe textoOk: el boton lo nombra segun lo que se
+    # va a crear, asi que el parche tiene que aceptar el parametro.
+    monkeypatch.setattr(controller, "confirmar_alta",
+                        lambda titulo, mensaje, textoOk="Crear cliente": True)
     monkeypatch.setattr(controller, "solicitar_alta_articulo", lambda busqueda: ArticuloNuevo())
     monkeypatch.setattr(
         controller,
