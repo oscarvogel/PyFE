@@ -695,7 +695,8 @@ class FacturaController(ControladorBase):
             if datos["tiene_asociado"]:
                 wsfev1.AgregarCmpAsoc(
                     91, datos["asociado_pto"], datos["asociado_nro"],
-                    LeerIni(clave='cat_iva', key='cuit'), FechaMysql())
+                    a_entero(LeerIni(clave='cat_iva', key='WSFEv1'), 1),
+                    FechaMysql())
 
         if round(float(datos["imp_trib"]), 3) != 0:
             base_imp = round(float(datos["imp_total"])

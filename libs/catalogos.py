@@ -54,6 +54,25 @@ def nombre_condicion(codigo):
         return str(codigo)
 
 
+def nombre_condicion_iva(codigo):
+    """La condición de IVA del EMISOR, como sale en el pie de la factura.
+
+    No es lo mismo que nombre_condicion(): aquel es el nombre oficial que
+    publica ARCA, que en el comprobante va como un código. En el pie de la
+    factura el app imprime una frase para que la lea una persona, y sale del
+    mismo catálogo para no tener una lista más.
+
+    Un código desconocido devuelve el propio código, no una etiqueta inventada:
+    si ARCA agrega una categoría que esta app todavía no conoce, tiene que
+    quedar a la vista, no disfrazada.
+    """
+    codigo = str(codigo or "").strip()
+    for numero, etiqueta in CATEGORIAS_IVA_EMISOR:
+        if str(numero) == codigo:
+            return etiqueta
+    return codigo
+
+
 # Que condicion de IVA del receptor va con cada tipo de responsable que siembra
 # la base. Antes esto no estaba en ningun lado: `condicion_iva_receptor_id`
 # no se cargaba desde el CSV y todas las filas quedaban en el default del

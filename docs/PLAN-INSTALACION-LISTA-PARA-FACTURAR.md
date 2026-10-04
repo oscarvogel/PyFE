@@ -239,7 +239,7 @@ vino justamente de tener la lista en tres lugares a la vez.
 Cada fase es un PR. Ninguna cambia comportamiento sin que haya un test que lo
 diga.
 
-**Estado al 2026-10-03: 0, 2 y 5 implementadas.** Quedan 1, 3, 4 y 6.
+**Estado: 0, 1, 2, 3, 4, 5 y 6 implementadas.** El plan esta cerrado.
 
 ### Fase 0 — Que el CUIT sea el que se carga (bloqueante, va sola) — **HECHA**
 
@@ -256,7 +256,7 @@ diga.
   se lee para emitir es ese; más los cinco casos de la tabla 3.1; más el
   simulacro de instalación nueva.
 
-### Fase 1 — Que los datos de la empresa se puedan corregir después
+### Fase 1 — Que los datos de la empresa se puedan corregir después — **HECHA**
 
 - Sumar a *Configuración*: punto de venta, inicio de actividades y condición
   frente al IVA.
@@ -279,7 +279,7 @@ comprobantes se rechacen.
 - **Verificación**: test que siembre una base desde cero y compruebe el valor de
   las 4 filas, más el caso de la base ya sembrada.
 
-### Fase 3 — Un solo catálogo, completo
+### Fase 3 — Un solo catálogo, completo — **HECHA**
 
 - `libs/catalogos.py` con la lista única: códigos de condición de IVA del
   receptor, con nombre, si obliga CUIT y qué clase de comprobante admite.
@@ -291,7 +291,7 @@ comprobantes se rechacen.
 - **Verificación**: test que recorra el catálogo y falle si alguna fila del CSV se
   quedó atrás. Es el test que evita el próximo forgetting.
 
-### Fase 4 — Completar los maestros
+### Fase 4 — Completar los maestros — **HECHA, con otra forma**
 
 - Alícuotas 27, 5 y 2.5, y los tipos de responsable que falten, según 3.2.
 - **Verificación**: test que migre una base desde cero y compruebe que están las
@@ -310,7 +310,7 @@ comprobantes se rechacen.
   error.
 - **Verificación**: tests de cada paso con y sin el dato.
 
-### Fase 6 — Que las migraciones no finjan
+### Fase 6 — Que las migraciones no finjan — **HECHA**
 
 - Elegir el migrador según la base, o decidir explícitamente que en una base nueva
   no corren migraciones (porque el schema ya sale de los modelos) y sólo se
@@ -417,3 +417,72 @@ Lo que se corrió para llegar a estos hallazgos:
 - **Fase 6**: las 5 migraciones que fallan siempre en una base nueva, y
   `VERSION_DB` que se sella como si todo hubiera salido bien.
 
+
+---
+
+## 8. Cierre de las fases 1, 3, 4 y 6 (2026-10-04)
+
+### Lo que se encontró al implementarlas
+
+**El bug del `cat_iva` (Fase 3).** El combo de Configuracion tenia tres
+codigos (1, 4 y 6) y ARCA define diez. Con una categoria fuera de esos tres,
+que es lo normal en un estudio contable, `setIndex` no encontraba el dato, el
+combo se vaciaba, y al apretar Grabar el `cat_iva` quedaba en blanco. O sea:
+abrir Configuracion y guardar le borraba la categoria de IVA a la empresa.
+Verificado contra la version previa: **7 de los 10 codigos se perdian.**
+
+**Las guardas de las migraciones no hacían nada (Fase 6).** La comparacion de
+tipos usaba `getattr(columna, 'field_type', '')`, y el `ColumnMetadata` de peewee
+no tiene `field_type`: tiene `data_type`, y sin el largo. O sea que la guarda
+comparaba `''` contra `'VARCHAR(100)'`, nunca coincidia, y las cinco migraciones
+seguian generandose. Un guard que parece funcionar y no hace nada es peor que
+no tenerlo, porque da confianza. Ademas `CharField(max_length=100).field_type`
+es `'VARCHAR'` a secas: el largo vive en `ddl_datatype()`, que necesita un
+contexto de motor. Ahora el tipo se lee del motor (PRAGMA en sqlite, SHOW
+COLUMNS en mysql) y se arma el esperado a mano.
+
+**El porcentaje de la alicuota no siempre se puede leer (Fase 4).** La idea era
+bajar los codigos de ARCA con `ParamGetTiposIva` y derivar el porcentaje del
+nombre. "IVA 27%" y "IVA 10,5%" se leen bien; **"IVA General" es el 21% y
+"Decreto 493/01" es el 10,5%, y ninguno de los dos nombres lo dice**. Adivinar
+ahi es escribir 0 en una alicuota del 21%: un renglon al 21% pasaria a
+informar 0%, y eso no se ve hasta que hay una factura de un cliente.
+
+Por eso `tools/sincronizar_alicuotas.py` no completa el CSV con codigos
+copiados de otra tabla, sino que baja los que manda ARCA y:
+
+- si el codigo ya esta en la tabla, actualiza la descripcion y **no toca el
+  porcentaje**;
+- si es nuevo y el nombre dice el porcentaje, lo agrega;
+- si es nuevo y el nombre **no** lo dice, lo informa y no lo agrega, para que
+  lo cargue el operador.
+
+Un maestro incompleto se ve al mirar la tabla. Una alicuota con el porcentaje
+inventado se ve en la factura de un cliente.
+
+**Lo que se dejo como esta.** El CSV de `data/` sigue con tres alicuotas (21,
+10.5 y 0), que son las que usa cualquier negocio y las unicas que se pueden
+escribir sin inventar nada. La herramienta de sincronizacion es un paso a
+pedido, no algo que corra al instalar: requiere internet y un certificado
+valido, y una app de escritorio no puede exigir eso al arrancar.
+
+### La migracion de datos de la condicion de IVA, al final
+
+`CorregirCondicionIvaReceptor()` se escribio en la Fase 2 para cuando las
+migraciones de esquema fallaban. Con la Fase 6 ya no fallan, pero la
+correccion sigue siendo necesaria y sigue igual: es una correccion de DATOS, no
+de esquema, y por lo tanto tiene que correr tambien en una base recien creada.
+
+### Un incidente que conviene que quede escrito
+
+A mitad de la Fase 1, `controladores/Configuracion.py` aparecio sobrescrito con
+el contenido de `vistas/Configuracion.py`: el controlador entero, 94 lineas,
+reemplazado por la vista. No lo habia hecho ningun script mio, y las otras 18
+pruebas de esa tanda fallaron con `ImportError` al no encontrar
+`ConfiguracionController`.
+
+Se restauro con `git checkout --` y se reaplicaron los cambios, que estaban en
+el script de la fase y por eso no se perdieron. La regla que sale de ahi:
+**`git status --short` despues de cada bloque, no solo al final**, y los
+cambios de una fase en un archivo ademas del repo, no solo en el working tree.
+Con trabajo a medias en un repo compartido, el working tree no es tuyo.
