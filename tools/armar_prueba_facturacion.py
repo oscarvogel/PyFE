@@ -126,10 +126,16 @@ def escribir_ini(ruta, cuit_emisor, cert_homo, key_homo, pto_vta=1):
             "configurado = S\n"
             "\n"
             "[WSFEv1]\n"
-            # 1 = Responsable Inscripto. El CUIT del certificado de
-            # homologacion NO es monotributo: ARCA lo rechaza como comprobante
-            # 82 (Tique), asi que la prueba se hace como RI, que es lo que el
-            # certificado realmente habilita.
+            # 1 = Responsable Inscripto.
+            #
+            # Esto va en 1 porque el CUIT de este certificado esta anotado
+            # como RI en ARCA, no como monotributo. Con cat_iva = 6 la app
+            # pone 'Factura C' (Facturas.py:137-138) y ARCA la rechaza,
+            # porque una Factura C solo la puede emitir un monotributo.
+            #
+            # Ojo con el error de razonar al reves: con cat_iva = 1 la app
+            # elige A o B segun el cliente, y NO es un 82 (Tique). El Tique
+            # no aparece en ningun camino de esta rama.
             "cat_iva = 1\n"
             "pto_vta = {pto}\n"
             "cuit = {cuit}\n"

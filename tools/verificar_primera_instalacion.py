@@ -127,7 +127,11 @@ def _chequear_base(carpeta):
             ("Tipos de documento", "tipodoc", 5),
             ("Tipos de responsable", "tiporesp", 4),
             ("Formas de pago", "formapago", 1),
-            ("Tipos de comprobante", "tipocomp", 10),
+            # OJO: la tabla se llama tip_comp, con underscore. El modelo se llama
+            # TipoComprobante y el CSV tipocomprobante.csv, pero la tabla en la
+            # base es tip_comp. Buscar 'tipocomp' no encuentra nada y hace
+            # reportar una falta que no existe.
+            ("Tipos de comprobante", "tip_comp", 10),
         ]
         for nombre, tabla, minimo in minimos:
             n = contar(tabla)
@@ -203,9 +207,20 @@ def _chequear_certificado(carpeta):
 
     if problemas:
         _falta("modo {}: {}".format(modo, "; ".join(problemas)),
-               "Es lo unico que falta para poder emitir. Se genera desde la "
-               "pantalla Certificados, o se copian los dos archivos a la "
-               "carpeta certificados/.")
+               "Para probar en una maquina propia, con un certificado ya "
+               "emitido, se copian los dos archivos:")
+        print()
+        print("         copy <repo>\\certificados\\certificado_homologacion.crt \\")
+        print("              <instalacion>\\certificados\\")
+        print("         copy <repo>\\certificados\\clave_privada_homo.key \\")
+        print("              <instalacion>\\certificados\\")
+        print()
+        print("         Ojo: el certificado es de UN CUIT. Si el de la "
+              "instalacion es otro,")
+        print("         ARCA rechaza la autenticacion. Para uno propio, la "
+              "pantalla")
+        print("         Certificados genera el CSR y se autoriza en "
+              "ManageARCA.")
     else:
         _ok("certificado y clave de {} presentes".format(modo))
     return not problemas
