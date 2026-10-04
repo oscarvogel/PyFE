@@ -54,7 +54,11 @@ WHATSAPP_EMPRESA = "+54 3744 66-7526"
 # del emisor identifica a quien factura, y ese es el cliente. Esta linea es un
 # credito de quien hizo el programa, que es practica comun en el software de
 # gestion, y por eso lleva las palabras "Desarrollo de".
-CREDITO_SOFTWARE = "Desarrollo de {empresa} · {sitio} · WhatsApp {whatsapp}".format(
+# El separador es un guion y no "·" (U+00B7): los PDF se arman con las
+# fuentes base de fpdf2, en WinAnsi, y ese caracter no esta en la fuente
+# del glifo. Sale como un caracter de reemplazo en el comprobante.
+# Verificado sobre un PDF de muestra real, no sobre el codigo.
+CREDITO_SOFTWARE = "Desarrollo de {empresa} - {sitio} - WhatsApp {whatsapp}".format(
     empresa=EMPRESA_DESARROLLO,
     sitio=SITIO_EMPRESA,
     whatsapp=WHATSAPP_EMPRESA,
