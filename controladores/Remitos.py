@@ -271,7 +271,7 @@ class RemitoController(ControladorBase):
         # Pie de la pagina: credito de quien hizo el programa.
         # Va aca y no en el bloque del emisor, porque el bloque del
         # emisor identifica a QUIEN FACTURA, y ese es el cliente.
-        ok = pyfpdf.AggregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
+        ok = pyfpdf.AgregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
         ok = pyfpdf.AgregarDato("CUIT", formato_cuit(cuit_emisor()))
         ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='iibb', key='FACTURA'))
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))

@@ -878,7 +878,28 @@ class FacturaController(ControladorBase):
         Se avisa con el CAE porque es lo que hace falta para volver a imprimir
         la factura despues, desde Reimprimir factura.
         """
-        if ok and os.path.isfile(salida):
+        # El archivo es lo que prueba que se genero, y es lo UNICO que
+        # prueba, porque con fpdf2 GenerarPDF devuelve None: Template.render()
+        # esta anotado -> None, escribe el archivo y no devuelve nada. Pedir
+        # ese valor de retorno hacia que TODAS las facturas se reportaran como
+        # fallidas, con el PDF generado al lado. Con fpdf 1.7 render() si
+        # devolvia algo, por eso el chequeo se escribio con `ok and ...` y no
+        # se noto el cambio al migrar a fpdf2.
+        #
+        # La excepcion es un False explicito: si la libreria dice que fallo,
+        # se avisa aunque el archivo exista. Con fpdf2 eso no pasa (el
+        # envoltorio se come la excepcion y devuelve None igual), pero si
+        # alguna vez GenerarPDF vuelve a devolver algo, el False sigue siendo
+        # una senal que hay que respetar.
+        #
+        # Aceptar None con archivo no es arriesgado: la salida es
+        # `facturas/<tipo>-<numero>.pdf`, determinista por numero de
+        # comprobante, y ARCA no reutiliza numeros. Un archivo con ese nombre
+        # es siempre el PDF de esa factura, y el escenario del archivo previo
+        # es el de una reimpresion, donde tener el viejo es lo que se quiere.
+        if ok is False:
+            pass
+        elif os.path.isfile(salida):
             return True
 
         Ventanas.showError(
@@ -1061,7 +1082,7 @@ class FacturaController(ControladorBase):
         # Pie de la pagina: credito de quien hizo el programa.
         # Va aca y no en el bloque del emisor, porque el bloque del
         # emisor identifica a QUIEN FACTURA, y ese es el cliente.
-        ok = pyfpdf.AggregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
+        ok = pyfpdf.AgregarDato("creditoSoftware", Constantes.CREDITO_SOFTWARE)
         ok = pyfpdf.AgregarDato("CUIT", formato_cuit(cuit_emisor()))
         ok = pyfpdf.AgregarDato("IIBB", LeerIni(clave='iibb', key='FACTURA'))
         ok = pyfpdf.AgregarDato("IVA", "Condicion frente al IVA: {}".format(LeerIni(clave='iva', key='FACTURA')))
