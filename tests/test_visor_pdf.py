@@ -77,6 +77,21 @@ class _Proceso(object):
     pid = 1234
 
 
+@pytest.fixture
+def en_windows(monkeypatch):
+    monkeypatch.setattr(visor.platform, "system", lambda: "Windows")
+
+
+@pytest.fixture
+def en_linux(monkeypatch):
+    monkeypatch.setattr(visor.platform, "system", lambda: "Linux")
+
+
+@pytest.fixture
+def en_mac(monkeypatch):
+    monkeypatch.setattr(visor.platform, "system", lambda: "Darwin")
+
+
 # ------------------------------------------------------- donde esta el navegador
 
 
@@ -131,7 +146,8 @@ def test_sin_navegador_devuelve_none(monkeypatch):
 # ------------------------------------------------------------- la cadena
 
 
-def test_el_navegador_es_el_primero(pdf, spying, monkeypatch):
+def test_en_windows_el_navegador_es_el_primero(pdf, spying, monkeypatch,
+                                               en_windows):
     """Es lo que resuelve el problema: abre una ventana nueva siempre."""
     monkeypatch.setattr(visor, "ruta_de_navegador",
                         lambda: r"C:\Chrome\chrome.exe")
@@ -143,7 +159,32 @@ def test_el_navegador_es_el_primero(pdf, spying, monkeypatch):
     assert spying.sistema == [], "no deberia haber llegado al visor del sistema"
 
 
-def test_se_pasa_la_ruta_absoluta(pdf, spying, monkeypatch):
+def test_en_linux_se_usa_el_mecanismo_del_sistema(pdf, spying, monkeypatch,
+                                                  en_linux):
+    """En Linux no hay el problema: `xdg-open` abre una ventana nueva.
+
+    Foxit y los visores de PDF de Windows son de instancia unica; los de
+    Linux no. Buscar un navegador ahi es hacer trabajo de mas.
+    """
+    monkeypatch.setattr(visor, "ruta_de_navegador",
+                        lambda: "/usr/bin/chromium")
+
+    assert visor.abrir_pdf(pdf) == 'sistema'
+
+    assert spying.lanzados == [["xdg-open", os.path.abspath(pdf)]]
+    assert spying.sistema == []
+
+
+def test_en_mac_se_usa_open(pdf, spying, monkeypatch, en_mac):
+    monkeypatch.setattr(visor, "ruta_de_navegador",
+                        lambda: "/Applications/Chrome.app")
+
+    assert visor.abrir_pdf(pdf) == 'sistema'
+
+    assert spying.lanzados == [["open", os.path.abspath(pdf)]]
+
+
+def test_se_pasa_la_ruta_absoluta(pdf, spying, monkeypatch, en_windows):
     """Con una ruta relativa el navegador puede abrir cualquier otra cosa."""
     monkeypatch.setattr(visor, "ruta_de_navegador", lambda: "chrome.exe")
 
@@ -152,7 +193,8 @@ def test_se_pasa_la_ruta_absoluta(pdf, spying, monkeypatch):
     assert os.path.isabs(spying.lanzados[0][1])
 
 
-def test_sin_navegador_va_al_visor_del_sistema(pdf, spying, monkeypatch):
+def test_sin_navegador_va_al_visor_del_sistema(pdf, spying, monkeypatch,
+                                               en_windows):
     """Una maquina sin navegador tiene que poder igual."""
     monkeypatch.setattr(visor, "ruta_de_navegador", lambda: None)
 
@@ -161,7 +203,8 @@ def test_sin_navegador_va_al_visor_del_sistema(pdf, spying, monkeypatch):
     assert spying.lanzados == []
 
 
-def test_navegador_que_no_parte_cae_al_sistema(pdf, spying, monkeypatch):
+def test_navegador_que_no_parte_cae_al_sistema(pdf, spying, monkeypatch,
+                                               en_windows):
     """Un navegador que no se puede lanzar no puede ser el unico camino."""
     monkeypatch.setattr(visor, "ruta_de_navegador", lambda: "chrome.exe")
     spying.falla_navegador = True
@@ -170,7 +213,7 @@ def test_navegador_que_no_parte_cae_al_sistema(pdf, spying, monkeypatch):
     assert spying.sistema
 
 
-def test_sin_ninguno_devuelve_none(pdf, spying, monkeypatch):
+def test_sin_ninguno_devuelve_none(pdf, spying, monkeypatch, en_windows):
     """Y si no se pudo con ninguno, que quede registrado.
 
     Devolver None es lo que hace que el que llama avise. Un `True` a ciegas
@@ -182,7 +225,8 @@ def test_sin_ninguno_devuelve_none(pdf, spying, monkeypatch):
     assert visor.abrir_pdf(pdf) is None
 
 
-def test_un_archivo_que_no_existe_no_se_intenta_abrir(spying, monkeypatch):
+def test_un_archivo_que_no_existe_no_se_intenta_abrir(spying, monkeypatch,
+                                                      en_windows):
     monkeypatch.setattr(visor, "ruta_de_navegador", lambda: "chrome.exe")
 
     assert visor.abrir_pdf(r"C:\no\esta\factura.pdf") is None
@@ -190,7 +234,7 @@ def test_un_archivo_que_no_existe_no_se_intenta_abrir(spying, monkeypatch):
     assert spying.lanzados == [] and spying.sistema == []
 
 
-def test_imprimir_no_va_por_el_navegador(pdf, spying, monkeypatch):
+def test_imprimir_no_va_por_el_navegador(pdf, spying, monkeypatch, en_windows):
     """Imprimir se hace con el visor del sistema, y con el verbo de impresion.
 
     El navegador no se puede mandar a la impresora de forma confiable, y
@@ -218,6 +262,43 @@ def test_webbrowser_no_se_usa():
     assert not hasattr(visor, "webbrowser"), \
         "el modulo importa webbrowser: en Windows abre el visor de PDF"
     assert visor.subprocess is subprocess
+
+
+def test_no_se_usa_cmd_start():
+    """`cmd /c start` con una ruta de la base es inyeccion de comandos.
+
+    Ademas hay que entrecomillar a mano y las rutas con espacios o acentos se
+    rompen. `os.startfile` ya es `ShellExecuteW`, que es el shell de Windows
+    sin esa parte mala.
+
+    Se miran `os.system` y `shell=True`, que son las dos formas de caer en el
+    shell de comandos, y no la palabra "cmd": el docstring del modulo la
+    menciona justamente para explicar por que no se usa.
+    """
+    import ast
+    import inspect
+
+    fuente = inspect.getsource(visor)
+    arbol = ast.parse(fuente)
+
+    assert not hasattr(visor.os, "system") or "os.system" not in fuente, \
+        "os.system pasa por el shell de comandos con una ruta de la base"
+
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, ast.Call):
+            for palabra in nodo.keywords:
+                assert palabra.arg != "shell" or not _es_verdadero(palabra.value), \
+                    "shell=True con una ruta de la base es inyeccion de comandos"
+
+    assert "os.startfile" in fuente, \
+        "en Windows, os.startfile es el shell sin el shell de comandos"
+
+
+def _es_verdadero(nodo):
+    try:
+        return bool(eval(compile(ast.Expression(nodo), "<k>", "eval"), {}))
+    except Exception:
+        return False
 
 
 # ----------------------------------------------------- quien lo llama

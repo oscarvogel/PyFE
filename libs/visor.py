@@ -1,33 +1,39 @@
 # coding=utf-8
 """Como se abre el PDF de un comprobante.
 
-Por que no alcanza con os.startfile
-------------------------------------
-`os.startfile` le pasa el archivo al programa que Windows tenga asociado a
-`.pdf`, y despues ese programa decide que hacer. Foxit PDF Reader, que es de
-lo mas usado, corre como instancia unica: si ya tiene un documento abierto
-**ignora el segundo archivo sin avisar nada**. El operador le da Imprimir, no
-se abre nada, y no hay forma de saber si fallo la impresion o se quedo colgado
-el visor: el PDF se genero y quedo guardado en `facturas/`, que es lo unico
-que paso. Cerrar la ventana de Foxit no alcanza, porque el proceso sigue vivo
-en la bandeja del sistema.
+Solo Windows necesita algo especial, y por que
+-----------------------------------------------
+`os.startfile` (o `subprocess` con `xdg-open` en Linux, `open` en macOS) le
+pasa el archivo al programa que el sistema tenga asociado a `.pdf`, y
+despues ese programa decide. En Linux y macOS eso anda bien. En Windows no:
+Foxit PDF Reader, que es de lo mas usado, corre como instancia unica, asi que
+si ya tiene un documento abierto **ignora el segundo archivo sin avisar
+nada**. El operador le da Imprimir, no se abre nada, y no hay forma de saber
+si fallo la impresion o se quedo colgado el visor: el PDF se genero y quedo
+guardado en `facturas/`, que es lo unico que paso. Cerrar la ventana de Foxit
+no alcanza, porque el proceso sigue vivo en la bandeja del sistema.
 
-Por eso se abre con el navegador. No es el programa que el sistema tenga
-asociado, pero todos los Windows vienen con uno, todos abren un PDF, y todos
-abren una ventana nueva en vez de quedarse con la que ya estaba.
+En Windows el PDF se abre con el navegador, que abre una ventana nueva
+siempre. En el resto se usa el mecanismo de cada sistema, que ya funciona.
 
-Ojo con `webbrowser.open`: NO sirve para esto. En Windows su
-`WindowsDefault.open` es un `os.startfile(url)` envuelto en un try, asi que
-abrir una URL `file://` con el termina en el mismo visor de PDF. Devuelve
-True y no abria el navegador nunca. Por eso se busca el ejecutable.
+Dos trampas que se comieron este codigo antes
+---------------------------------------------
+- `webbrowser.open` NO sirve para esto. En Windows su `WindowsDefault.open` es
+  un `os.startfile(url)` envuelto en un try, asi que abrir una URL `file://`
+  con el termina en el mismo visor de PDF. Devuelve True y no abria el
+  navegador nunca. Por eso se busca el ejecutable.
 
-Si no hay ningun navegador (una maquina de servidor, una imagen minima) se cae
-al visor del sistema, porque peor es abrir con lo que haya que no abrir nada.
-Y si tampoco, se devuelve None para que quien llame pueda avisar en vez de
-dejar al operador creyendo que salio.
+- No hay que usar `cmd /c start`: hay que entrecomillar a mano, las rutas con
+  espacios y acentos se rompen, y es inyeccion de comandos con una ruta que
+  viene de la base. `os.startfile` ya es `ShellExecuteW`, o sea el shell de
+  Windows sin esa parte mala.
+
+Si no se puede abrir con ninguno, se devuelve None para que quien llame pueda
+avisar en vez de dejar al operador creyendo que salio.
 """
 import logging
 import os
+import platform
 import subprocess
 
 # (nombre, ruta relativa dentro de Program Files, Program Files (x86) o
@@ -41,7 +47,11 @@ NAVEGADORES = (
 
 
 def ruta_de_navegador():
-    """El ejecutable del primer navegador instalado. None si no hay ninguno."""
+    """El ejecutable del primer navegador instalado. None si no hay ninguno.
+
+    Solo se usa en Windows. En el resto el sistema ya tiene su visor y no
+    hay el problema que motiva esto.
+    """
     bases = (os.environ.get("ProgramFiles"),
              os.environ.get("ProgramFiles(x86)"),
              os.environ.get("LOCALAPPDATA"))
@@ -53,6 +63,28 @@ def ruta_de_navegador():
             if os.path.isfile(ruta):
                 return ruta
     return None
+
+
+def _abrir_con_el_sistema(ruta, imprimir=False):
+    """El programa que el sistema tenga asociado. 'sistema' o None.
+
+    En Windows `os.startfile` es `ShellExecuteW`. En macOS es `open` y en
+    Linux `xdg-open`, que son los equivalentes de cada sistema.
+    """
+    try:
+        sistema = platform.system()
+        if sistema == "Darwin":
+            # `open` no tiene forma de mandar a la impresora.
+            subprocess.Popen(["open", ruta])
+        elif sistema == "Windows":
+            os.startfile(ruta, 'print' if imprimir else '')
+        else:
+            subprocess.Popen(["xdg-open", ruta])
+        return 'sistema'
+    except Exception as error:
+        logging.error("no se pudo abrir %s con el visor del sistema: %s",
+                      ruta, error)
+        return None
 
 
 def abrir_pdf(ruta, imprimir=False):
@@ -68,19 +100,13 @@ def abrir_pdf(ruta, imprimir=False):
 
     ruta = os.path.abspath(ruta)
 
-    if not imprimir:
+    if not imprimir and platform.system() == "Windows":
         navegador = ruta_de_navegador()
         if navegador:
             try:
                 subprocess.Popen([navegador, ruta])
                 return 'navegador'
-            except Exception as error:
+            except Exception as error:  # pragma: no cover - depende del equipo
                 logging.debug("el navegador no abrio %s: %s", ruta, error)
 
-    try:
-        os.startfile(ruta, 'print' if imprimir else '')
-        return 'sistema'
-    except Exception as error:
-        logging.error("no se pudo abrir %s con el visor del sistema: %s",
-                      ruta, error)
-        return None
+    return _abrir_con_el_sistema(ruta, imprimir)
