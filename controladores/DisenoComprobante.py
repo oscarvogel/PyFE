@@ -169,6 +169,7 @@ class DisenoComprobanteController(ControladorBase):
         # parametro, que es lo que espera FacturaBranding.
         self.view.controles['logo'].setText(config.logo or "")
         self.view.controles['fondo'].setText(config.fondo or "")
+        self.view.controles['formato'].setText(config.formato or "")
         self.view.controles['web'].setText(config.web or "")
         self.view.controles['leyenda'].setText(config.leyenda or "")
 
@@ -205,19 +206,48 @@ class DisenoComprobanteController(ControladorBase):
 
         # El boton de Aceptar avisa que se va a pisar el diseno anterior, que
         # es la unica forma de volver atras: el parametro es lo unico que hay.
-        Ventanas.showAlert("Diseño guardado",
-                           "El comprobante va a salir con este diseño desde "
-                           "la próxima impresión.")
-
         for clave, valor in self._parametros():
             ParamSist.GuardarParametro(PREFIXO + clave, valor)
+
+        # Se avisa lo que no se pudo aplicar, en vez de tragarselo. La marca se
+        # guarda igual: el operador la quiere activa, y lo que falta se le dice.
+        self._avisar_pendientes()
         return True
+
+    def _avisar_pendientes(self):
+        """Que parte del diseño no se va a ver, y por que."""
+        from controladores.FacturaBranding import (aplicar_marca_factura,
+                                                   cargar_config_marca_factura)
+        from libs import Ventanas
+
+        config = cargar_config_marca_factura()
+        if not config.activa:
+            return
+
+        from pyafipws.pyfepdf import FEPDF
+        pendientes = aplicar_marca_factura(FEPDF(), os.getcwd(), config)
+        if pendientes:
+            Ventanas.showAlert(
+                "Diseño guardado, con partes sin aplicar",
+                "Se guardó todo, pero esto no se va a ver en el comprobado:\n\n{}\n\n"
+                "El resto del diseño sí se aplica.".format(
+                    "\n".join("- {}".format(p) for p in pendientes)))
+        else:
+            Ventanas.showAlert(
+                "Diseño guardado",
+                "El comprobante va a salir con este diseño desde la próxima "
+                "impresión.")
 
     def _parametros(self):
         """Los diez, en el orden y con el nombre que espera FacturaBranding."""
         parametros = [
             ("ACTIVA", self.view.controles['activa'].text()),
-            ("FORMATO", "plantillas/factura_marca.csv"),
+            # Vacio = se usa la plantilla fiscal de siempre y la marca se suma
+            # encima. Antes se imponia factura_marca.csv, que es un diseno mas
+            # pobre: sin las lineas de la grilla ni los cuadros de los totales.
+            # Perder el formato fiscal al activar la marca es justo al reves
+            # de lo que se quiere.
+            ("FORMATO", self.view.controles['formato'].text().strip()),
             ("LOGO", self.view.controles['logo'].text().strip()),
             ("FONDO", self.view.controles['fondo'].text().strip()),
             ("WEB", self.view.controles['web'].text().strip()[:LIMITE_WEB]),

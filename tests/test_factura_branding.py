@@ -21,7 +21,9 @@ def test_config_marca_desactivada_no_aplica_nada(tmp_path):
     pyfpdf = PyFepdfDoble()
     config = ConfigMarcaFactura(activa=False)
 
-    assert aplicar_marca_factura(pyfpdf, tmp_path, config) is False
+    # Devuelve la lista de lo que no se pudo aplicar. Desactivada, no aplica
+    # nada y por lo tanto no tiene nada que avisar.
+    assert aplicar_marca_factura(pyfpdf, tmp_path, config) == []
     assert pyfpdf.campos == []
     assert pyfpdf.datos == []
 
@@ -45,7 +47,8 @@ def test_config_marca_parametrizada_agrega_logo_fondo_y_textos(tmp_path):
         color_acento="#AABBCC",
     )
 
-    assert aplicar_marca_factura(pyfpdf, tmp_path, config) is True
+    # Lista vacia: no quedo nada sin aplicar.
+    assert aplicar_marca_factura(pyfpdf, tmp_path, config) == []
     assert ("logo", str(logo)) in pyfpdf.datos
     nombres = [args[0] for args, kwargs in pyfpdf.campos]
     assert "marca-fondo" in nombres

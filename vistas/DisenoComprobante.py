@@ -27,6 +27,7 @@ import os
 import os
 
 from PyQt5.QtGui import QColor
+from PyQt5.QtCore import QSize
 from PyQt5.QtWidgets import (QColorDialog, QFrame, QGridLayout, QHBoxLayout,
                              QLabel, QLineEdit, QVBoxLayout)
 
@@ -95,23 +96,46 @@ class DisenoComprobanteView(Formulario):
         self.lblImagenes = EtiquetaTitulo(texto="Logo y fondo")
         self.verticalLayoutDatos.addWidget(self.lblImagenes)
 
+        # guardar=False: se elige una imagen que YA esta, no se crea una. Con
+        # guardar=True el boton abria un dialogo de guardar y preguntaba si
+        # pisaba el archivo, que es al reves de lo que se quiere.
         layoutLogo = self.ArmaEntrada('logo', texto='Logo')
         self.btnArchivoLogo = BotonArchivo(
-            archivos="Imagen (*.png *.jpg *.jpeg)")
-        self.btnArchivoLogo.directorio = "imagenes"
-        self.btnArchivoLogo.nombre_archivo = "logo_comprobante"
-        self.btnArchivoLogo.guardar = True
+            archivos="Imagen (*.png *.jpg *.jpeg)",
+            imagen=icono('carpeta'), tamanio=QSize(24, 24))
+        self.btnArchivoLogo.guardar = False
         self.btnArchivoLogo.widgetArchivo = self.controles['logo']
         layoutLogo.addWidget(self.btnArchivoLogo)
 
         layoutFondo = self.ArmaEntrada('fondo', texto='Fondo A4')
         self.btnArchivoFondo = BotonArchivo(
-            archivos="Imagen (*.png *.jpg *.jpeg)")
-        self.btnArchivoFondo.directorio = "imagenes"
-        self.btnArchivoFondo.nombre_archivo = "fondo_comprobante"
-        self.btnArchivoFondo.guardar = True
+            archivos="Imagen (*.png *.jpg *.jpeg)",
+            imagen=icono('carpeta'), tamanio=QSize(24, 24))
+        self.btnArchivoFondo.guardar = False
         self.btnArchivoFondo.widgetArchivo = self.controles['fondo']
         layoutFondo.addWidget(self.btnArchivoFondo)
+
+        # La plantilla de la marca NO se impone. Vacia (que es lo normal) el
+        # comprobante sale con la plantilla fiscal de siempre, con sus lineas
+        # y sus cuadros, y arriba se suma el logo, el fondo y los colores.
+        # Llenarla es para quien quiere deliberadamente otro reparto de la
+        # hoja, y por eso va visible: una caja negra que cambia el formato
+        # del comprobante sin que se note es la peor forma de hacerlo.
+        self.lblPlantilla = EtiquetaTitulo(texto="Plantilla")
+        self.verticalLayoutDatos.addWidget(self.lblPlantilla)
+        self.ArmaEntrada(
+            'formato',
+            texto='Usar otra plantilla (vacío = la de siempre)')
+        self.lblAyudaPlantilla = Etiqueta(
+            texto="Vacío: el comprobante sale con la plantilla fiscal de "
+                  "siempre, con sus líneas y sus cuadros, y el logo, el fondo "
+                  "y los colores se suman encima.\n"
+                  "Con una ruta: se usa esa plantilla y PIERDE el formato "
+                  "fiscal (las líneas y los cuadros no están en "
+                  "factura_marca.csv). Solo para quien quiera otro reparto "
+                  "de la hoja.")
+        self.lblAyudaPlantilla.setWordWrap(True)
+        self.verticalLayoutDatos.addWidget(self.lblAyudaPlantilla)
 
         self.lblTextos = EtiquetaTitulo(texto="Textos")
         self.verticalLayoutDatos.addWidget(self.lblTextos)
@@ -135,7 +159,10 @@ class DisenoComprobanteView(Formulario):
             self.controles[clave] = entrada
             self.layoutColores.addWidget(entrada, indice, 1)
 
-            boton = Boton(texto="Elegir")
+            # El kwarg del icono es 'imagen'. 'icono' lo ignora en silencio y
+            # el boton queda pelado, sin avisar nada.
+            boton = Boton(texto="Elegir", imagen=icono('editar'),
+                          tamanio=QSize(24, 24))
             boton.clicked.connect(
                 lambda _marcado=False, c=clave: self.elegir_color(c))
             self.layoutColores.addWidget(boton, indice, 2)
@@ -157,8 +184,10 @@ class DisenoComprobanteView(Formulario):
 
         self.layoutBotones = QHBoxLayout()
         self.btnProbar = Boton(texto="Ver comprobante de prueba",
-                              icono=icono('imprimir'), estilo='primario')
-        self.btnGrabar = Boton(texto="Grabar", icono=icono('guardar'))
+                              imagen=icono('imprimir'), tamanio=QSize(24, 24),
+                              estilo='primario')
+        self.btnGrabar = Boton(texto="Grabar", imagen=icono('guardar'),
+                              tamanio=QSize(24, 24))
         self.btnCerrar = BotonCerrarFormulario()
         self.layoutBotones.addWidget(self.btnProbar)
         self.layoutBotones.addWidget(self.btnGrabar)
