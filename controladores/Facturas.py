@@ -351,8 +351,15 @@ class FacturaController(ControladorBase):
     _progreso = None
 
     def GrabaFactura(self):
+        """Emite la factura. Devuelve True si la factura quedo autorizada.
+
+        Antes no devolvia nada y el unico que lo llamaba era el boton del
+        formulario, que no necesita saber. Ahora tambien lo llama la venta
+        rapida, que si: tiene que limpiar la pantalla si salio bien y
+        dejarla con los renglones si salio mal.
+        """
         if not self.Validacion():
-            return
+            return False
 
         # Confirmacion antes de algo que no se puede deshacer: una factura
         # autorizada ante ARCA existe mas alla de esta app, y anularla es otro
@@ -362,7 +369,7 @@ class FacturaController(ControladorBase):
                 "La factura se va a autorizar ante ARCA y no se puede deshacer "
                 "desde aca.\n\nRevise el importe y el cliente antes de confirmar.",
                 textoOk="Emitir", textoCancelar="Volver a revisar"):
-            return
+            return False
 
         self.view.btnGrabarFactura.setEnabled(False)
         self.SilenciarError = True
@@ -370,21 +377,27 @@ class FacturaController(ControladorBase):
             # Los datos se leen ACa, en el hilo principal: la pantalla y la
             # base no se tocan desde el hilo de trabajo.
             datos = self._datos_emision()
-            self._emitir_en_hilo(datos)
+            emitida = self._emitir_en_hilo(datos)
         finally:
             self.SilenciarError = False
             self.view.btnGrabarFactura.setEnabled(True)
             self._hilo = None
             self._worker = None
             self._progreso = None
+        return emitida
 
     def _emitir_en_hilo(self, datos):
         """Emite en un hilo de trabajo y espera el resultado.
 
-        While antes de arrancar el hilo, se cierran los datos de la pantalla y
-        el boton queda deshabilitado, asi que no hay forma de que cambien
+        Antes de arrancar el hilo, se cierran los datos de la pantalla y el
+        boton queda deshabilitado, asi que no hay forma de que cambien
         mientras ARCA procesa. Es lo que hace seguro tomar la foto de los
         datos en un solo momento.
+
+        Devuelve True solo si la factura quedo autorizada y guardada. Cada
+        salida anticipada devuelve False, y el que se emite sin guardar
+        tambien: autorizada sin guardar es un problema que hay que avisar, no
+        una venta terminada.
         """
         estado = {"ok": False, "aviso": None}
         listo = threading.Event()
@@ -435,7 +448,7 @@ class FacturaController(ControladorBase):
                           "aparece, reimprima el PDF desde Reimprimir factura; "
                           "si no aparece, llame y lo verificamos con el CAE.",
                 detalle="El hilo de emisión terminó sin devolver resultado.")
-            return
+            return False
 
         ok = self._aplicar_resultado(estado["ok"], estado["aviso"])
 
@@ -448,7 +461,7 @@ class FacturaController(ControladorBase):
                           "Configuracion. Si es un rechazo de ARCA, el codigo "
                           "de observacion esta en el detalle.",
                 detalle=self._mensaje_error_emision())
-            return
+            return False
 
         # Guardar la factura SIEMPRE en el hilo principal: peewee no es
         # thread-safe y esta es la unica parte que escribe en la base.
@@ -465,11 +478,14 @@ class FacturaController(ControladorBase):
                               "cargar a mano, pero no la vuelva a emitir.".format(
                                   self.view.lineditCAE.text() or "(sin CAE)"),
                     detalle=self._mensaje_error_emision())
-                return
+                return False
 
         # La factura quedo autorizada y guardada: se cierra la pantalla, que ya
-        # cumplio su parte.
+        # cumplio su parte. Cuando la pantalla nunca se mostro, cerrar una
+        # ventana oculta no hace nada, y por eso se puede emitir desde la venta
+        # rapida sin abrirla.
         self.view.Cerrar()
+        return True
 
     def _etapa(self, nombre):
         """Avanza el progreso, si hay alguno abierto."""

@@ -439,9 +439,9 @@ class VentaSimpleController(ControladorBase):
             Ventanas.showAlert("Venta", "Agregue al menos un producto")
             return
 
-        from controladores.Facturas import FacturaController
-
-        factura = FacturaController()
+        # Primero se resuelve el cliente, y recien despues se arma el
+        # FacturaController: construirlo es caro (levanta la vista entera con
+        # sus combos y pestanas) y para eso ya se sabe que va a servir.
         cliente_id = None
         if not self.view.checkConsumidorFinal.isChecked():
             if not self.cliente:
@@ -451,9 +451,42 @@ class VentaSimpleController(ControladorBase):
                 return
             cliente_id = self.cliente.idcliente
 
+        from controladores.Facturas import FacturaController
+
+        factura = FacturaController()
         factura.cargar_venta_simple(
             cliente_id=cliente_id,
             renglones=renglones,
             forma_pago_id=self.view.cboFormaPago.text(),
         )
-        factura.exec_()
+
+        # Se emite desde aca y NO mostrando el formulario de emision. El
+        # FacturaController de arriba ES esa pantalla: cargar los datos y
+        # llamar a exec_() hacia que el operador apretara Emitir aca, se le
+        # abriera el formulario grande ya cargado, y tuviera que apretar
+        # Emitir otra vez ahi. Es exactamente el rodeo que la venta rapida
+        # existe para evitar.
+        #
+        # El unico planteo que se abre es la barra de progreso de la emision,
+        # que hace falta contra ARCA porque tarda.
+        #
+        # Devolver el resultado permite limpiar la pantalla cuando salio bien
+        # y dejarla con los renglones cuando salio mal, para revisar.
+        emitida = factura.GrabaFactura()
+        if emitida:
+            self._limpiar_para_la_siguiente()
+        return emitida
+
+    def _limpiar_para_la_siguiente(self):
+        """Deja la pantalla vacia para cargar la venta que sigue.
+
+        Solo cuando la factura quedo autorizada. Si no se limpio nada, la
+        venta se pierde y no hay forma de recuperarla desde la app.
+        """
+        while self.view.gridVenta.rowCount():
+            self.view.gridVenta.removeRow(0)
+        self.cliente = None
+        self.view.textCliente.setText("")
+        self.view.textArticulo.setText("")
+        self.view.textCantidad.setText("1")
+        self.recalcular_total()
