@@ -29,6 +29,8 @@ class VentaSimpleController(ControladorBase):
     def __init__(self):
         super(VentaSimpleController, self).__init__()
         self.cliente = None
+        # Ver cargar_cliente_desde_busqueda().
+        self._resolviendo_cliente = False
         self.view = VentaSimpleView()
         self.conectarWidgets()
 
@@ -105,19 +107,47 @@ class VentaSimpleController(ControladorBase):
             self.view.textDocumento.setText("")
 
     def cargar_cliente_desde_busqueda(self):
+        """Busca el cliente escrito y lo carga en la venta.
+
+        El candado de `_resolviendo_cliente` esta porque esta funcion se puede
+        volver a entrar en si misma mientras ya esta corriendo. Al abrirse el
+        dialogo modal de seleccion, Qt le quita el foco al campo de cliente, y
+        eso emite editingFinished con este mismo handler todavia en la pila
+        adentro de dialogo.exec_(). La segunda entradaTodavia ve el texto sin
+        cambiar, encuentra las mismas coincidencias, y abre un segundo dialogo
+        encima del primero: el operador elige en el de adelante, este se
+        cierra, y aparece el de atras, que parece que no acepta la
+        seleccion.
+
+        El candado va ACA y no adentro de seleccionar_cliente por una razon
+        concreta: si solo estuviera en el ultimo, la entrada anidada recibiria
+        None como resultado y seguiria de largo, abriendo el "¿desea agregar
+        el cliente?" por encima del dialogo que ya esta en pantalla.
+
+        Va con try/finally porque en una app de escritorio un candado que se
+        traba por una excepcion deja la pantalla de venta inservible hasta
+        reiniciar.
+        """
+        if self._resolviendo_cliente:
+            return
+
         busqueda = self.view.textCliente.text().strip()
         if not busqueda or self.view.checkConsumidorFinal.isChecked() and busqueda == "Consumidor Final":
             return
 
-        cliente = self.resolver_cliente_desde_busqueda(busqueda)
-        if not cliente:
-            if not self.confirmar_alta("Venta", "Cliente no encontrado. Desea agregarlo?"):
-                return
-            cliente = self.solicitar_alta_cliente(busqueda)
+        self._resolviendo_cliente = True
+        try:
+            cliente = self.resolver_cliente_desde_busqueda(busqueda)
             if not cliente:
-                return
+                if not self.confirmar_alta("Venta", "Cliente no encontrado. Desea agregarlo?"):
+                    return
+                cliente = self.solicitar_alta_cliente(busqueda)
+                if not cliente:
+                    return
 
-        self.cargar_cliente_en_vista(cliente)
+            self.cargar_cliente_en_vista(cliente)
+        finally:
+            self._resolviendo_cliente = False
 
     def confirmar_alta(self, titulo, mensaje):
         # Antes era un QMessageBox.question con "Sí" como boton por defecto:
@@ -180,6 +210,11 @@ class VentaSimpleController(ControladorBase):
         # pasaran las coincidencias, no habria forma de acotar sin cerrar y
         # volver a escribir, que es justo lo que duele cuando la lista son
         # 800 clientes.
+        #
+        # Este dialogo no se puede abrir anidado: al abrirse le quita el foco
+        # al campo de cliente, y eso vuelve a entrar en
+        # cargar_cliente_desde_busqueda() mientras este metodo sigue en la
+        # pila. El candado que lo evita esta ahi, no aca. Ver ahi.
         dialogo = VentaSimpleSeleccionClienteDialog(self._coincidencias_clientes,
                                                     busqueda=busqueda)
         dialogo.exec_()
