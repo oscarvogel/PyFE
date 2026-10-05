@@ -4,12 +4,12 @@ from vistas.ABMTipoResponsable import ABMTipoResponsableView
 
 
 class ABMTipoResponsableController(ControladorBaseABM):
-    
+
     model = Tiporesp
     campoclave = Tiporesp.idtiporesp.name
-    
+    vistaClase = ABMTipoResponsableView
+
     def __init__(self):
         super().__init__()
-        self.view = ABMTipoResponsableView()
         #self.view.exec_()
         self.conectarWidgets()

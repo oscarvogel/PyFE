@@ -43,6 +43,15 @@ class ArticulosView(ABM):
         self.layoutCosto = self.ArmaEntrada('costo', texto='Costo', control=Spinner())
         self.ArmaEntrada('preciopub', boxlayout=self.layoutCosto, control=Spinner(), texto="Precio al publico")
         self.ArmaEntrada('concepto', boxlayout=self.layoutCosto, control=ComboConceptoFacturacion())
+        # El control de stock va en la misma linea que el precio y no en una
+        # pantalla aparte: es una propiedad del producto, como el precio, y
+        # si estuviera escondida el operador la busca una vez y despues
+        # nunca mas. El minimo va al lado y no mas lejos porque siempre van
+        # juntos: un control sin minimo no avisa de nada.
+        self.ArmaEntrada('controlastock', boxlayout=self.layoutCosto, control=CheckBox(),
+                         texto="Controla stock?")
+        self.ArmaEntrada('stockminimo', boxlayout=self.layoutCosto, control=Spinner(),
+                         texto="Stock minimo")
 
     @inicializar_y_capturar_excepciones
     def btnAceptarClicked(self, *args, **kwargs):
@@ -64,5 +73,10 @@ class ArticulosView(ABM):
         articulo.preciopub = self.controles['preciopub'].value()
         articulo.concepto = self.controles['concepto'].text()
         articulo.codbarra = self.controles['codbarra'].text()
+        # Se guardan siempre, no solo en el alta: si se omitieran, editar un
+        # producto para cambiarle el nombre pondria controlastock en False y
+        # el producto dejaria de descontar stock sin que nadie lo tocara.
+        articulo.controlastock = self.controles['controlastock'].text()
+        articulo.stockminimo = self.controles['stockminimo'].value()
         articulo.save()
         ABM.btnAceptarClicked(self)

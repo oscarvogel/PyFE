@@ -195,12 +195,15 @@ def test_lo_que_va_al_hilo_son_datos_planos(monkeypatch):
         lineEditNumero = Campo("00000001")
 
     class Pantalla(object):
+        # Los totales son numeros en la vista, no texto: antes eran
+        # `EntradaTexto` y se leian con `.text()`, que devolvia "9900.00" con
+        # punto decimal. Ver `vistas/Facturas.py::ActualizaTotales`.
         checkBoxProductos = CheckBox(True)
         checkBoxServicios = CheckBox(False)
         lineEditDocumento = Campo("11111111")
-        lineEditTotal = Campo("9900.00")
-        lineEditTributos = Campo("0.00")
-        lineEditTotalIVA = Campo("1718.18")
+        total_final = 9900.00
+        total_tributos = 0.00
+        total_iva = 1718.18
         lineEditFecha = Fecha()
         layoutFactura = type("L", (), {
             "lineEditPtoVta": Numero(1), "lineEditNumero": Numero(1)})()
@@ -273,9 +276,10 @@ def test_el_neto_se_calcula_segun_la_categoria_de_iva(monkeypatch):
             "checkBoxProductos": type("C", (), {"isChecked": lambda s: True})(),
             "checkBoxServicios": type("C", (), {"isChecked": lambda s: False})(),
             "lineEditDocumento": Campo("11111111"),
-            "lineEditTotal": Campo(total),
-            "lineEditTributos": Campo(tributos),
-            "lineEditTotalIVA": Campo(iva),
+            # Numeros, no texto. Ver `vistas/Facturas.py::ActualizaTotales`.
+            "total_final": float(total),
+            "total_tributos": float(tributos),
+            "total_iva": float(iva),
             "lineEditFecha": type("F", (), {"getFechaSql": lambda s: "20261003"})(),
             "layoutFactura": type("L", (), {
                 "lineEditPtoVta": type("N", (), {"value": lambda s: 1})(),
@@ -391,60 +395,69 @@ def test_el_worker_avisca_las_etapas_por_senal(monkeypatch):
     assert worker.resultado[0] is True
 
 
+def _vista_que_registra():
+    """Una vista que anotan las autorizaciones que le llega.
+
+    Antes el CAE se escribia con `lineditCAE.setText(...)` y el test
+    revisaba el texto. Ahora la vista tiene UN metodo, `MuestraAutorizacion`,
+    y el CAE queda en `self.cae`. El test sigue mirando lo mismo --que no se
+    escriba un CAE que ARCA no dio-- pero por la puerta que usa la app.
+    """
+    class Vista(object):
+        cae = ""
+        numero = ""
+        resultado = ""
+        vencimiento = ""
+        vencimiento_sql = ""
+        autorizada = None
+        llamadas = []
+
+        def MuestraAutorizacion(self, numero, cae, resultado, vencimiento,
+                                autorizada=True, vencimiento_sql=""):
+            self.cae = cae or ""
+            self.numero = numero or ""
+            self.resultado = resultado or ""
+            self.vencimiento = vencimiento or ""
+            self.vencimiento_sql = vencimiento_sql or ""
+            self.autorizada = autorizada
+            self.llamadas.append(self.cae)
+
+    return Vista()
+
+
 def test_el_cae_rechazado_no_se_escribe_en_la_pantalla(monkeypatch):
     """Si ARCA rechaza, la pantalla no muestra un CAE que no existe."""
     monkeypatch.setattr(sys, "argv", [sys.argv[0]])
 
     controller = _controlador_minimo()
-
-    class Campo(object):
-        def __init__(self):
-            self.texto = ""
-
-        def setText(self, v):
-            self.texto = v
-
-    class Fecha(object):
-        def setFecha(self, *a, **k):
-            self.llamada = True
-
-    controller.view.lineditCAE = Campo()
-    controller.view.lineEditResultado = Campo()
-    controller.view.fechaVencCAE = Fecha()
+    controller.view = _vista_que_registra()
 
     controller._aplicar_resultado(False, {"error": "rechazada", "cae": "123"})
 
-    assert controller.view.lineditCAE.texto == "", \
+    assert controller.view.cae == "", \
         "se escribio un CAE en una factura que ARCA rechazo"
     assert controller._error_afip == "rechazada"
+    assert controller.view.autorizada is False, \
+        "el estado tiene que quedar en rechazado, no en autorizado"
 
 
 def test_el_cae_bueno_si_se_escribe(monkeypatch):
     monkeypatch.setattr(sys, "argv", [sys.argv[0]])
 
     controller = _controlador_minimo()
-
-    class Campo(object):
-        def __init__(self):
-            self.texto = ""
-
-        def setText(self, v):
-            self.texto = v
-
-    class Fecha(object):
-        def setFecha(self, fecha, format=None):
-            self.fecha = fecha
-
-    controller.view.lineditCAE = Campo()
-    controller.view.lineEditResultado = Campo()
-    controller.view.fechaVencCAE = Fecha()
+    controller.view = _vista_que_registra()
 
     ok = controller._aplicar_resultado(
         True, {"cae": "86400944641465", "resultado": "A",
                "vencimiento": "20261013", "error": ""})
 
     assert ok is True
-    assert controller.view.lineditCAE.texto == "86400944641465"
-    assert controller.view.lineEditResultado.texto == "A"
-    assert controller.view.fechaVencCAE.fecha == "20261013"
+    assert controller.view.cae == "86400944641465"
+    assert controller.view.resultado == "A"
+    # El vencimiento va dos veces: como se ve y como se guarda. La conversion
+    # se hace en un solo lugar del controlador.
+    assert controller.view.vencimiento == "13/10/2026", \
+        "el vencimiento se muestra asi: {}".format(controller.view.vencimiento)
+    assert controller.view.vencimiento_sql == "20261013"
+    assert controller.view.autorizada is True
     assert controller._error_afip == ""

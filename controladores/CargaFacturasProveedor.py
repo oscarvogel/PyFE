@@ -8,10 +8,12 @@ from controladores.ControladorBase import ControladorBase
 from controladores.PadronAfip import PadronAfip
 from controladores.WSConstComp import WSConstComp
 from libs import Ventanas
+from libs import stock
 from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, FechaMysql, AbrirArchivo
 from libs.instalacion import cuit_emisor
 from modelos.CabFacProv import CabFactProv
 from modelos.DetFactProv import DetFactProv
+from modelos.ModeloBase import db
 from modelos.PercepcionesDGR import PercepDGR
 from modelos.Proveedores import Proveedor
 from modelos.Provincias import Provincia
@@ -85,9 +87,17 @@ class CargaFacturaProveedorController(ControladorBase):
         self.view.textTotal.setText(str(round(total, 3)))
 
     @inicializar_y_capturar_excepciones
-    def onClickBtnGrabar(self, *args, **kwargs):
-        if not self.ValidaFactura(): #si ya fue cargada la factura no permite que se cargue de nuevo
-            return
+    def _guarda_factura_proveedor(self):
+        """Guarda cabecera, renglones y stock en una sola transaccion.
+
+        Va en un metodo propio y no suelto en onClickBtnGrabar para poder
+        meter el `with db.atomic()` que lo abarca todo. Antes, cada `save()`
+        era su propia transaccion y la compra se podia guardar a medias; con
+        stock de por medio, eso es mercaderia que entra sin que quede
+        registro de por que.
+
+        Devuelve la cabecera guardada.
+        """
         cab = CabFactProv()
         cab.fecha = self.view.fechaCarga.date().toPyDate()
         cab.fechaem = self.view.fechaEmision.date().toPyDate()
@@ -104,24 +114,43 @@ class CargaFacturaProveedorController(ControladorBase):
         cab.cai = str(self.view.textCAE.text())
         cab.modocpte = self.view.cboModoCpte.valor()
         cab.periodo = self.view.periodo.cPeriodo
-        cab.save()
 
-        for row in range(self.view.gridDatos.rowCount()):
-            iva = float(self.view.gridDatos.ObtenerItem(fila=row, col='IVA'))
-            neto = float(self.view.gridDatos.ObtenerItem(fila=row, col='Neto'))
-            ctrocosto = int(self.view.gridDatos.ObtenerItem(fila=row, col='Ctro Costos'))
-            cantidad = float(self.view.gridDatos.ObtenerItem(fila=row, col='Cantidad'))
-            detalle = self.view.gridDatos.ObtenerItem(fila=row, col='Detalle')
+        with db.atomic():
+            cab.save()
 
-            if cantidad != 0:
-                det = DetFactProv()
-                det.idpcabecera = cab.idpcabfact
-                det.idctrocosto = ctrocosto
-                det.cantidad = cantidad
-                det.iva = iva
-                det.neto = neto
-                det.detalle = detalle
-                det.save()
+            detalles = []
+            for row in range(self.view.gridDatos.rowCount()):
+                iva = float(self.view.gridDatos.ObtenerItem(fila=row, col='IVA'))
+                neto = float(self.view.gridDatos.ObtenerItem(fila=row, col='Neto'))
+                ctrocosto = int(self.view.gridDatos.ObtenerItem(fila=row, col='Ctro Costos'))
+                cantidad = float(self.view.gridDatos.ObtenerItem(fila=row, col='Cantidad'))
+                detalle = self.view.gridDatos.ObtenerItem(fila=row, col='Detalle')
+                # Vacio es lo normal: un renglon de gasto o de impuesto no
+                # entra al inventario, y obligar a elegir un producto
+                # obligaria a inventar uno.
+                producto = str(self.view.gridDatos.ObtenerItem(
+                    fila=row, col='Producto') or '').strip()
+
+                if cantidad != 0:
+                    det = DetFactProv()
+                    det.idpcabecera = cab.idpcabfact
+                    det.idctrocosto = ctrocosto
+                    det.cantidad = cantidad
+                    det.iva = iva
+                    det.neto = neto
+                    det.detalle = detalle
+                    det.idarticulo = int(producto) if producto.isdigit() else None
+                    det.save()
+                    detalles.append(det)
+
+            stock.aplica_compra(detalles, idpcabecera=cab.idpcabfact)
+
+        return cab
+
+    def onClickBtnGrabar(self, *args, **kwargs):
+        if not self.ValidaFactura(): #si ya fue cargada la factura no permite que se cargue de nuevo
+            return
+        cab = self._guarda_factura_proveedor()
 
         if self.ventana:
             for row in range(self.ventana.view.gridPercepDGR.rowCount()):

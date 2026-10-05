@@ -323,7 +323,7 @@ def test_el_buscador_empieza_mostrando_todo(shell):
     assert len(_visibles(shell)) == len(shell.botonesNav) == esperadas
 
 
-def test_toda_accion_de_la_barra_lateral_tiene_pantalla(shell):
+def test_toda_accion_de_la_barra_lateral_tiene_pantalla(shell, monkeypatch):
     """Una accion sin destino abre un error en vez de no hacer nada.
 
     Se agrega un boton a la barra lateral y se lo conecta a algo, pero si el
@@ -332,6 +332,15 @@ def test_toda_accion_de_la_barra_lateral_tiene_pantalla(shell):
     """
     from controladores.Main import Main
     from vistas.Main import SECCIONES
+
+    # Destinos no necesita base de datos, pero construir Main() si la necesita:
+    # su __init__ crea las tablas y corre las migraciones sobre la base de
+    # TRABAJO, la del sandbox. Antes no se notaba porque la base ya estaba al
+    # dia; en cuanto se agrego una migracion de verdad, correr los tests
+    # modificaba la base de desarrollo del proyecto. Por eso se anulan las dos
+    # cosas: este test mira el mapa clave -> accion, y nada mas.
+    monkeypatch.setattr(Main, "CreaTablas", lambda self: None)
+    monkeypatch.setattr(Main, "Migraciones", lambda self: None)
 
     # DESTINOS es un metodo: devuelve el mapa clave -> como abrir la pantalla.
     destinos = set(Main().DESTINOS())

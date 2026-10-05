@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import QDialog, QShortcut
 from controladores.ControladorBase import ControladorBase
 from controladores.venta_simple_totales import RenglonVenta, calcular_totales
 from libs import Ventanas
+from libs import stock
 from libs.busqueda import contiene as buscar_texto
 from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, a_entero
 from modelos.Articulos import Articulo
@@ -523,10 +524,50 @@ class VentaSimpleController(ControladorBase):
             self.view.gridVenta.removeRow(fila)
             self.recalcular_total()
 
+    def faltantes_de_la_venta(self, renglones):
+        """Los productos de esta venta que se van a quedar en negativo.
+
+        Devuelve lineas de texto para el aviso, no ids. Y acumula por
+        articulo antes de comparar: el mismo producto puede estar en dos
+        renglones de la misma venta (dos veces 3 unidades con 5 en stock), y
+        mirando renglon por renglon uno de los dos parece que entra y solo
+        avisaria por el otro. Y peor: avisaria mostrando "quedan 5" cuando en
+        realidad quedan -1.
+        """
+        pedido = {}
+        for renglon in renglones:
+            pedido[renglon.codigo] = pedido.get(renglon.codigo, Decimal(0)) \
+                + Decimal(str(renglon.cantidad))
+
+        lineas = []
+        for codigo, cantidad in pedido.items():
+            articulo = Articulo.get_or_none(Articulo.idarticulo == codigo)
+            if articulo is None or not stock.controla(articulo):
+                continue
+            hay = stock.stock_de(articulo)
+            if hay - cantidad < 0:
+                lineas.append("{}: hay {}, se venden {}".format(
+                    articulo.nombre, hay, cantidad))
+        return lineas
+
     def emitir_factura(self):
         renglones = self.obtener_renglones()
         if not renglones:
             Ventanas.showAlert("Venta", "Agregue al menos un producto")
+            return
+
+        # Avisa antes de emitir, y deja emitir igual. Bloquear la venta por un
+        # dato de stock que puede estar mal es peor que el faltante: en un
+        # comercio real, quedarse sin poder cobrar le cuesta mas plata al que
+        # se esta equivocando de inventario. El boton del aviso dice
+        # "Emitir igual" y no "Aceptar", para que quede claro que la app no
+        # esta decidiendo.
+        faltantes = self.faltantes_de_la_venta(renglones)
+        if faltantes and not Ventanas.showConfirmation(
+                "Venta sin stock suficiente",
+                "Estos productos quedan por debajo de lo que hay:\n\n{}\n\n"
+                "¿Emitir la factura igual?".format("\n".join(faltantes)),
+                textoOk="Emitir igual", textoCancelar="Volver a la venta"):
             return
 
         # Primero se resuelve el cliente, y recien despues se arma el

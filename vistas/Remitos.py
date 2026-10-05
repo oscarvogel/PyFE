@@ -80,9 +80,14 @@ class RemitoView(VistaBase):
         
         layout_botones = QHBoxLayout()
         self.btn_guardar = Boton(texto="Guardar", imagen=icono('guardar'), autodefault=False, estilo='primario')
+        self.btn_facturar = Boton(texto="Facturar", imagen=icono('nueva-venta'),
+                                  autodefault=False,
+                                  tooltip="Guardar el remito y abrir la "
+                                          "factura con esta mercadería")
         self.btn_borrar = Boton(texto="Borrar", imagen=icono('borrar'), autodefault=False, estilo='peligro')
         self.btn_cerrar = Boton(texto="Cerrar", imagen=icono('cerrar'), autodefault=False)
         layout_botones.addWidget(self.btn_guardar)
+        layout_botones.addWidget(self.btn_facturar)
         layout_botones.addWidget(self.btn_borrar)
         layout_botones.addWidget(self.btn_cerrar)
         layout_ppal.addLayout(layout_botones)

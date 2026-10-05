@@ -11,8 +11,12 @@ REM Para compilar con un entorno propio, activalo antes:
 REM     .venv\Scripts\activate
 REM     compila.bat
 
-rd /S /Q dist\main
-rd /S /Q dist\main.exe
+REM Los `rd` llevan `if exist` porque en un build limpio (la primera vez, o
+REM despues de borrar dist\) no hay nada que borrar y el `rd` escribe "El
+REM sistema no puede encontrar el archivo especificado". Es ruido que hace
+REM creer que fallo algo, cuando el build salio bien.
+if exist dist\main rd /S /Q dist\main
+if exist dist\main.exe rd /S /Q dist\main.exe
 
 python -m PyInstaller --clean --hidden-import=httplib2 --collect-data httplib2 --version-file=version.txt -w -F --workpath "%TEMP%\pyfe-build" --icon="imagenes\marca\logo-vogel.ico" main.py
 if errorlevel 1 (
@@ -48,7 +52,7 @@ REM Si falta, la app arranca igual pero sin estilos: en el ejecutable se veria
 REM con el aspecto crudo, que es justo lo que se vino a arreglar.
 REM xcopy NO borra lo que quedo de una build anterior, asi que sin esto los
 REM .css viejos del tema seguian viajando al instalador para siempre.
-rd /S /Q dist\temas
+if exist dist\temas rd /S /Q dist\temas
 if not exist dist\conf mkdir dist\conf
 xcopy /E /I /Y conf dist\conf >nul
 xcopy /E /I /Y imagenes dist\imagenes >nul

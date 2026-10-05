@@ -22,6 +22,21 @@ class Articulo(ModeloBase):
     concepto = CharField(max_length=1, default='1')
     codbarra = CharField(max_length=20, default='', column_name='codbarraart')
 
+    # -- Stock ---------------------------------------------------------------
+    # controlastock es el que decide si este articulo participa del control.
+    # Viene en False a proposito y no derivado de 'concepto': en un mismo
+    # catalogo conviven productos y servicios, pero tambien hay articulos de
+    # consumo interno que no se inventan, y una regla que adivine va a
+    # fallar en algun caso y nadie va a saber cual. Explicito, y si alguien
+    # se olvida de marcar un producto, el reporte de Stock lo muestra como
+    # "sin controlar" en vez de hacerlo desaparecer.
+    #
+    # NO hay columna de stock actual. El stock es la suma de los movimientos
+    # (modelos/MovStock.py), y explicarlo en dos lineas aca es la unica
+    # garantía de que nadie lo agrega Thinking of it as a cache.
+    controlastock = BitBooleanField(default=False)
+    stockminimo = DecimalField(max_digits=12, decimal_places=4, default=0)
+
     class Meta:
         table_name = 'articulos'
 

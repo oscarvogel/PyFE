@@ -173,6 +173,13 @@ class Grilla(QTableWidget):
         self.columnasHabilitadas = list(self.columnasHabilitadas)
         self.widgetCol = dict(self.widgetCol)
         self.backgroundColorCol = dict(self.backgroundColorCol)
+        # Para que resizeEvent sepa si vale la pena volver a repartir. Ver
+        # resizeEvent: sin esto se recalcula en cada pixel del drag.
+        self._ancho_del_ultimo_reparto = 0
+        # Nombre de la columna de texto que se lleva el sobrante. Por defecto
+        # gana la de nombre mas largo; una grilla puede fijar cual es (la de
+        # detalle de una factura, que es la que el operador lee).
+        self.columna_preferida = ""
 
         if 'tamanio' in kwargs:
             self.tamanio = kwargs['tamanio']
@@ -250,6 +257,23 @@ class Grilla(QTableWidget):
         if self._etiquetaVacia.isVisible():
             self._etiquetaVacia.setGeometry(self.viewport().rect())
 
+        # Volver a repartir los anchos cuando la ventana cambia de ancho.
+        #
+        # Los anchos se calculan una sola vez, al armar las cabeceras, y en ese
+        # momento la grilla todavia no tiene tamano: `_reparte_anchos` se
+        # divide por 200 y todas las columnas quedan en su minimo de 56 px. La
+        # columna estirada se lleva el sobrante, y el resultado era una columna
+        # de 1768 px al lado de cinco de 56.
+        #
+        # Aca se vuelve a calcular con el ancho real. El margen de 40 px es
+        # para no recalcular en cada pixel del drag del borde, que con una
+        # grilla de 2000 filas se nota.
+        actual = self.viewport().width()
+        if abs(actual - self._ancho_del_ultimo_reparto) > 40:
+            self._ancho_del_ultimo_reparto = actual
+            if self.cabeceras:
+                self._reparte_anchos(self.cabeceras)
+                self._estirar_la_mas_larga(self.cabeceras)
 
     def ArmaCabeceras(self, cabeceras=None, formatos=None):
 
@@ -262,38 +286,181 @@ class Grilla(QTableWidget):
             self.setHorizontalHeaderItem(col, QTableWidgetItem(cabeceras[col]))
 
         self.resizeRowsToContents()
+
+        # `formatos` dice que hay en cada columna. Se aplican ANTES de repartir
+        # los anchos, y no despues: el reparto decide cuanto mide una columna a
+        # partir de su tipo, asi que si se repartiera todavia sin conocerlos,
+        # las columnas de importe se tratarian como texto corto y quedarian de
+        # 56 px. Con "Neto", "IVA" y "Total" eso era lo que pasaba en la grilla
+        # de carga de compras.
+        if formatos:
+            for col, tipo in enumerate(formatos):
+                if col < len(cabeceras) and tipo:
+                    self.formatos[col] = tipo
+
         # NO se usa resizeColumnsToContents: con la tabla vacia (que es como
         # nace, antes de cargar los datos) calcula anchos minimos y el
         # encabezado queda arrancajo a la izquierda, con un mar de blanco al
-        # lado. Se reparten los anchos segun el contenido de las cabeceras.
+        # lado. Se reparten los anchos segun el tipo y el contenido del
+        # encabezado.
         self._reparte_anchos(cabeceras)
         self._estirar_la_mas_larga(cabeceras)
 
-        # `formatos` es opcional y dice que hay en cada columna, para alinear
-        # el encabezado igual que los datos: una columna de importes con el
-        # encabezado a la izquierda y los numeros a la derecha se ve rota.
+        # Y despues se alinean los encabezados, que ya es solo pintar: el
+        # ancho ya esta decidido.
         if formatos:
-            for col, tipo in enumerate(formatos):
-                if col < len(formatos) and tipo:
-                    self.formatos[col] = tipo
             self._alinea_encabezados()
 
         self.cabeceras = cabeceras
+        self._esconde_columnas_auxiliares(cabeceras)
         self.OcultaColumnas()
+
+    def _esconde_columnas_auxiliares(self, cabeceras):
+        """Esconde las columnas que existen solo para guardar el id.
+
+        El proyecto ya tiene esa convencion: una columna que arranca con
+        guion bajo (`_id`) es el dato que la fila necesita para guardarse, no
+        algo que el operador tenga que leer. Esas columnas se repartian el
+        ancho como si fueran datos: `_reparte_anchos` les daba el minimo de 56
+        px y quedaban a la vista como una franja de numeros al costado de la
+        columna que si importa.
+
+        Solo se esconden las que arrancan con `_`. Las que se llaman `Id` o
+        `idcliente` y son dato real (el codigo de un grupo, el CUIT) se
+        siguen viendo: ocultar un id que el operador usa seria peor que
+        dejarlo angosto.
+        """
+        for col, nombre in enumerate(cabeceras):
+            if str(nombre).startswith("_"):
+                self.hideColumn(col)
+
+    def _columna_es_de_texto(self, indice, nombre):
+        """Esta columna se lee como texto, y por lo tanto se estira?
+
+        Tres cosas la hacen NO texto: que el tipo declarado sea numerico, que
+        el encabezado empiece con `_` (columna auxiliar) y que el nombre
+        empiece con "id".
+
+        La de "id" es la que faltaba. Con la tabla vacia --que es como nace y
+        como se ve en un ABM sin datos-- no hay tipo declarado ni primera
+        fila de donde deducirlo, asi que "Idcliente" era indistinguible de
+        "Nombre" y se llevaba el ancho sobrante: 555 de 959 px, con el nombre
+        partido en dos renglones al lado. Un identificador se lee entero en
+        cuatro digitos; estirarlo no aporta nada.
+        """
+        if self.formatos.get(indice) in self.TIPOS_NUMERICOS:
+            return False
+        limpio = str(nombre).strip().lower()
+        return not (limpio.startswith("_") or limpio.startswith("id"))
 
     def _reparte_anchos(self, cabeceras):
         """Ancho minimo razonable por columna y el sobrante en la primera.
 
         Se calcula sobre el texto del encabezado, que es lo unico que se
         conoce antes de cargar los datos.
+
+        Sin columnas no hay nada que repartir, y `anchos[-1]` sobre una lista
+        vacia es un IndexError. Pasaba con un ABM cuyo `camposAMostrar` esta
+        vacio: `vistas/ABM.py` arma `cabeceras = []` en ese caso, y abrir la
+        pantalla tiraba. Que la pantalla este vacia es un problema de esa
+        pantalla; que se caiga al abrir es de esta linea.
         """
+        if not cabeceras:
+            return
+
+        # Todo a Interactive antes de medir. Con una seccion en Stretch el
+        # ancho lo impone Qt y `setColumnWidth` no la toca: el ancho de la
+        # corrida anterior se queda pegado y esta cuenta no cierra. Es lo
+        # mismo que hace `_reporte_anchos_con_datos`, y por el mismo motivo.
+        encabezado = self.horizontalHeader()
+        encabezado.setStretchLastSection(False)
+        for col in range(len(cabeceras)):
+            encabezado.setSectionResizeMode(col, QHeaderView.Interactive)
+
         total = max(self.viewport().width(), 200)
-        pesos = [max(60, min(200, len(str(c)) * 9 + 30)) for c in cabeceras]
-        suma = float(sum(pesos)) or 1.0
-        anchos = [max(56, int(total * p / suma)) for p in pesos]
-        # La diferencia se la queda la ultima columna, que suele ser la
-        # descripcion larga.
-        anchos[-1] += total - sum(anchos)
+
+        # El reparto va por TIPO de columna, no por la longitud del encabezado.
+        #
+        # Antes el peso era `len(encabezado) * 9` para todas, asi que
+        # "Idcliente" (9 letras) pesaba mas que "Nombre" (6) y el codigo se
+        # llevaba la mitad de la tabla con los nombres cortados al lado. Un
+        # identificador son cuatro digitos, mida lo que mida su nombre.
+        #
+        # Y repartirlo todo proporcionalmente hace que dos columnas nunca
+        # puedan quedar tan desiguales como hace falta: con "Idcliente" y
+        # "Nombre" salen 314 y 645, y 645 no es tres veces 314. Por eso las
+        # columnas que NO son texto tienen ancho FIJO segun su tipo, y el
+        # sobrante se lo reparten solo las de texto.
+        ANCHOS_FIJOS = {
+            'Date': 90, 'Time': 80,
+            # "Cant." con dos digitos y una coma no necesita 90: son cinco
+            # caracteres. Un codigo tampoco. Y con seis columnas, cada diez
+            # pixeles que sobra en una fija es diez en la de texto, que es la
+            # que se queda sin lugar.
+            'Entero': 80, 'Cantidad': 80, 'Porcentaje': 80,
+            # Un importe de siete digitos ("1.234.567,89") son once
+            # caracteres: 100 alcanza de sobra.
+            'Decimal': 100, 'Moneda': 100, 'Importe': 100,
+        }
+        ANCHO_ID = 100
+
+        anchos = [0] * len(cabeceras)
+        de_texto = []
+        for i, nombre in enumerate(cabeceras):
+            tipo = self.formatos.get(i)
+            limpio = str(nombre).strip().lower()
+            if limpio.startswith("id") or limpio.startswith("_"):
+                anchos[i] = ANCHO_ID
+            elif tipo in self.TIPOS_NUMERICOS:
+                anchos[i] = ANCHOS_FIJOS.get(tipo, 100)
+            else:
+                de_texto.append(i)
+
+        # Lo que queda es de las columnas de texto, en proporcion a su
+        # encabezado.
+        #
+        # Si no alcanza para que todas tengan un ancho legible, se recorta a
+        # las fijas antes que dejar una columna de texto en 60 px. Con nueve
+        # columnas en 884 px las seis fijas se comian 600 y "Detalle" se
+        # quedaba con 60: el nombre del producto al lado, y el detalle, que
+        # es lo que se lee, ilegible.
+        MINIMO_TEXTO = 90
+        PISO_FIJO = 72
+        # Se calcula antes de la cadena de if: el `elif` lo usa, y con una
+        # grilla de solo columnas fijas no hay donde asignarlo adentro.
+        sobrante = total - sum(anchos)
+        if de_texto:
+            while True:
+                sobrante = total - sum(anchos)
+                faltan = MINIMO_TEXTO * len(de_texto) - sobrante
+                if faltan <= 0:
+                    break
+                recortables = [i for i in range(len(anchos))
+                               if i not in de_texto and anchos[i] > PISO_FIJO]
+                if not recortables:
+                    break
+                paso = float(faltan) / len(recortables)
+                for i in recortables:
+                    anchos[i] = max(PISO_FIJO, int(anchos[i] - paso))
+
+            sobrante = total - sum(anchos)
+            pesos = [max(60, min(400, len(str(cabeceras[i])) * 9 + 30))
+                     for i in de_texto]
+            suma = float(sum(pesos)) or 1.0
+            for i, peso in zip(de_texto, pesos):
+                anchos[i] = max(MINIMO_TEXTO, int(sobrante * peso / suma)) \
+                    if sobrante > 0 else MINIMO_TEXTO
+        elif sobrante > 0:
+            paso = sobrante / float(len(anchos))
+            anchos = [int(a + paso) for a in anchos]
+        elif sobrante < 0:
+            # No alcanza para todo. La falta se reparte entre todas, para que
+            # ninguna quede en negativo y Qt la deje en su minimo. Antes era
+            # `anchos[-1] += total - sum(anchos)`, y con nueve columnas en una
+            # grilla angosta la ultima se comia -500 px.
+            paso = sobrante / float(len(anchos))
+            anchos = [max(1, int(a + paso)) for a in anchos]
+
         for col, ancho in enumerate(anchos):
             if ancho > 0:
                 self.setColumnWidth(col, ancho)
@@ -304,22 +471,45 @@ class Grilla(QTableWidget):
     TIPOS_NUMERICOS = ('Decimal', 'Cantidad', 'Moneda', 'Importe',
                        'Porcentaje', 'Entero', 'Date', 'Time')
 
-    def _estirar_la_mas_larga(self, cabeceras):
-        """El ancho sobrante va a la columna de texto mas larga.
+    # Tope de ancho para las columnas que no se leen como texto.
+    #
+    # Un identificador son cuatro digitos: 120 px alcanzan de sobra. Sin tope,
+    # `resizeColumnsToContents` le daba a "Idcliente" 512 de los 959 px de la
+    # tabla y los nombres quedaban cortados al lado. Si el dato de una columna
+    # de id necesita mas que eso, no es un id, y ahi la columna se va a ver
+    # cortada: es preferible a que se coma media tabla.
+    ANCHO_MAXIMO_NO_TEXTO = 120
 
-        estirar la ultima columna (que es lo que hace setStretchLastSection)
+    def _estirar_la_mas_larga(self, cabeceras):
+        """La columna de texto mas larga se lleva el ancho sobrante.
+
+        Estirar la ultima columna (que es lo que hace `setStretchLastSection`)
         deja una columna de importe ocupando media tabla, que es al reves de lo
         que conviene: los importes se comparan entre si en una columna angosta
-        y el que se lee es el detalle.
+        y el que se lee es el detalle. Con una sola columna estirada, las otras
+        conservan la proporcion que les dio `_reparte_anchos`... SI esa
+        proporcion se calculo con el ancho real de la tabla. Y no siempre: al
+        armar las cabeceras la grilla todavia no tiene tamano, y `_reporte_anchos`
+        se divide por 200. Por eso `resizeEvent` vuelve a repartir.
         """
         ancho = self.horizontalHeader()
         ancho.setStretchLastSection(False)
         candidatas = [i for i, c in enumerate(cabeceras)
-                      if self.formatos.get(i) not in self.TIPOS_NUMERICOS]
+                      if self._columna_es_de_texto(i, c)]
         if not candidatas:
             ancho.setStretchLastSection(True)
             return
-        elegida = max(candidatas, key=lambda i: len(str(cabeceras[i])))
+        # Gana la que la grilla pidio, si esta entre las candidatas. Antes
+        # ganaba la de nombre mas largo, y en la grilla de la factura eso era
+        # "SubTotal" o "Unitario"... no: "Detalle" quedava repartido en
+        # proporcion a sus siete letras y se quedaba en 40 px, con el nombre
+        # del producto partido en dos lineas.
+        elegida = None
+        if self.columna_preferida in cabeceras:
+            elegida = cabeceras.index(self.columna_preferida)
+        if elegida is None or not self._columna_es_de_texto(elegida,
+                                                           cabeceras[elegida]):
+            elegida = max(candidatas, key=lambda i: len(str(cabeceras[i])))
         for i in range(len(cabeceras)):
             ancho.setSectionResizeMode(
                 i, QHeaderView.Stretch if i == elegida else QHeaderView.Interactive)
@@ -346,12 +536,25 @@ class Grilla(QTableWidget):
             encabezado.setSectionResizeMode(col, QHeaderView.Interactive)
         self.resizeColumnsToContents()
         for col in range(columnas):
-            # El encabezado es lo unico que explica que hay en la columna: si
-            # queda mas angosto que su propio texto se lee "Idclien...".
-            minimo = max(56, min(220, len(str(self.cabeceras[col])) * 9 + 24))
-            ancho = self.columnWidth(col)
-            if 0 < ancho < minimo:
-                self.setColumnWidth(col, minimo)
+            nombre = self.cabeceras[col]
+            if self._columna_es_de_texto(col, nombre):
+                # El encabezado es lo unico que explica que hay en la
+                # columna: si queda mas angosto que su propio texto se lee
+                # "Idclien...".
+                minimo = max(90, min(220, len(str(nombre)) * 9 + 24))
+                ancho = self.columnWidth(col)
+                if 0 < ancho < minimo:
+                    self.setColumnWidth(col, minimo)
+            else:
+                # Sin dato, `resizeColumnsToContents` deja la columna en el
+                # minimo de Qt (56 px), y el tope de 120 no la mueve: un tope
+                # acota, no agranda. Sin este piso, "Neto" e "IVA" de la
+                # grilla de compras quedan en 56 px aunque su tipo diga que
+                # son importes.
+                if self.columnWidth(col) < 90:
+                    self.setColumnWidth(col, 90)
+                if self.columnWidth(col) > self.ANCHO_MAXIMO_NO_TEXTO:
+                    self.setColumnWidth(col, self.ANCHO_MAXIMO_NO_TEXTO)
         self._estirar_la_mas_larga(self.cabeceras)
 
     def _alinea_encabezados(self):
@@ -473,7 +676,15 @@ class Grilla(QTableWidget):
                     self.formatos[col] = 'Bytes'
                 else:
                     item = QTableWidgetItem(QTableWidgetItem(x))
-                    self.formatos[col] = 'String'
+                    # No pisa un tipo que la grilla ya declaro, igual que el
+                    # caso numerico de mas arriba. Sin esto, la fila de
+                    # arranque (vacia) pasaba por el `else` y dejaba todas las
+                    # columnas en 'String': en la grilla de compras, "Neto" e
+                    # "IVA" declarados como 'Moneda' perdian el tipo al abrir
+                    # la pantalla y quedaban con el ancho de un texto corto en
+                    # vez del de un importe.
+                    if col not in self.formatos:
+                        self.formatos[col] = 'String'
 
                 if readonly:
                     flags = QtCore.Qt.ItemIsSelectable

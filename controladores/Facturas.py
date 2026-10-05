@@ -5,6 +5,7 @@ import os
 
 import peewee
 import threading
+from datetime import date
 
 from PyQt5.QtCore import Qt, QObject, QThread, pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QApplication
@@ -16,6 +17,7 @@ from controladores.FE import FEv1, PyQRv1
 from controladores.FacturaBranding import aplicar_marca_factura, cargar_config_marca_factura, obtener_formato_factura
 from libs import Ventanas, Constantes
 from libs import fpdf_compat
+from libs import stock
 from libs.instalacion import cuit_emisor
 from libs.visor import abrir_pdf
 from libs.Utiles import (LeerIni, validar_cuit, FechaMysql, ubicacion_sistema,
@@ -29,7 +31,9 @@ from modelos.CpbteRelacionado import CpbteRel
 from modelos.Detfact import Detfact
 from modelos.Formaspago import Formapago
 from modelos.Impuestos import Impuesto
+from modelos.ModeloBase import db
 from modelos.ParametrosSistema import ParamSist
+from modelos.Tipocomprobantes import TipoComprobante
 from modelos.Tipoiva import Tipoiva
 from pyafipws.pyfepdf import FEPDF
 from vistas.Busqueda import UiBusqueda
@@ -102,7 +106,15 @@ class FacturaController(ControladorBase):
 
     def conectarWidgets(self):
         self.view.validaCliente.editingFinished.connect(self.CargaDatosCliente)
+        # Enter y el boton de lupa abren el buscador. El boton y no solo F2
+        # porque un F2 sin pista no se descubre: el operador ve la lupa.
+        self.view.validaCliente.returnPressed.connect(self.buscar_cliente)
+        self.view.btnBuscarCliente.clicked.connect(self.buscar_cliente)
         self.view.checkBoxServicios.stateChanged.connect(self.HabilitaVencimientos)
+        # El periodo aparece y desaparece con el tipo de comprobante, asi que
+        # hay que reaccionar al cambio y no solo a los servicios.
+        self.view.cboComprobante.currentIndexChanged.connect(
+            self.HabilitaVencimientos)
         self.view.btnCerrarFormulario.clicked.connect(self.view.Cerrar)
         self.view.botonAgregaArt.clicked.connect(self.AgregaArt)
         self.view.gridFactura.keyPressed.connect(self.onKeyPressedGridFactura)
@@ -110,6 +122,36 @@ class FacturaController(ControladorBase):
         self.view.lineEditDocumento.editingFinished.connect(self.onEditingFinishedDocumento)
         self.view.botonBorrarArt.clicked.connect(self.onClickbotonBorraArt)
         self.view.cboComprobante.currentIndexChanged.connect(self.onCurrentIndexChanged)
+
+    @inicializar_y_capturar_excepciones
+    def buscar_cliente(self, *args, **kwargs):
+        """Abre el buscador de clientes, con Enter o con F2.
+
+        El campo de cliente valida el codigo solo, que sirve cuando el
+        operador conoce el codigo. Con 800 clientes no es el caso: tiene que
+        poder buscar por nombre, como en la venta rapida.
+        """
+        if self._buscando_cliente:
+            return
+        self._buscando_cliente = True
+        try:
+            ventana = UiBusqueda()
+            ventana.modelo = Cliente
+            ventana.cOrden = Cliente.nombre
+            ventana.limite = 100
+            ventana.campos = ["idcliente", "nombre", "domicilio", "cuit"]
+            ventana.campoBusqueda = Cliente.nombre
+            ventana.campoRetorno = Cliente.idcliente
+            ventana.campoRetornoDetalle = Cliente.nombre
+            ventana.CargaDatos()
+            ventana.exec_()
+            if ventana.lRetval:
+                self.view.validaCliente.setText(str(ventana.ValorRetorno))
+                self.CargaDatosCliente()
+        finally:
+            # Con try/finally: si el dialogo explota, el candado se libera y
+            # la pantalla no queda inservible hasta reiniciar.
+            self._buscando_cliente = False
 
     @inicializar_y_capturar_excepciones
     def CargaDatosCliente(self, *args, **kwargs):
@@ -156,8 +198,18 @@ class FacturaController(ControladorBase):
         self.SumaTodo()
 
     def HabilitaVencimientos(self):
-        self.view.fechaDesde.setEnabled(self.view.checkBoxServicios.isChecked())
-        self.view.fechaHasta.setEnabled(self.view.checkBoxServicios.isChecked())
+        """El periodo facturado solo existe para Factura C.
+
+        Antes el grupo estaba siempre visible, con dos de las tres fechas
+        deshabilitadas, ocupando el mismo lugar que los conceptos. Con
+        Factura A o B no hay periodo que informar.
+        """
+        es_factura_c = str(self.view.cboComprobante.text()) == "11"
+        con_servicios = self.view.checkBoxServicios.isChecked()
+        self.view.MuestraPeriodo(es_factura_c)
+        if es_factura_c:
+            self.view.fechaDesde.setEnabled(con_servicios)
+            self.view.fechaHasta.setEnabled(con_servicios)
 
     def AgregaArt(self):
         self.view.gridFactura.setRowCount(self.view.gridFactura.rowCount() + 1)
@@ -165,6 +217,59 @@ class FacturaController(ControladorBase):
         self.view.gridFactura.ModificaItem(valor=0, fila=self.view.gridFactura.rowCount() - 1, col='Unitario')
         self.view.gridFactura.ModificaItem(valor=21, fila=self.view.gridFactura.rowCount() - 1, col='IVA')
         self.SumaTodo()
+
+    @staticmethod
+    def _a_numero(valor):
+        """Convierte a float aunque venga con el formato de la pantalla.
+
+        La grilla guarda el numero aparte del texto (`UserRole`) y
+        `ObtenerItem` lo devuelve crudo cuando existe. Pero cuando el operador
+        **edita** una celda, Qt reemplaza el item por uno nuevo que solo tiene
+        el texto, y ese texto va con separador de miles y coma decimal:
+        "500,00". `float("500,00")` es ValueError, y reventaba al guardar la
+        factura con un error que no dice nada de la celda que lo causo.
+
+        Por eso todos los numeros que salen de la grilla pasan por aca.
+        """
+        if isinstance(valor, (int, float, decimal.Decimal)):
+            return float(valor)
+        texto = str(valor or "").strip().replace(".", "").replace(",", ".")
+        if not texto:
+            return 0.0
+        try:
+            return float(texto)
+        except ValueError:
+            raise ValueError("'{}' no es un numero".format(valor))
+
+    def _normaliza_celda(self, fila, col):
+        """Le deja el numero crudo a una celda recien editada.
+
+        Al EDITAR, Qt reemplaza el item por uno nuevo que solo tiene el texto,
+        y ese texto va con coma de miles. `ObtenerItem` lo devuelve tal cual y
+        `float("500,00")` revienta. Se le guarda el numero con `setData` en la
+        MISMA celda, sin reemplazarla.
+
+        Ojo con no usar `ModificaItem` aca: hace `setItem` sobre una celda que
+        esta en edicion, y Qt la dibuja avanzando hacia la fila siguiente --
+        la fila se ve salir de la grilla mientras se tipea.
+        """
+        from PyQt5.QtCore import Qt
+
+        grilla = self.view.gridFactura
+        try:
+            celda = grilla.item(fila, col)
+        except Exception:
+            return
+        if celda is None:
+            return
+        texto = celda.text()
+        if not str(texto).strip():
+            return
+        try:
+            numero = self._a_numero(texto)
+        except ValueError:
+            return
+        celda.setData(Qt.UserRole, numero)
 
     def onKeyPressedGridFactura(self, key):
         col = self.view.gridFactura.currentColumn()
@@ -192,7 +297,8 @@ class FacturaController(ControladorBase):
                                                    col='Unitario')
             self.view.gridFactura.setFocus()
         if key in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab] and col == 1:
-            if float(self.view.gridFactura.ObtenerItem(fila=row, col='Unitario')) == 0:
+            if self._a_numero(self.view.gridFactura.ObtenerItem(
+                    fila=row, col='Unitario')) == 0:
                 codigo = self.view.gridFactura.ObtenerItem(fila=row, col=1)
                 if codigo:
                     art = Articulo.get_by_id(codigo)
@@ -201,6 +307,11 @@ class FacturaController(ControladorBase):
                                                col='Unitario')
 
         if key in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab]:
+            # Al confirmar una celda editada, se la vuelve a escribir por
+            # `ModificaItem` para que recupere el numero crudo. Qt la deja
+            # solo con el texto, y ese texto va con coma de miles.
+            if 0 <= col < self.view.gridFactura.columnCount() and row >= 0:
+                self._normaliza_celda(row, col)
             if col < self.view.gridFactura.columnCount():
                 self.view.gridFactura.setCurrentCell(row, col + 1)
             else:
@@ -232,7 +343,7 @@ class FacturaController(ControladorBase):
             if a_entero(LeerIni(clave='cat_iva', key='WSFEv1'), 1) == 6:
                 self.view.gridFactura.ModificaItem(valor=21, fila=x, col='IVA')
             detalle = self.view.gridFactura.ObtenerItem(fila=x, col='Detalle')
-            unitario = float(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
+            unitario = self._a_numero(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
             if not detalle or unitario == 0:
                 codigo = self.view.gridFactura.ObtenerItem(fila=x, col='Codigo')
                 try:
@@ -249,9 +360,9 @@ class FacturaController(ControladorBase):
                         self.view.gridFactura.ModificaItem(valor=art.preciopub, fila=x, col='Unitario')
             cantidad = self.view.gridFactura.ObtenerItem(fila=x, col='Cant.')
             #self.view.gridFactura.ModificaItem(valor=cantidad, fila=x, col='Cant.')
-            unitario = float(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
-            iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
-            total = float(cantidad) * float(unitario)
+            unitario = self._a_numero(self.view.gridFactura.ObtenerItem(fila=x, col='Unitario'))
+            iva = self._a_numero(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
+            total = self._a_numero(cantidad) * self._a_numero(unitario)
             if a_entero(LeerIni(clave='cat_iva',
                            key='WSFEv1'), 1) == 1:  # si es Resp insc el contribuyente
                 if self.tipo_cpte in [6, 7, 8]:
@@ -305,10 +416,16 @@ class FacturaController(ControladorBase):
             self.view.gridAlicuotasTributos.setRowCount(0)
 
 
-        self.view.textSubTotal.setText(str(round(subtotal, self.decimales)))
-        self.view.lineEditTributos.setText(str(round(dgrgral, self.decimales)))
-        self.view.lineEditTotalIVA.setText(str(round(ivagral, self.decimales)))
-        self.view.lineEditTotal.setText(str(round(totalgral + ivagral + dgrgral, 2)))
+        # Un solo lugar que calcula, guarda y pinta los tres totales. Antes
+        # eran cuatro `setText` con `str(round(...))`, y el numero que se
+        # guardaba en la cabecera era otro: `lineEditTotal.value()` devolvia
+        # 1234.5 y lo que se veia era "1234.5" o "1234,50" segun como lo
+        # formateara Qt. Ahora el numero vive en la vista y la etiqueta es
+        # solo lo que se ve.
+        self.view.ActualizaTotales(subtotal=subtotal, tributos=dgrgral,
+                                   iva=ivagral,
+                                   total=totalgral + ivagral + dgrgral,
+                                   decimales=self.decimales)
 
     def cargar_venta_simple(self, cliente_id=None, renglones=None, forma_pago_id=None):
         if cliente_id:
@@ -335,6 +452,41 @@ class FacturaController(ControladorBase):
 
         self.SumaTodo()
 
+    def cargar_desde_remito(self, remito_id):
+        """Abre una factura con la mercaderia que ya salio con un remito.
+
+        Lo unico que hace de mas que `cargar_venta_simple` es dejar anotado de
+        que remito es, y esa es toda la razon de que este metodo exista: con
+        `idremito` puesto, `GrabaFE` sabe que la mercaderia ya salio y no la
+        vuelve a descontar. Sin esto habria que desvincularlo a mano, y nadie
+        lo haria.
+        """
+        from decimal import Decimal
+
+        from modelos.Remitos import DetalleRemito, Remito
+        from controladores.venta_simple_totales import RenglonVenta
+
+        remito = Remito.get_by_id(remito_id)
+        detalles = list(DetalleRemito.select().where(
+            DetalleRemito.remito == remito))
+
+        self.idremito = remito.idremito
+        self.cargar_venta_simple(
+            cliente_id=remito.cliente_id,
+            renglones=[
+                RenglonVenta(
+                    codigo=str(d.producto_id),
+                    detalle=d.detalle or "",
+                    cantidad=Decimal(str(d.cantidad or 0)),
+                    precio_unitario=Decimal(str(d.precio or 0)),
+                    iva=Decimal(str(d.tipo_iva.iva if d.tipo_iva_id else 21)),
+                )
+                for d in detalles
+            ],
+            forma_pago_id=remito.forma_pago_id,
+        )
+        return remito
+
     # Las etapas por las que pasa una emision, en el orden en que pasan. Se
     # muestran al usuario porque contra AFIP esto tarda, y una ventana muerta
     # sin explicacion hace pensar que la app se colgo.
@@ -351,6 +503,20 @@ class FacturaController(ControladorBase):
     # Ventana de progreso abierta, si la hay. A nivel de clase para que
     # _etapa() no reviente si se llama a CreaFE() sin pasar por GrabaFactura.
     _progreso = None
+
+    # El remito que documenta esta factura, si se esta facturando desde uno.
+    # None es lo normal: la venta rapida factura sin remito, y ahi la factura
+    # es la que descuenta el stock. Lo setea cargar_desde_remito() y es lo que
+    # evita que una venta con remito baje el stock dos veces. Ver
+    # libs/stock.py::aplica_factura, que es donde vive la regla.
+    idremito = None
+
+    # Candado del buscador de clientes. Ver buscar_cliente(): sin esto, al
+    # abrirse el dialogo modal Qt le saca el foco al campo y eso vuelve a
+    # entrar en el metodo con el primero todavia en la pila, abriendo un
+    # segundo dialogo encima del primero. Es el mismo problema que resuelve
+    # `_resolviendo_cliente` en la venta rapida.
+    _buscando_cliente = False
 
     def GrabaFactura(self):
         """Emite la factura. Devuelve True si la factura quedo autorizada.
@@ -478,7 +644,7 @@ class FacturaController(ControladorBase):
                     que_hacer="La factura con CAE {} ya está autorizada en ARCA y "
                               "no se puede deshacer. Anótela y avise: se puede "
                               "cargar a mano, pero no la vuelva a emitir.".format(
-                                  self.view.lineditCAE.text() or "(sin CAE)"),
+                                  self.view.cae or "(sin CAE)"),
                     detalle=self._mensaje_error_emision())
                 return False
 
@@ -539,9 +705,13 @@ class FacturaController(ControladorBase):
         concepto_productos = self.view.checkBoxProductos.isChecked()
         concepto_servicios = self.view.checkBoxServicios.isChecked()
         documento = str(self.view.lineEditDocumento.text()).strip()
-        total = self.view.lineEditTotal.text()
-        tributos = self.view.lineEditTributos.text()
-        total_iva = self.view.lineEditTotalIVA.text()
+        # Los totales se leen de la vista, que los tiene en numero. Antes
+        # eran `EntradaTexto` y se leia `.text()`, que devolvia "1234.5" con
+        # punto decimal y sin miles: el PDF salia con el punto donde va la
+        # coma.
+        total = self.view.total_final
+        tributos = self.view.total_tributos
+        total_iva = self.view.total_iva
         fecha_cbte = self.view.lineEditFecha.getFechaSql()
 
         # La percepcion se lee de la base. Se resuelve aca y no en el hilo de
@@ -572,7 +742,7 @@ class FacturaController(ControladorBase):
             "tipo_cbte": self.tipo_cpte,
             "punto_vta": int(self.view.layoutFactura.lineEditPtoVta.value()),
             "cbt_desde": int(self.view.layoutFactura.lineEditNumero.value()),
-            "imp_total": total,
+            "imp_total": str(round(float(total), 2)),
             "imp_neto": imp_neto,
             "imp_iva": str(round(float(total_iva), 2)),
             "imp_trib": str(round(float(tributos), 2)),
@@ -739,10 +909,49 @@ class FacturaController(ControladorBase):
         """Escribe el resultado en la pantalla. Hilo principal."""
         self._error_afip = aviso.get("error", "") if not ok else ""
         if ok:
-            self.view.lineditCAE.setText(aviso["cae"])
-            self.view.lineEditResultado.setText(aviso["resultado"])
-            self.view.fechaVencCAE.setFecha(aviso["vencimiento"], format="Ymd")
+            # Un solo metodo que arma numero, CAE, vencimiento y estado. Antes
+            # eran tres `setText` en un grupo gris abajo a la izquierda, al
+            # lado del boton, y el operador no tenia forma de ver que la
+            # factura ya habia salido sin buscarlo.
+            self.view.MuestraAutorizacion(
+                numero=aviso.get("numero", ""),
+                cae=aviso["cae"],
+                resultado=aviso["resultado"],
+                vencimiento=self._vencimiento_legible(aviso.get("vencimiento", "")),
+                vencimiento_sql=aviso.get("vencimiento", ""))
+        else:
+            self.view.MuestraAutorizacion(
+                numero=aviso.get("numero", ""),
+                cae="", resultado=aviso.get("resultado", ""),
+                vencimiento="", autorizada=False)
         return ok
+
+    @staticmethod
+    def _vencimiento_legible(vencimiento):
+        """'20261014' -> '14/10/2026'. Lo que se ve en la pantalla."""
+        texto = str(vencimiento or "").strip()
+        if len(texto) == 8 and texto.isdigit():
+            return "{}/{}/{}".format(texto[6:8], texto[4:6], texto[0:4])
+        return texto
+
+    @staticmethod
+    def _vencimiento_a_fecha(vencimiento):
+        """'20261014' -> date(2026, 10, 14). Lo que se guarda en la cabecera.
+
+        Antes salia de `fechaVencCAE.date().toPyDate()`, con un `Fecha` de Qt
+        que ademas se llenaba con `format="Ymd"`. Con el vencimiento en un
+        texto de la vista, la conversion se hace aca, en un solo lugar, y no
+        hay dos formatos dando vueltas.
+        """
+        from datetime import datetime
+
+        texto = str(vencimiento or "").strip()
+        if len(texto) == 8 and texto.isdigit():
+            try:
+                return datetime.strptime(texto, "%Y%m%d").date()
+            except ValueError:
+                return None
+        return None
 
     def ObtieneNumeroFacturaSinVista(self, datos):
         """Pide a ARCA el ultimo comprobante y deja el siguiente en la pantalla.
@@ -774,6 +983,20 @@ class FacturaController(ControladorBase):
 
     @inicializar_y_capturar_excepciones
     def GrabaFE(self, *args, **kwargs):
+        """Guarda la factura ya autorizada y descuenta el stock.
+
+        Que va adentro de la transaccion y que no
+        ----------------------------------------
+        Adentro: la cabecera, los renglones, los comprobantes relacionados y
+        los movimientos de stock. O se guarda todo o no se guarda nada.
+
+        Afuera: ImprimeFactura. Una factura autorizada ante ARCA existe mas
+        alla de esta app, y revertirla porque el PDF no salio seria peor que
+        un PDF que hay que reimprimir. Antes cada `save()` era su propia
+        transaccion: un renglon que fallaba dejaba la cabecera guardada con la
+        mitad de los items, y con stock en el camino eso es una mercaderia que
+        salio y no se sabe de donde.
+        """
         self.view.layoutFactura.AssignNumero()
         cabfact = Cabfact()
         cabfact.tipocomp = self.tipo_cpte
@@ -783,87 +1006,121 @@ class FacturaController(ControladorBase):
         cabfact.neto = sum([i for i in self.netos.values()])
         cabfact.netoa = self.netos[21]
         cabfact.netob = self.netos[10.5]
-        cabfact.iva = self.view.lineEditTotalIVA.value()
-        cabfact.total = self.view.lineEditTotal.value()
+        cabfact.iva = self.view.total_iva
+        cabfact.total = self.view.total_final
         formpago = Formapago.get_by_id(self.view.cboFormaPago.text())
         # if self.view.cboFormaPago.text() == 'Contado':
         #     cabfact.saldo = 0.00
         # else:
-        #     cabfact.saldo = self.view.lineEditTotal.value()
+        #     cabfact.saldo = self.view.total_final
         if formpago.ctacte:
-            cabfact.saldo = self.view.lineEditTotal.value()
+            cabfact.saldo = self.view.total_final
         else:
             cabfact.saldo = 0
         cabfact.tipoiva = self.cliente.tiporesp.idtiporesp
         cabfact.cajero = 1 #por defecto cajero
         # cabfact.formapago = 1 if self.view.cboFormaPago.text() == 'Contado' else 2
         cabfact.formapago = formpago.idformapago
-        cabfact.percepciondgr = self.view.lineEditTributos.value()
+        cabfact.percepciondgr = self.view.total_tributos
         cabfact.nombre = self.view.lblNombreCliente.text()
         cabfact.domicilio = self.view.lineEditDomicilio.text()
-        cabfact.cae = self.view.lineditCAE.text()
-        cabfact.venccae = self.view.fechaVencCAE.date().toPyDate()
+        cabfact.cae = self.view.cae
+        # La fecha del vencimiento se convierte aca, en un solo lugar. Antes
+        # salia de un `Fecha` de Qt que se llenaba con `format="Ymd"`, y el
+        # mismo dato estaba en dos formatos dando vueltas por la pantalla.
+        venc = self._vencimiento_a_fecha(self.view.vencimiento_cae_sql)
+        cabfact.venccae = venc or date.today()
         cabfact.concepto = self.concepto
         cabfact.desde = self.view.fechaDesde.date().toPyDate()
         cabfact.hasta = self.view.fechaHasta.date().toPyDate()
-        cabfact.save()
+        # El remito se guarda en la cabecera y no se deduce: es lo unico que
+        # permite, mas adelante, saber que esa mercaderia ya salio y que la
+        # factura no tiene que volver a descontarla.
+        cabfact.idremito = self.idremito
 
-        for x in range(self.view.gridFactura.rowCount()):
-            codigo = self.view.gridFactura.ObtenerItem(fila=x, col='Codigo')
-            cantidad = float(self.view.gridFactura.ObtenerItem(fila=x, col='Cant.'))
-            importe = float(self.view.gridFactura.ObtenerItem(fila=x, col='SubTotal'))
-            iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
-            detalle = self.view.gridFactura.ObtenerItem(fila=x, col='Detalle')
-            try:
-                articulo = Articulo.get_by_id(codigo)
-                detfact = Detfact()
-                detfact.idcabfact = cabfact.idcabfact
-                detfact.idarticulo = codigo
-                detfact.cantidad = cantidad
-                detfact.unidad = articulo.unidad
-                detfact.costo = articulo.costo
+        detalles = []
+        with db.atomic():
+            cabfact.save()
 
-                if LeerIni(clave='cat_iva', key='WSFEv1') == 1:
-                    if self.tipo_cpte in [6,7,8]:
-                        detfact.precio = importe / cantidad
-                    else:
-                        detfact.precio = (importe + importe * iva / 100) / cantidad
-                else:
-                    detfact.precio = importe / cantidad
+            for x in range(self.view.gridFactura.rowCount()):
+                codigo = self.view.gridFactura.ObtenerItem(fila=x, col='Codigo')
+                cantidad = self._a_numero(self.view.gridFactura.ObtenerItem(fila=x, col='Cant.'))
+                importe = self._a_numero(self.view.gridFactura.ObtenerItem(fila=x, col='SubTotal'))
+                iva = self._a_numero(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
+                detalle = self.view.gridFactura.ObtenerItem(fila=x, col='Detalle')
                 try:
-                    ti = Tipoiva.get(Tipoiva.iva == iva)
-                    detfact.tipoiva = ti.codigo
-                except Tipoiva.DoesNotExist:
-                    detfact.tipoiva = articulo.tipoiva.codigo
-                if self.tipo_cpte in [6, 7, 8]:
-                    detfact.montoiva = importe * iva / 100
+                    articulo = Articulo.get_by_id(codigo)
+                    detfact = Detfact()
+                    detfact.idcabfact = cabfact.idcabfact
+                    detfact.idarticulo = codigo
+                    detfact.cantidad = cantidad
+                    detfact.unidad = articulo.unidad
+                    detfact.costo = articulo.costo
+
+                    if LeerIni(clave='cat_iva', key='WSFEv1') == 1:
+                        if self.tipo_cpte in [6,7,8]:
+                            detfact.precio = importe / cantidad
+                        else:
+                            detfact.precio = (importe + importe * iva / 100) / cantidad
+                    else:
+                        detfact.precio = importe / cantidad
+                    try:
+                        ti = Tipoiva.get(Tipoiva.iva == iva)
+                        detfact.tipoiva = ti.codigo
+                    except Tipoiva.DoesNotExist:
+                        detfact.tipoiva = articulo.tipoiva.codigo
+                    if self.tipo_cpte in [6, 7, 8]:
+                        detfact.montoiva = importe * iva / 100
+                    else:
+                        neto = round(importe / ((iva / 100) + 1), 3)
+                        detfact.montoiva = neto * iva / 100
+                    if self.view.total_tributos > 0:
+                        detfact.montodgr = importe * float(self.cliente.percepcion.porcentaje) / 100
+                    else:
+                        detfact.montodgr = 0.00
+                    detfact.montomuni = 0.00
+                    detfact.descad = detalle
+                    detfact.detalle = detalle[:40]
+                    detfact.descuento = 0.00
+                    detfact.save()
+                    detalles.append(detfact)
+                except peewee.DoesNotExist:
+                    # Un renglon cuyo articulo no esta sigue sin guardarse,
+                    # como antes. Lo que cambia es que no se guarda a medias:
+                    # la transaccion revierte el conjunto.
+                    pass
+
+            # Agregar comprobantes asociados(si es una NC / ND):
+            if str(self.view.cboComprobante.text()).find('credito'):
+                cpbte = CpbteRel()
+                cpbte.idcabfact = cabfact.idcabfact
+                if self.tipo_cpte == 13:
+                    cpbte.idtipocpbte = 11
                 else:
-                    neto = round(importe / ((iva / 100) + 1), 3)
-                    detfact.montoiva = neto * iva / 100
-                if self.view.lineEditTributos.value() > 0:
-                    detfact.montodgr = importe * float(self.cliente.percepcion.porcentaje) / 100
-                else:
-                    detfact.montodgr = 0.00
-                detfact.montomuni = 0.00
-                detfact.descad = detalle
-                detfact.detalle = detalle[:40]
-                detfact.descuento = 0.00
-                detfact.save()
-            except peewee.DoesNotExist:
-                pass
-        # Agregar comprobantes asociados(si es una NC / ND):
-        if str(self.view.cboComprobante.text()).find('credito'):
-            cpbte = CpbteRel()
-            cpbte.idcabfact = cabfact.idcabfact
-            if self.tipo_cpte == 13:
-                cpbte.idtipocpbte = 11
-            else:
-                if self.cliente.tiporesp.idtiporesp == 2:  # resp inscripto
-                    cpbte.idtipocpbte = 1
-                else:
-                    cpbte.idtipocpbte = 6
-            cpbte.numero = self.view.layoutCpbteRelacionado.numero
-            cpbte.save()
+                    if self.cliente.tiporesp.idtiporesp == 2:  # resp inscripto
+                        cpbte.idtipocpbte = 1
+                    else:
+                        cpbte.idtipocpbte = 6
+                cpbte.numero = self.view.layoutCpbteRelacionado.numero
+                cpbte.save()
+
+            # El stock, adentro de la misma transaccion que la factura. Acá
+            # va, y no en VentaSimple, porque las tres pantallas que emiten
+            # pasan por este metodo: la rapida, la de emision y la que se
+            # abre desde un remito.
+            lado = TipoComprobante.get_or_none(
+                TipoComprobante.codigo == self.tipo_cpte)
+            if lado is not None:
+                stock.aplica_factura(
+                    detalles,
+                    idcabfact=cabfact.idcabfact,
+                    idremito=self.idremito,
+                    lado=lado.lado,
+                )
+
+        # Afuera de la transaccion a proposito: la factura ya esta guardada y
+        # autorizada. Un PDF que no sale se reimprime; una factura deshecha
+        # hay que anularla con otro tramite.
         self.ImprimeFactura(idcabecera=cabfact.idcabfact)
         return True
 
@@ -933,7 +1190,7 @@ class FacturaController(ControladorBase):
     def _cae_de_pantalla(self):
         """El CAE que se esta mostrando, o un texto si todavia no esta."""
         try:
-            return self.view.lineditCAE.text() or "(sin CAE en pantalla)"
+            return self.view.cae or "(sin CAE en pantalla)"
         except Exception:
             return "(sin CAE en pantalla)"
 
@@ -1262,7 +1519,7 @@ class FacturaController(ControladorBase):
             retorno = False
 
         for x in range(self.view.gridFactura.rowCount()):
-            iva = float(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
+            iva = self._a_numero(self.view.gridFactura.ObtenerItem(fila=x, col='IVA'))
             if str(iva) not in FEv1().TASA_IVA:
                 Ventanas.showAlert(LeerIni('nombre_sistema'), "Error el item {} no tiene un IVA valido".format(x+1))
                 retorno = False

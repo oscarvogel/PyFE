@@ -158,3 +158,17 @@ _prueba_exe/
 # Contiene una COPIA de la clave privada de homologacion y un sistema.ini con
 # el CUIT emisor: no tiene que acercarse al repositorio.
 /_prueba_facturacion/
+
+# Configuraciones con datos de un cliente. Misma razon que /sistema.ini: traen
+# razon social, CUIT y rutas de certificados.
+/sistema.ini.teo
+/sistema.ini.*
+
+# Capturas y notas de trabajo
+/_capturas/
+/_pr.md
+
+# Scripts de una sola vez ya aplicados, o de depuracion.
+/tools/_medir_una.py
+/tools/_setup_mysql.sql
+/tools/subir_version.py

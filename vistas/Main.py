@@ -66,7 +66,10 @@ SECCIONES = [
         ("enviar-email", "Enviar por email", "email"),
     ]),
     ("Stock", "productos", [
+        ("stock", "Stock", "productos"),
         ("productos", "Productos", "productos"),
+        ("ajustes-stock", "Ajustes de stock", "ajustar-texto"),
+        ("movimientos-stock", "Movimientos de stock", "reportes"),
         ("grupos", "Grupos", "vacio"),
         ("impuestos", "Impuestos", "excel"),
         ("informe-ventas-grupo", "Ventas por grupo", "reportes"),
@@ -351,16 +354,30 @@ class MainView(VistaBase):
 
     @staticmethod
     def _version():
-        """La version sale de version.txt, que es la que se mete en el .exe.
+        """La version que se le muestra al usuario.
 
-        PyInstaller lee ese archivo con eval(), asi que no se le puede agregar
-        una clave propia: tiene que seguir siendo una sola expresion
-        VSVersionInfo(...). Por eso la version se saca de los campos que ya
-        tiene, en este orden: ProductVersion, FileVersion y filevers.
+        La fuente de verdad es `libs/build_info.py` (BUILD_VERSION), que es lo
+        que el actualizador compara contra el manifiesto de vogel-releases.
+        Se lee primero esa porque es la unica que dice con precision que build
+        esta corriendo: `version.txt` lo escribe Windows al compilar y en
+        desarrollo dice 0.9.0 siempre.
 
-        Antes buscaba una clave `versionName` que nadie escribia, y por eso la
-        barra de estado y Acerca de salian con la version vacia, sin error.
+        El fallback a `version.txt` se mantiene: PyInstaller lee ese archivo
+        con eval(), asi que no se le puede agregar una clave propia, y la app
+        sigue necesitando el archivo suelto al lado del ejecutable
+        (compila.bat lo copia). Antes buscaba una clave `versionName` que
+        nadie escribia, y por eso la barra de estado y Acerca de salian con
+        la version vacia, sin error.
         """
+        try:
+            from libs.build_info import BUILD_VERSION, es_build_productivo
+            from libs.actualizaciones import VERSION_RE
+
+            if es_build_productivo() and VERSION_RE.match((BUILD_VERSION or "").strip()):
+                return "v" + BUILD_VERSION.strip()
+        except Exception:
+            pass
+
         try:
             from libs.recursos import rutas_base
             for base in rutas_base():

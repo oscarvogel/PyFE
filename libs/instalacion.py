@@ -28,14 +28,21 @@ SECCION_CERT = "WSAA"
 
 
 def ruta_config():
-    """Misma resolucion que usa LeerIni, para no adivinar el archivo."""
+    """El sistema.ini que se lee y se escribe.
+
+    La resolucion vive en libs/rutas.py y la comparte con LeerIni/GrabarIni.
+    Antes estaba duplicada aca, y por eso este modulo podia mirar un archivo y
+    GrabarIni otro.
+    """
     import argparse
 
+    from libs import rutas
+
     analizador = argparse.ArgumentParser(add_help=False)
-    analizador.add_argument("-i", "--inicio", default=os.getcwd())
-    analizador.add_argument("-a", "--archivo", default="sistema.ini")
+    analizador.add_argument("-i", "--inicio", default=None)
+    analizador.add_argument("-a", "--archivo", default=rutas.NOMBRE_INI)
     args, _ = analizador.parse_known_args()
-    carpeta = args.inicio or os.getcwd()
+    carpeta = args.inicio or rutas.carpeta_datos()
     return os.path.join(carpeta, args.archivo)
 
 
@@ -188,16 +195,38 @@ def normalizar_cuit_emisor(grabar=None, leer=None):
                     _cuit_digitos(de_empresa), _cuit_digitos(de_facturacion))}
 
     if real_empresa:
-        grabar("cuit", SECCION_FACTURACION, _cuit_digitos(de_empresa))
+        if not _grabar_queda(grabar, "cuit", SECCION_FACTURACION,
+                             _cuit_digitos(de_empresa)):
+            return {"estado": "nada", "cuit": _cuit_digitos(de_empresa),
+                    "sin_guardar": True}
         return {"estado": "ok", "cuit": _cuit_digitos(de_empresa),
                 "completada": SECCION_FACTURACION}
 
     if real_facturacion:
-        grabar("cuit", SECCION_FISCAL, formato_cuit(_cuit_digitos(de_facturacion)))
+        if not _grabar_queda(grabar, "cuit", SECCION_FISCAL,
+                             formato_cuit(_cuit_digitos(de_facturacion))):
+            return {"estado": "nada", "cuit": _cuit_digitos(de_facturacion),
+                    "sin_guardar": True}
         return {"estado": "ok", "cuit": _cuit_digitos(de_facturacion),
                 "completada": SECCION_FISCAL}
 
     return {"estado": "falta", "cuit": ""}
+
+
+def _grabar_queda(grabar, clave, key, valor):
+    """Escribe la clave y devuelve si se pudo.
+
+    Esta correccion es un arreglo, no un requisito: si la escritura falla
+    (una carpeta de solo lectura, un disco lleno) la app tiene que abrir igual
+    y avisar. Antes el error subia y mataba el arranque entero.
+    """
+    try:
+        grabar(clave, key, valor)
+        return True
+    except Exception as error:
+        print("No se pudo guardar {} en [{}]: {}".format(
+            clave, key, type(error).__name__))
+        return False
 
 
 def guardar_config_inicial(datos, escribir=None):
