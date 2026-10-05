@@ -1,8 +1,11 @@
 # coding=utf-8
-from decimal import Decimal
+import contextlib
+from decimal import Decimal, InvalidOperation
 
 from peewee import fn
+from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
+from PyQt5 import QtGui
 from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QDialog, QShortcut
 
@@ -10,6 +13,7 @@ from controladores.ControladorBase import ControladorBase
 from controladores.venta_simple_totales import RenglonVenta, calcular_totales
 from libs import Ventanas
 from libs import stock
+from libs.Grillas import _a_numero_texto, _formato_importe
 from libs.busqueda import contiene as buscar_texto
 from libs.Utiles import LeerIni, inicializar_y_capturar_excepciones, a_entero
 from modelos.Articulos import Articulo
@@ -27,6 +31,19 @@ LIMITE_BUSQUEDA_CLIENTES = 100
 # Igual que el de clientes: es un tope, no un filtro, por abajo esta el
 # total asi que el dialogo puede decir cuantos hay en total.
 LIMITE_BUSQUEDA_ARTICULOS = 100
+
+# Lo que va en la columna Stock cuando el articulo no controla stock. Un
+# guion y no un 0: el cero dice "hay cero", y para un servicio la
+# verdad es que no hay nada que contar. Ponerlo en 0 haria que el operador
+# busque mercaderia que no existe.
+SIN_STOCK = '-'
+
+# Los colores del renglon que no alcanza. Los dos salen de temas/pyfe.css:
+# el rojo de peligro (#C62F35) y el fondo de error (#FDF3F2), que ya son la
+# forma que tiene la app de decir "esto esta mal". Poner otros aca hacia
+# que la venta rapiga se vea distinta de todo el resto.
+COLOR_FALTANTE_FONDO = '#FDF3F2'
+COLOR_FALTANTE_TEXTO = '#C62F35'
 
 
 class VentaSimpleController(ControladorBase):
@@ -55,6 +72,26 @@ class VentaSimpleController(ControladorBase):
         # importan: Enter y salir del campo con el mouse.
         self.view.textCliente.editingFinished.connect(self.cargar_cliente_desde_busqueda)
         self.view.checkConsumidorFinal.stateChanged.connect(self.on_consumidor_final_changed)
+        # Editar una celda de la grilla recalcula el renglon. Antes no habia
+        # ninguna conexion: la cantidad se podia cambiar a mano y el SubTotal,
+        # el total y el color del stock se quedaban con los de antes.
+        #
+        # `cellChanged`, y NO `itemChanged`. Las dos existen en QTableWidget y
+        # no son la misma: `itemChanged` entrega el QTableWidgetItem y
+        # `cellChanged` entrega (fila, columna). Con la primera, el handler
+        # recibe un item donde espera un int, y como la excepcion sube desde
+        # un slot que Qt llama desde C++, el proceso muere con 0xC0000409 y sin
+        # backtrace: un crash que no dice nada del TypeError que lo causa.
+        #
+        # Tampoco `currentItemChanged`, que es lo que usa la grilla de compras:
+        # esa avisa de la seleccion, y editar una celda sin mover el cursor no
+        # la cambia.
+        #
+        # Con esto hay que evitar la reentrada: pintar la columna Stock escribe
+        # en la grilla, y eso dispara otra vez la misma senal. De ahi el
+        # candado de `_escribiendo`.
+        self._pintando = False
+        self.view.gridVenta.cellChanged.connect(self.on_celda_editada)
         self.atajos()
 
     # Atajos del flujo frecuente. Cargar una venta es escribir, buscar y
@@ -302,13 +339,24 @@ class VentaSimpleController(ControladorBase):
         deja seguir escribiendo para acotar, que es lo que hace falta con un
         catalogo de verdad.
 
-        Campo con texto: se busca, y si no aparece se ofrece darlo de alta.
-        Ese camino no se toca, porque es el que permite cargar algo nuevo sin
-        salir de la pantalla.
+        Campo con texto: se busca. Si lo escrito coincide con mas de un
+        articulo NO se elige el primero: se abre el catalogo ya acotado para
+        que el operador elija. Antes `buscar_articulo` hacia `.first()` y con
+        dos productos parecidos (dos "WHEY CUTTER ...", que difieren en el
+        sabor) se agregaba el que salia primero en la base, sin preguntar.
+
+        Si no aparece ninguno, se ofrece darlo de alta. Ese camino no se toca,
+        porque es el que permite cargar algo nuevo sin salir de la pantalla.
         """
         busqueda = self.view.textArticulo.text().strip()
         if not busqueda:
             articulo = self.seleccionar_articulo("")
+            if not articulo:
+                return
+            return self._agregar_este_articulo(articulo)
+
+        if self._articulo_es_ambiguo(busqueda):
+            articulo = self.seleccionar_articulo(busqueda)
             if not articulo:
                 return
             return self._agregar_este_articulo(articulo)
@@ -324,6 +372,20 @@ class VentaSimpleController(ControladorBase):
                 return
 
         return self._agregar_este_articulo(articulo)
+
+    def _articulo_es_ambiguo(self, busqueda):
+        """True si lo escrito puede ser mas de un articulo.
+
+        Se pregunta antes de agregar, y solo con dos o mas coincidencias: con
+        una sola no hay nada que decidir y el camino rápido de antes sirve.
+        """
+        try:
+            _, total = self._coincidencias_articulo(busqueda, limite=2)
+        except Exception:
+            # Si no se puede contar, se sigue como antes: agregar el producto
+            # es menos grave que dejar al operador sin poder cargar la venta.
+            return False
+        return total > 1
 
     def _agregar_este_articulo(self, articulo):
         """Pide cantidad y precio y agrega la linea.
@@ -350,16 +412,19 @@ class VentaSimpleController(ControladorBase):
         iva = Decimal(str(articulo.tipoiva.iva))
         subtotal = cantidad * precio
 
-        self.view.gridVenta.AgregaItem(items=[
-            str(cantidad),
-            str(articulo.idarticulo),
-            articulo.nombre,
-            str(precio),
-            str(iva),
-            str(subtotal),
-        ])
+        with self._escribiendo():
+            self.view.gridVenta.AgregaItem(items=[
+                str(cantidad),
+                str(articulo.idarticulo),
+                articulo.nombre,
+                SIN_STOCK,  # lo calcula _pinta_el_stock
+                str(precio),
+                str(iva),
+                str(subtotal),
+            ])
         self.view.textArticulo.setText("")
         self.view.textCantidad.setText("1")
+        self._pinta_el_stock()
         self.recalcular_total()
         # El foco vuelve al producto: cargar una venta es agregar linea por
         # linea, y volver al mouse entre renglones es lo que hace lenta la
@@ -513,15 +578,280 @@ class VentaSimpleController(ControladorBase):
             ))
         return renglones
 
+
+    # -- La columna Stock ------------------------------------------------------
+
+    @contextlib.contextmanager
+    def _escribiendo(self):
+        """Marca que la propia app esta escribiendo en la grilla.
+
+        Existe por el `itemChanged`: escribir una celda dispara la senal, y
+        el handler que esta atado a ella escribiria otra vez, sin fin. Con
+        este candado, todo camino que escribe por su cuenta se envuelve
+        aqui y la senal se ignora.
+
+        Va como contextmanager y no como dos lineas porque un `return` en el
+        medio del camino sin limpiar el flag deja la grilla muda para el resto
+        de la vida de la ventana, que es un fallo que no se ve hasta que
+        alguien edita una celda y pasa lo que no tiene que pasar.
+        """
+        self._pintando = True
+        try:
+            yield
+        finally:
+            self._pintando = False
+
+    def on_celda_editada(self, *args, **kwargs):
+        """Recalcula el renglon editado: subtotal, total y color del stock.
+
+        Sin esto, cambiar la cantidad a mano dejaba el SubTotal con el valor
+        viejo y el color del stock diciendo que la fila entra cuando ya no
+        entra. Peor que no tener columna: es informacion que miente.
+        """
+        if self._pintando:
+            return
+
+        # cellChanged pasa la fila y la columna. El numero de fila no se
+        # busca con currentRow(): esa es la que esta SELECCIONADA, que con
+        # el mouse en otro lado es otra celda, y el renglon recalculado
+        # seria uno que el operador no toco.
+        fila = args[0] if args else -1
+        if fila < 0 or fila >= self.view.gridVenta.rowCount():
+            return
+
+        # Antes de recalcular: la celda editada quedo solo con el texto.
+        col = args[1] if len(args) > 1 else -1
+        self._normaliza_celda(fila, col)
+
+        self._recalcula_el_renglon(fila)
+        self.recalcular_total()
+
+    def _normaliza_celda(self, fila, col):
+        """Le vuelve a dejar el numero crudo a la celda recien editada.
+
+        Sin esto, editar una celda deja la pantalla y los calculos
+        diciendo cosas distintas: `AgregaItem` guarda el numero en
+        `UserRole` y `ObtenerItem` lo devuelve crudo, pero editar la celda
+        solo cambia el texto. Quedaria "la pantalla muestra 4 y la
+        factura dice 2", que es un cobro erroneo y no un detalle de
+        colores.
+
+        Se usa `setData` sobre la MISMA celda y no `ModificaItem`, que
+        reemplaza el item: reemplazar una celda que se esta editando hace
+        que Qt la dibuje avanzando a la fila siguiente mientras se tipea
+        (mismo motivo que en Facturas._normaliza_celda).
+
+        Un texto que no es numero se deja como estaba: puede ser el nombre
+        del producto o el codigo, y esas columnas no son numericas.
+        """
+        if col < 0 or col >= self.view.gridVenta.columnCount():
+            return
+
+        celda = self.view.gridVenta.item(fila, col)
+        if celda is None:
+            return
+
+        texto = celda.text()
+        if not str(texto).strip():
+            return
+
+        try:
+            numero = _a_numero_texto(texto)
+        except (ValueError, TypeError, InvalidOperation):
+            return
+
+        celda.setData(QtCore.Qt.UserRole, numero)
+
+    def _recalcula_el_renglon(self, fila):
+        """Vuelve a calcular el SubTotal de una fila a partir de su cantidad.
+
+        Cantidad por Unitario. Es la misma cuenta que hace la venta cuando se
+        agrega el producto, escrita otra vez porque no hay otro lugar donde
+        quede: `calcular_totales` trabaja sobre una lista de RenglonVenta,
+        no sobre la grilla.
+        """
+        with self._escribiendo():
+            col_sub = self._columna("SubTotal")
+            col_cant = self._columna("Cant.")
+            col_unit = self._columna("Unitario")
+            if None in (col_sub, col_cant, col_unit):
+                return
+
+            cantidad = self._numero_de_la_celda(fila, col_cant)
+            precio = self._numero_de_la_celda(fila, col_unit)
+            if cantidad is None or precio is None:
+                return
+
+            # El numero, no `str(numero)`: `ModificaItem` solo formatea
+            # cuando recibe un int, float o Decimal. Con un string lo
+            # escribe tal cual, y el SubTotal salia "150000.0" al lado
+            # de un Unitario que decia "1.500,00". Ademas asi se guarda
+            # tambien el UserRole, que con el string no pasaba.
+            self.view.gridVenta.ModificaItem(cantidad * precio, fila,
+                                             col_sub)
+
+        self._pinta_el_stock()
+
+    def _pinta_el_stock(self, *args, **kwargs):
+        """Escribe el stock de cada renglon y pinta los que no alcanzan.
+
+        Compara por producto ACUMULADO y no renglon por renglon, por la misma
+        razon que `faltantes_de_la_venta`: el mismo producto puede estar en
+        dos renglones de la misma venta, y mirando fila por fila las dos
+        parecen entrar cuando juntas se llevan mas de lo que hay.
+
+        Esa coincidencia no es casualidad sino un requisito: si la grilla dice
+        "estas bien" y el aviso de emitir dice "no alcanza", el operador deja
+        de mirar el aviso por desconfianza. Las dos tienen que decir lo mismo.
+
+        Reconstruye la columna entera en vez de tocar solo la fila que cambio:
+        el acumulado depende de TODOS los renglones, as que cambiar el
+        criterio de uno obliga a recalcular los demas.
+        """
+        with self._escribiendo():
+            col_stock = self._columna("Stock")
+            col_cant = self._columna("Cant.")
+            col_codigo = self._columna("Codigo")
+            if None in (col_stock, col_cant, col_codigo):
+                return
+
+            # Una sola consulta para toda la venta, no una por renglon.
+            stocks = stock.stock_de_todos(controlados=False)
+
+            pedido = {}
+            for fila in range(self.view.gridVenta.rowCount()):
+                codigo = self._codigo_de_la_fila(fila, col_codigo)
+                if codigo is None:
+                    continue
+                cantidad = self._numero_de_la_celda(fila, col_cant) or 0
+                pedido[codigo] = pedido.get(codigo, 0) + cantidad
+
+            for fila in range(self.view.gridVenta.rowCount()):
+                codigo = self._codigo_de_la_fila(fila, col_codigo)
+                articulo = Articulo.get_or_none(
+                    Articulo.idarticulo == codigo) if codigo else None
+
+                if articulo is None or not stock.controla(articulo):
+                    # None, no False: False significa "no alcanza" y un
+                    # servicio no es un producto al que le falte nada.
+                    self._pinta_celda(fila, col_stock, SIN_STOCK, None)
+                    continue
+
+                hay = stocks.get(articulo.idarticulo, stock.CERO)
+                alcanza = hay - pedido.get(articulo.idarticulo, 0) >= 0
+                # El Decimal crudo, no `str(hay)`: ver `_pinta_celda`.
+                self._pinta_celda(fila, col_stock, hay, alcanza)
+
+    def _pinta_celda(self, fila, col, valor, alcanza):
+        """Escribe una celda de la columna Stock.
+
+        `alcanza` tiene TRES valores y no dos:
+
+        - True: hay stock. Sin color.
+        - False: no hay stock para lo que se lleva. En rojo.
+        - None: el stock no aplica (un servicio). Sin color.
+
+        Con un solo booleano, el servicio caia en el caso de "no alcanza" y
+        salia en rojo, que le grita al operador que le falta mercaderia que
+        no existe. Un color de mas es un color que ya no significa nada.
+
+        El texto se escribe SIEMPRE y el color va aparte: si solo se pintara la
+        celda cuando falta, al corregir la cantidad quedaria el numero viejo con
+        el color viejo, que es un estado que la app nunca tiene que mostrar.
+
+        El item se busca primero y se reusa. Si no esta, `setItem` lo crea con
+        los flags por defecto, que son editables: el stock pasaria a ser una
+        celda mas que el operador puede escribir, y escribir ahi no cambia el
+        stock de nada.
+        """
+        item = self.view.gridVenta.item(fila, col)
+        if item is None:
+            from PyQt5.QtWidgets import QTableWidgetItem
+            from PyQt5.QtCore import Qt
+            item = QTableWidgetItem()
+            item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+            self.view.gridVenta.setItem(fila, col, item)
+
+        # `valor` es un numero o el guion de SIN_STOCK. Si es numero se
+        # formatea con el tipo que declaro la columna (Moneda, Cantidad,
+        # Entero...), que es lo que hace `AgregaItem`.
+        #
+        # Con `str(hay)` la celda salia "85.0000": el `str` de un Decimal
+        # con cuatro decimales. Era el unico numero de la fila que no se
+        # leia como los demas.
+        if isinstance(valor, (int, float, Decimal)):
+            item.setData(QtCore.Qt.UserRole, valor)
+            item.setText(self.view.gridVenta._texto_celda(col, valor))
+        else:
+            # El guion no es un numero: no lleva UserRole ni formato.
+            item.setData(QtCore.Qt.UserRole, None)
+            item.setText(valor)
+
+        if alcanza is False:
+            item.setBackground(QtGui.QBrush(
+                QtGui.QColor(COLOR_FALTANTE_FONDO)))
+            item.setForeground(QtGui.QColor(COLOR_FALTANTE_TEXTO))
+        else:
+            # Brush vacio y no un color: es lo que hace la celda transparente
+            # y deja ver el color alternado de la fila que define el tema.
+            item.setBackground(QtGui.QBrush())
+            item.setForeground(QtGui.QBrush())
+
+    def _columna(self, nombre):
+        """El indice de la columna con ese encabezado, o None."""
+        for c in range(self.view.gridVenta.columnCount()):
+            item = self.view.gridVenta.horizontalHeaderItem(c)
+            if item is not None and item.text() == nombre:
+                return c
+        return None
+
+    def _numero_de_la_celda(self, fila, col):
+        """El numero de una celda, o None si no se puede leer.
+
+        None y no 0 a proposito: una cantidad vacia o con letras tiene que ser
+        distinguible de un cero, porque con 0 no hay venta que hacer y con un
+        numero roto tampoco.
+
+        Sale de `ObtenerItem`, que ya devuelve el numero crudo (gracias a
+        `_normaliza_celda` cuando la celda fue editada). El parseo del texto
+        con replace a mano queda en `libs/Grillas._a_numero_texto`, que es el
+        unico que distingue "1.234,56" de "1,234".
+        """
+        try:
+            return Decimal(str(self.view.gridVenta.ObtenerItem(
+                fila=fila, col=col)))
+        except (InvalidOperation, ValueError, TypeError,
+                ArithmeticError):
+            return None
+
+    def _codigo_de_la_fila(self, fila, col):
+        """El id de articulo de una fila, o None si no es un numero.
+
+        La columna Codigo es editable, asi que puede tener cualquier cosa. Un
+        texto ahi no es un producto: se ignora la fila en vez de romper la
+        pantalla con un error de base.
+        """
+        texto = str(self.view.gridVenta.ObtenerItem(fila=fila, col=col)).strip()
+        return int(texto) if texto.isdigit() else None
+
     def recalcular_total(self):
         responsable_inscripto = a_entero(LeerIni(clave="cat_iva", key="WSFEv1"), 0) == 1
         totales = calcular_totales(self.obtener_renglones(), responsable_inscripto)
-        self.view.textTotal.setText(str(totales.total))
+        # Con el formateador de importes de la app, no con `str(Decimal)`.
+        # `str` de un Decimal sale "250100.00": sin punto de miles, con
+        # punto decimal, y con la coma cambiada. Al lado de los SubTotal
+        # de la grilla, que salen con el formato argentino, el total se ve
+        # como si fuera de otra pantalla.
+        #
+        # El numero en si no cambia: es el mismo `totales.total`. Lo que
+        # cambia es como se lee.
+        self.view.textTotal.setText(_formato_importe(totales.total))
 
     def borrar_renglon(self):
         fila = self.view.gridVenta.currentRow()
         if fila >= 0:
-            self.view.gridVenta.removeRow(fila)
+            with self._escribiendo():
+                self.view.gridVenta.removeRow(fila)
             self.recalcular_total()
 
     def faltantes_de_la_venta(self, renglones):
@@ -614,8 +944,9 @@ class VentaSimpleController(ControladorBase):
         Solo cuando la factura quedo autorizada. Si no se limpio nada, la
         venta se pierde y no hay forma de recuperarla desde la app.
         """
-        while self.view.gridVenta.rowCount():
-            self.view.gridVenta.removeRow(0)
+        with self._escribiendo():
+            while self.view.gridVenta.rowCount():
+                self.view.gridVenta.removeRow(0)
         self.cliente = None
         self.view.textCliente.setText("")
         self.view.textArticulo.setText("")

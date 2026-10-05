@@ -171,8 +171,19 @@ def test_agregar_articulo_pide_cantidad_y_precio(monkeypatch):
     assert controller.view.gridVenta.ObtenerItem(fila=0, col="Unitario") == Decimal("150.00")
     assert controller.view.gridVenta.ObtenerItem(fila=0, col="SubTotal") == Decimal("450.00")
     assert controller.view.gridVenta.item(0, 0).text() == "3"
-    assert controller.view.gridVenta.item(0, 3).text() == "150,00"
-    assert controller.view.textTotal.text() == "450.00"
+    # Por encabezado y no con un indice fijo: la columna Stock se metio en el
+    # medio y corrio todas las de la derecha. Con el indice, agregar una
+    # columna rompe esto sin que se entienda por que, porque la asercion
+    # sigue mirando "la tercera" y ahora es otra cosa.
+    columnas = {controller.view.gridVenta.horizontalHeaderItem(c).text(): c
+                for c in range(controller.view.gridVenta.columnCount())}
+    assert controller.view.gridVenta.item(0, columnas["Unitario"]).text() == "150,00"
+    # El total se ve con el formato argentino, como los SubTotal de arriba.
+    # Antes decia "450.00", que era `str(Decimal)` puesto a mano. El numero no
+    # cambia; la asercion estaba fijando el formato viejo, asi que hubo que
+    # cambiarla, y ese es el punto: un aserto sobre texto de presentacion
+    # cambia cuando la presentacion mejora.
+    assert controller.view.textTotal.text() == "450,00"
     controller.view.Cerrar()
 
 

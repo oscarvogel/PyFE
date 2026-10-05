@@ -2,11 +2,13 @@
 from PyQt5.QtCore import QSize
 from PyQt5.QtWidgets import QCheckBox, QGridLayout, QHBoxLayout, QListWidget, QVBoxLayout
 
+from decimal import Decimal
+
 from libs.Botones import Boton, BotonCerrarFormulario, botonera_dialogo
 from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import Etiqueta, EtiquetaTitulo
 from libs.Formulario import Formulario
-from libs.Grillas import Grilla
+from libs.Grillas import Grilla, _formato_importe
 from libs.GroupBox import Agrupacion
 from libs.Utiles import imagen, icono
 from modelos.Formaspago import ComboFormapago
@@ -22,7 +24,7 @@ class VentaSimpleCantidadPrecioDialog(Formulario):
 
     def setupUi(self, Form):
         self.setWindowTitle("Cantidad y precio")
-        self.resize(420, 160)
+        self.declara_tamano(420, 160)
 
         self.layoutPpal = QVBoxLayout(Form)
         self.lblTitulo = EtiquetaTitulo(texto=self.articulo.nombre)
@@ -36,6 +38,12 @@ class VentaSimpleCantidadPrecioDialog(Formulario):
         self.layoutDatos.addWidget(Etiqueta(texto="Precio"), 1, 0)
         self.layoutDatos.addWidget(self.textPrecio, 1, 1)
         self.layoutPpal.addLayout(self.layoutDatos)
+
+        # El sobrante va antes de la botonera, no al titulo. Es lo que
+        # hacen las demas pantallas del proyecto (vistas/Stock.py,
+        # vistas/Main.py): sin esto la botonera queda pegada al tope y el
+        # vacio cae abajo.
+        self.layoutPpal.addStretch(1)
 
         self.botones = botonera_dialogo()
         self.botones.accepted.connect(self.accept)
@@ -59,7 +67,7 @@ class VentaSimpleAltaClienteDialog(Formulario):
 
     def setupUi(self, Form):
         self.setWindowTitle("Agregar cliente")
-        self.resize(520, 220)
+        self.declara_tamano(520, 220)
 
         self.layoutPpal = QVBoxLayout(Form)
         self.lblTitulo = EtiquetaTitulo(texto="Agregar cliente")
@@ -76,6 +84,12 @@ class VentaSimpleAltaClienteDialog(Formulario):
         self.layoutDatos.addWidget(Etiqueta(texto="Domicilio"), 2, 0)
         self.layoutDatos.addWidget(self.textDomicilio, 2, 1)
         self.layoutPpal.addLayout(self.layoutDatos)
+
+        # El sobrante va antes de la botonera, no al titulo. Es lo que
+        # hacen las demas pantallas del proyecto (vistas/Stock.py,
+        # vistas/Main.py): sin esto la botonera queda pegada al tope y el
+        # vacio cae abajo.
+        self.layoutPpal.addStretch(1)
 
         self.botones = botonera_dialogo()
         self.botones.accepted.connect(self.accept)
@@ -103,7 +117,7 @@ class VentaSimpleAltaArticuloDialog(Formulario):
 
     def setupUi(self, Form):
         self.setWindowTitle("Agregar articulo")
-        self.resize(520, 220)
+        self.declara_tamano(520, 220)
 
         self.layoutPpal = QVBoxLayout(Form)
         self.lblTitulo = EtiquetaTitulo(texto="Agregar articulo")
@@ -125,6 +139,12 @@ class VentaSimpleAltaArticuloDialog(Formulario):
         self.layoutDatos.addWidget(Etiqueta(texto="Código barras"), 3, 0)
         self.layoutDatos.addWidget(self.textCodigoBarra, 3, 1)
         self.layoutPpal.addLayout(self.layoutDatos)
+
+        # El sobrante va antes de la botonera, no al titulo. Es lo que
+        # hacen las demas pantallas del proyecto (vistas/Stock.py,
+        # vistas/Main.py): sin esto la botonera queda pegada al tope y el
+        # vacio cae abajo.
+        self.layoutPpal.addStretch(1)
 
         self.botones = botonera_dialogo()
         self.botones.accepted.connect(self.accept)
@@ -177,7 +197,7 @@ class VentaSimpleSeleccionClienteDialog(Formulario):
         self.txtBuscar.setObjectName("txtBuscar")
         self.txtBuscar.setText(self.busqueda_inicial)
         self.txtBuscar.textChanged.connect(self.buscar)
-        self.txtBuscar.returnPressed.connect(self._aceptar_primero)
+        self.txtBuscar.returnPressed.connect(self._elegir_para_entrar)
         self.layoutPpal.addWidget(self.txtBuscar)
 
         self.listaClientes = QListWidget()
@@ -212,27 +232,39 @@ class VentaSimpleSeleccionClienteDialog(Formulario):
             documento = cliente.cuit if str(cliente.cuit).replace("-", "").strip("0") else str(cliente.dni or "")
             self.listaClientes.addItem("{} - {} - {}".format(
                 cliente.idcliente, cliente.nombre, documento))
-        if self.clientes:
+        # Igual que en articulos: con una sola se marca sola, con varias no.
+        # Dos clientes con nombres parecidos existen, y elegir el de arriba
+        # sin que nadie lo elija es cobrarle al cliente equivocado.
+        if len(self.clientes) == 1:
             self.listaClientes.setCurrentRow(0)
 
         if self.total > len(self.clientes):
             self.lblCuenta.setText(
                 "Mostrando {} de {} coincidencias. Seguí escribiendo para acotar.".format(
                     len(self.clientes), self.total))
+        elif self.total > 1:
+            self.lblCuenta.setText(
+                "{} coincidencias. Elegí una con las flechas o el mouse.".format(
+                    self.total))
         else:
             self.lblCuenta.setText(
                 "{} coincidencia{}".format(self.total, "" if self.total == 1 else "s"))
 
-    def _aceptar_primero(self):
-        """Enter elige el de arriba, sin necesidad del mouse."""
-        if self.listaClientes.currentRow() < 0 and self.listaClientes.count():
-            self.listaClientes.setCurrentRow(0)
+    def _elegir_para_entrar(self):
+        """Enter elige lo marcado. Sin nada marcado, no hace nada.
+
+        Antes tomaba la fila 0 por las dudas, que con varias coincidencias
+        era decidirle al operador a cuál cliente se le cobra.
+        """
+        if self.listaClientes.currentRow() < 0:
+            return
         self.accept()
 
     def accept(self):
         fila = self.listaClientes.currentRow()
-        if fila >= 0 and fila < len(self.clientes):
-            self.cliente = self.clientes[fila]
+        if fila < 0 or fila >= len(self.clientes):
+            return
+        self.cliente = self.clientes[fila]
         Formulario.accept(self)
 
 
@@ -272,7 +304,7 @@ class VentaSimpleSeleccionArticuloDialog(Formulario):
         self.txtBuscar.setObjectName("txtBuscar")
         self.txtBuscar.setText(self.busqueda_inicial)
         self.txtBuscar.textChanged.connect(self.buscar)
-        self.txtBuscar.returnPressed.connect(self._aceptar_primero)
+        self.txtBuscar.returnPressed.connect(self._elegir_para_entrar)
         self.layoutPpal.addWidget(self.txtBuscar)
 
         self.listaArticulos = QListWidget()
@@ -313,13 +345,22 @@ class VentaSimpleSeleccionArticuloDialog(Formulario):
         self.articulos, self.total = self.buscador(texto)
         for articulo in self.articulos:
             self.listaArticulos.addItem(self._texto(articulo))
-        if self.articulos:
+        # Con una sola coincidencia se marca sola: no hay nada que decidir y
+        # Enter tiene que servir. Con varias NO: ver _elegir_para_entrar.
+        if len(self.articulos) == 1:
             self.listaArticulos.setCurrentRow(0)
 
         if self.total > len(self.articulos):
             self.lblCuenta.setText(
                 "Mostrando {} de {} coincidencias. Seguí escribiendo para "
                 "acotar.".format(len(self.articulos), self.total))
+        elif self.total > 1:
+            # Sin esta frase el operador cree que el de arriba ya esta
+            # elegido, y es justo lo que paso: escribia "w" y se llevaba el
+            # primero de los dos WHEY CUTTER.
+            self.lblCuenta.setText(
+                "{} coincidencias. Elegí una con las flechas o el mouse.".format(
+                    self.total))
         else:
             self.lblCuenta.setText(
                 "{} coincidencia{}".format(
@@ -332,16 +373,30 @@ class VentaSimpleSeleccionArticuloDialog(Formulario):
                                         codigo)
         return "{} - {}".format(articulo.idarticulo, articulo.nombre)
 
-    def _aceptar_primero(self):
-        """Enter elige el de arriba, sin necesidad del mouse."""
-        if self.listaArticulos.currentRow() < 0 and self.listaArticulos.count():
-            self.listaArticulos.setCurrentRow(0)
+    def _elegir_para_entrar(self):
+        """Enter elige lo marcado, y solo si hay algo marcado.
+
+        Antes se llamaba _aceptar_primero y hacia setCurrentRow(0) si no
+        habia nada marcado. Con un catalogo donde dos productos se parecen
+        (dos "WHEY CUTTER ..." que difieren en el sabor) eso era elegir por
+        el operador: el que estaba de arriba. Ahora, sin nada marcado, Enter
+        no hace nada y el operador tiene que elegir a proposito.
+        """
+        if self.listaArticulos.currentRow() < 0:
+            return
         self.accept()
 
     def accept(self):
+        """Aceptar requiere una fila elegida.
+
+        Con varias coincidencias y nada marcado, Aceptar no cierra: si
+        cerrara, el articulo quedaria en None y el controlador lo tomaria
+        como "no elegiste nada", que no es lo que el operador quiso.
+        """
         fila = self.listaArticulos.currentRow()
-        if fila >= 0 and fila < len(self.articulos):
-            self.articulo = self.articulos[fila]
+        if fila < 0 or fila >= len(self.articulos):
+            return
+        self.articulo = self.articulos[fila]
         Formulario.accept(self)
 
 
@@ -392,19 +447,42 @@ class VentaSimpleView(Formulario):
         # titulo a la izquierda y los numeros a la derecha se ve rota) y
         # mostrar cada tipo con sus decimales. "Cant." queda angosta porque el
         # ancho se reparte segun el encabezado, y antes se comia media fila.
+        #
+        # La columna Stock va cuarta, entre Detalle y Unitario: es un dato del
+        # producto y tiene que leerse pegado al producto. Insertarla al final
+        #eria mas simple, pero la dejaria separada de lo que describe.
+        #
+        # OJO con `columnasHabilitadas`: son INDICES, no nombres. Al insertar
+        # Stock en el medio, Unitario pasa de 3 a 4 e IVA de 4 a 5, asi que la
+        # lista de editables se corre con ella. Stock queda fuera a proposito:
+        # el stock es derivado de los movimientos, y si se pudiera escribir ahi
+        # un numero se creeria que el inventario cambio sin que exista ningun
+        # movimiento que lo diga.
         self.gridVenta.ArmaCabeceras(
-            cabeceras=["Cant.", "Codigo", "Detalle", "Unitario", "IVA", "SubTotal"],
-            formatos=["Cantidad", "String", "String", "Moneda", "Entero", "Moneda"])
+            cabeceras=["Cant.", "Codigo", "Detalle", "Stock", "Unitario", "IVA",
+                       "SubTotal"],
+            formatos=["Cantidad", "String", "String", "Cantidad", "Moneda",
+                      "Entero", "Moneda"])
         self.gridVenta.enabled = True
-        self.gridVenta.columnasHabilitadas = [0, 1, 2, 3, 4]
+        self.gridVenta.columnasHabilitadas = [0, 1, 2, 4, 5]
         self.gridVenta.textoVacio = "Todavía no hay productos en la venta.\nBuscá uno arriba y presioná Agregar."
         self.layoutPpal.addWidget(self.gridVenta)
 
         self.layoutTotales = QHBoxLayout()
         self.cboFormaPago = ComboFormapago()
         self.cboFormaPago.setCurrentIndex(self.cboFormaPago.findData("1"))
-        self.textTotal = EntradaTexto(tamanio=16, enabled=False)
-        self.textTotal.setText("0.00")
+        # Solo lectura y NO deshabilitado. `enabled=False` llama
+        # `setEnabled(False)`, y Qt pinta un widget deshabilitado con la
+        # paleta de inactivo: el total salia gris, como un campo de
+        # formulario que no se puede tocar, al lado del boton
+        # "Emitir factura". Ademas no deja seleccionar el texto, y un
+        # operador que necesita pasarlo por whatsapp no lo puede copiar.
+        #
+        # `setReadOnly(True)` conserva lo que importa: no se puede
+        # escribir a mano el total de una venta.
+        self.textTotal = EntradaTexto(tamanio=16, alineacion="DERECHA")
+        self.textTotal.setReadOnly(True)
+        self.textTotal.setText(_formato_importe(Decimal("0")))
         self.layoutTotales.addWidget(Etiqueta(texto="Forma de pago"))
         self.layoutTotales.addWidget(self.cboFormaPago)
         self.layoutTotales.addWidget(Etiqueta(texto="Total"))

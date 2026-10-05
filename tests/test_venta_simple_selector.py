@@ -73,8 +73,17 @@ def dialogos(qt, monkeypatch):
             conteo["vivos"].append(self)
 
         def exec_(self):
-            QTimer.singleShot(60, self.accept)
+            # Marca la fila antes de aceptar, que es lo que hace el operador
+            # cuando hay varias coincidencias. Con `accept()` a secas el
+            # dialogo ya no cierra (no hay nada marcado) y el test queda
+            # esperando un cierre que nunca llega: cuelga en vez de fallar.
+            QTimer.singleShot(60, self.elegir)
             return base.exec_(self)
+
+        def elegir(self):
+            if self.listaClientes.currentRow() < 0 and self.listaClientes.count():
+                self.listaClientes.setCurrentRow(0)
+            self.accept()
 
         def closeEvent(self, evento):
             conteo["vivos"] = [d for d in conteo["vivos"] if d is not self]

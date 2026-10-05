@@ -275,8 +275,12 @@ def test_el_dialogo_tiene_buscador_y_no_se_cierra_al_acotar(app, controlador, cl
     assert dialogo.listaClientes.count() == 1
     assert dialogo.listaClientes.item(0).text().startswith("4 - CRISTIÁN")
 
-    # Y elige el de la lista.
-    dialogo._aceptar_primero()
+    # Y elige el de la lista. Aca hay una sola coincidencia, asi que se
+    # marco sola y Enter alcanza: con varias ya no se elige solo, que es lo
+    # que se prueba en test_venta_seleccion_explicita.py.
+    assert dialogo.listaClientes.currentRow() == 0, (
+        "con una sola coincidencia deberia quedar marcada sola")
+    dialogo._elegir_para_entrar()
     assert dialogo.result() == QDialog.Accepted
     assert dialogo.cliente.nombre == "CRISTIÁN ALEGRE"
     dialogo.close()
