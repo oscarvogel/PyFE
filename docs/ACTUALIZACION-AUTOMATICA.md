@@ -2,7 +2,10 @@
 
 Fecha: 2026-10-05
 Rama: `codex/vogel-gestion-simple-mvp`
-Estado: implementado y con tests, **pendiente el E2E en una PC real**
+Estado: núcleo commiteado (`94cc98d`); el enganche en 4 archivos quedó
+pendiente porque se mezclaba con trabajo de otra sesión. **La publicación
+está bloqueada** porque la suite del repo está en rojo por trabajo ajeno a
+este. Pendiente el E2E en una PC real.
 
 ## Qué hace
 
@@ -247,6 +250,15 @@ Anotados porque son el tipo de cosa que vuelve si nadie lo escribe.
 ## Qué falta
 
 Nada de esto está verificado todavía:
+
+0. **La primera publicación está bloqueada.** Cuando se intentó publicar
+   (2026-10-05), la suite estaba en rojo por trabajo a medio terminar de otra
+   sesión en el mismo repo: `test_migraciones_stock.py` y
+   `test_password_mysql.py` fallaban por `modelos/ModeloBase.py` y
+   `libs/Utiles.py` en movimiento. El `release.ps1` hizo lo correcto:{detuvo
+   la publicación y restauró el estado de desarrollo. **No publicar con la
+   suite en rojo**, aunque el rojo no sea de este trabajo: el build arrastra
+   todo el código, no solo el actualizado.
 
 1. **E2E en una PC real.** Es lo que falta y es obligatorio:
    1. instalar una versión A y confirmar que abre y factura;
