@@ -1,11 +1,11 @@
 # Actualización automática de Asiento desde vogel-releases
 
 Fecha: 2026-10-05
-Rama: `codex/vogel-gestion-simple-mvp`
-Estado: núcleo commiteado (`94cc98d`); el enganche en 4 archivos quedó
-pendiente porque se mezclaba con trabajo de otra sesión. **La publicación
-está bloqueada** porque la suite del repo está en rojo por trabajo ajeno a
-este. Pendiente el E2E en una PC real.
+Rama: `master` (mergeado desde `codex/vogel-gestion-simple-mvp`)
+Estado: **publicado.** Versión `2026.10.05.13.15.58` en el release `latest` de
+`oscarvogel/vogel-releases`, con su `latest.json` y su `changelog.json` (que es
+la primera vez que existe). Sigue pendiente **el E2E en una PC real**, que es lo
+único que falta para darle el visto bueno.
 
 ## Qué hace
 
@@ -249,50 +249,63 @@ Anotados porque son el tipo de cosa que vuelve si nadie lo escribe.
 
 ## Qué falta
 
-Nada de esto está verificado todavía:
-
-0. **La primera publicación está bloqueada.** Cuando se intentó publicar
-   (2026-10-05), la suite estaba en rojo por trabajo a medio terminar de otra
-   sesión en el mismo repo: `test_migraciones_stock.py` y
-   `test_password_mysql.py` fallaban por `modelos/ModeloBase.py` y
-   `libs/Utiles.py` en movimiento. El `release.ps1` hizo lo correcto:{detuvo
-   la publicación y restauró el estado de desarrollo. **No publicar con la
-   suite en rojo**, aunque el rojo no sea de este trabajo: el build arrastra
-   todo el código, no solo el actualizado.
-
-1. **E2E en una PC real.** Es lo que falta y es obligatorio:
-   1. instalar una versión A y confirmar que abre y factura;
-   2. guardar el hash SHA256 de `sistema.ini` y de la base;
-   3. publicar B con `release.ps1`;
+1. **E2E en una PC real.** Es lo único que falta, y es obligatorio. La versión
+   `2026.10.05.13.15.58` ya publicada sirve de **A**:
+   1. instalarla y confirmar que abre, completa el asistente y factura;
+   2. guardar el hash SHA256 de `sistema.ini` y de la base, **de las dos
+      copias**: la de `C:\Program Files\Asiento` y la de
+      `%LOCALAPPDATA%\Asiento`. La segunda es la que la app usa desde el arreglo
+      de carpeta de datos (ver `docs/CARPETA-DE-DATOS.md`): en una instalación
+      nueva dentro de `Program Files` el archivo se crea en la carpeta de datos
+      del usuario, y en una que ya tenía configuración se copia ahí al primer
+      arranque. La de `{app}` tiene que quedar byte a byte igual;
+   3. publicar B con `release.ps1` (con algún cambio chico, para que sea una
+      versión distinta);
    4. abrir A y confirmar el aviso;
-   5. descargar, y confirmar que el hash del instalador da;
-   6. instalar, confirmar que está B y que puede facturar;
-   7. confirmar que `sistema.ini` quedó byte a byte igual;
+   5. descargar y confirmar que el hash del instalador da;
+   6. instalar, confirmar que queda B y que puede facturar;
+   7. confirmar que `sistema.ini` y la base quedaron byte a byte iguales;
    8. reabrir B y confirmar que no repite las novedades;
    9. publicar un manifiesto con `app_id` de otro producto y confirmar que
       Asiento lo rechaza sin romperse.
 
-2. **La primera publicación real.** El manifiesto de `asiento` que ya está
-   publicado dice `2026.10.05.08.37.00`, pero el instalador de ese momento se
-   compiló con `version.txt` en `0.9.0`: **la versión del manifiesto y la del
-   `.exe` instalado no coinciden**. Cualquier instalación de esa versión no
-   puede compararse bien contra el manifiesto y no va a ver actualizaciones.
-   Hay que republicar con `release.ps1` para que las dos cosas digan lo mismo.
+2. **La bomba de `sistema.ini` en la raíz del repo.** Descubierta el mismo día,
+   al intentar la primera publicación (ver "Bugs encontrados", punto 7).
+   `controladores/Main.py:100-101` escribe `[param] ultima_copia = 00000000`
+   como efecto secundario de construir el controlador. Si en la raíz del repo no
+   hay un `sistema.ini` con `base = sqlite`, ese archivo a medias hace que
+   **toda** la app caiga en la rama de MySQL
+   (`modelos/ModeloBase.py` trata "sin clave base" como MySQL) y la suite se
+   rompa con `peewee.InterfaceError`: en la primera corrida fueron ~40 tests.
+   Ahora hay un `sistema.ini` local completo y coherente con la plantilla, así
+   que el archivo regenerado es inofensivo. **El arreglo de fondo sigue
+   pendiente**: `controladores/Main.py` no debería escribir configuración al
+   construirse, y/o los tests que lo construyen deberían aislar la carpeta.
 
-3. **`apps/asiento/changelog.json` no existe todavía.** Lo crea la primera
-   publicación. Hasta ese momento no hay historial de novedades, solo el
-   `notes` del `latest.json`.
-
-4. **El nombre del producto en algunos lugares.** `docs/ETAPA-2-NAVEGACION.md`
+3. **El nombre del producto en algunos lugares.** `docs/ETAPA-2-NAVEGACION.md`
    señala que `PyFE.iss` decía `AppName "PyFE"` / `AppPublisher "Servin LGSM"`.
    Eso **ya está corregido** a Asiento / Vogel Consultoria. Lo que sigue
    pendiente es que `sistema.ini` de instalaciones viejas tiene
    `nombre_sistema = Servin - Sistema Factura Electronica`.
 
-5. **Canal `candidate`.** fgpy y femag tienen un segundo canal para pilotos con
+4. **Canal `candidate`.** fgpy y femag tienen un segundo canal para pilotos con
    un proceso de aprobación y promoción. Asiento va solo con `latest` a
    propósito: agregar el canal es agregar machinery que alguien tiene que
    mantener, y no hay un proceso de piloto que lo use hoy.
+
+## Lo que se resolvió el 2026-10-05
+
+- La suite dejó de estar en rojo (737 tests) y la publicación dejó de estar
+  bloqueada.
+- El enganche del actualizador quedó hecho y commiteado.
+- Se publicó `2026.10.05.13.15.58`. El manifiesto anterior
+  (`2026.10.05.08.37.00`, compilado con `version.txt` en `0.9.0`) quedó
+  reemplazado: ahora la versión del manifiesto y la del `.exe` dicen lo mismo,
+  que era lo que impedía ver actualizaciones.
+- `apps/asiento/changelog.json` se creó con esa primera entrada.
+- Se mergeó a `master` (`947f09c`), con el arreglo de la carpeta de datos que
+  hacía que la app no pudiera guardarse instalada en `Program Files`
+  (`docs/CARPETA-DE-DATOS.md`).
 
 ## Cómo saber si algo se rompió
 
