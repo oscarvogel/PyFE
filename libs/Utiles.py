@@ -53,6 +53,7 @@ from os.path import join
 from sys import argv
 
 from libs import Constantes
+from libs import rutas
 
 
 #necesario porque en mysql tengo definido el campo boolean como bit
@@ -150,15 +151,26 @@ def _leer_config(Config, ruta):
         pass
 
 
+def _carpeta_de_config():
+    """La carpeta donde esta (o va a estar) el sistema.ini.
+
+    No es siempre el cwd: si la carpeta de trabajo no se puede escribir
+    --una instalacion en 'Program Files', que es el caso normal-- el archivo va
+    a la carpeta de datos del usuario. Ver libs/rutas.py.
+    """
+    return rutas.carpeta_datos()
+
+
 def LeerIni(clave=None, key=None, carpeta=''):
     analizador = argparse.ArgumentParser(description='Sistema de Facturacion Electronica.')
-    analizador.add_argument("-i", "--inicio", default=os.getcwd(), help="Carpeta de Inicio de sistema.")
-    analizador.add_argument("-a", "--archivo", default="sistema.ini", help="Archivo de Configuracion de sistema.")
+    analizador.add_argument("-i", "--inicio", default=None, help="Carpeta de Inicio de sistema.")
+    analizador.add_argument("-a", "--archivo", default=rutas.NOMBRE_INI, help="Archivo de Configuracion de sistema.")
     argumento = analizador.parse_known_args()[0]
     retorno = ''
     Config = ConfigParser()
     archivoini = argumento.archivo
-    carpeta = argumento.inicio
+    # El -i explicito manda: hay tests y herramientas que fijan la carpeta.
+    carpeta = argumento.inicio or _carpeta_de_config()
     # Config.read("sistema.ini")
     if carpeta:
         _leer_config(Config, join(carpeta, archivoini))
@@ -177,22 +189,43 @@ def LeerIni(clave=None, key=None, carpeta=''):
     # print("archivo {} clave {} key {} carpeta {} valor {}".format(archivoini, clave, key, carpeta, retorno))
     return retorno
 
+
+class ErrorEscrituraConfig(OSError):
+    """No se pudo guardar el sistema.ini.
+
+    Sale con mensaje propio porque casi siempre es lo mismo: la carpeta de la
+    app esta en solo lectura ('Program Files') y hay que ir a la carpeta de
+    datos del usuario. Un 'Permission denied' pelado no dice eso.
+    """
+
+
 def GrabarIni(clave=None, key=None, valor='', borrar=False):
     analizador = argparse.ArgumentParser(description='Sistema de Facturacion Electronica.')
-    analizador.add_argument("-i", "--inicio", default=os.getcwd(), help="Carpeta de Inicio del sistema.")
-    analizador.add_argument("-a", "--archivo", default="sistema.ini", help="Archivo de Configuracion de sistema.")
+    analizador.add_argument("-i", "--inicio", default=None, help="Carpeta de Inicio del sistema.")
+    analizador.add_argument("-a", "--archivo", default=rutas.NOMBRE_INI, help="Archivo de Configuracion de sistema.")
     argumento = analizador.parse_known_args()[0]
     archivoini = argumento.archivo
-    carpeta = argumento.inicio
+    # El -i explicito manda: hay tests y herramientas que fijan la carpeta.
+    carpeta = argumento.inicio or _carpeta_de_config()
 
     if not clave or not key:
         return
     Config = ConfigParser()
-    _leer_config(Config, join(carpeta, archivoini))
+    ruta = join(carpeta, archivoini)
+    _leer_config(Config, ruta)
     # utf-8 explicito: con la codificacion por defecto de la plataforma
     # (cp1252 en Windows) los acentos y la enie del nombre de la empresa
     # se guardaban con otros bytes y al releerlos no coincidian.
-    cfgfile = open(join(carpeta, archivoini), 'w', encoding='utf-8')
+    rutas.asegurar_carpeta(carpeta)
+    try:
+        cfgfile = open(ruta, 'w', encoding='utf-8')
+    except OSError as error:
+        raise ErrorEscrituraConfig(
+            "No se pudo escribir {}: {}. Si el programa esta instalado en "
+            "'Program Files', esa carpeta no se puede escribir sin permisos de "
+            "administrador: la configuracion va a {}.".format(
+                ruta, error.strerror or type(error).__name__,
+                _carpeta_de_config()))
     if not Config.has_section(key):
         Config.add_section(key)
     if borrar:

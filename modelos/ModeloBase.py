@@ -19,14 +19,19 @@ __version__ = "0.5"
 from peewee import MySQLDatabase, Model, BooleanField, SqliteDatabase
 
 from libs.Utiles import LeerIni
+from libs import rutas
 
+# La base va a la carpeta de datos, no al directorio de trabajo. Con el
+# programa instalado en 'Program Files' el directorio de trabajo no se puede
+# escribir y la base no se podria crear. Ver libs/rutas.py.
 if LeerIni(clave='base') == 'sqlite':
     if LeerIni(clave='usa_nombre_db') == 'S':
-        db = SqliteDatabase(f'{LeerIni("basedatos")}.db')
+        nombre_db = f'{LeerIni("basedatos")}.db'
         print(f'Usando {LeerIni("basedatos")}')
     else:
-        db = SqliteDatabase(f'sistema.db')
+        nombre_db = 'sistema.db'
         print("Usando sistema.db")
+    db = SqliteDatabase(rutas.ruta_base(nombre_db))
 else:
     # El password se resuelve aca, sin mostrar ningun dialogo: este modulo se
     # importa antes de que exista una QApplication. Si no esta disponible
