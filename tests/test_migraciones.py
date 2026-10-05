@@ -124,7 +124,7 @@ def test_la_version_se_avanza_cuando_no_falla_nada(instalacion):
     r = _migrar(instalacion, "migr")
 
     assert not r["fallidas"]
-    assert r["version"] == "8"
+    assert r["version"] == "9"
 
 
 def test_la_version_no_se_avanza_si_una_migracion_falla(instalacion,
@@ -156,9 +156,9 @@ def test_la_version_no_se_avanza_si_una_migracion_falla(instalacion,
         datos = json.load(f)
 
     # La version 3 tiene migraciones pendientes; si el sello fuera
-    # incondicional quedaria en 8 con un fallo de por medio.
-    assert datos["version"] != "8", \
-        "la version seavanzo a 8 con una migracion fallida"
+    # incondicional quedaria en 9 con un fallo de por medio.
+    assert datos["version"] != "9", \
+        "la version seavanzo a 9 con una migracion fallida"
 
 
 def test_una_base_ya_migrada_no_hace_nada_instalacion():
@@ -173,7 +173,7 @@ def test_una_base_ya_migrada_no_hace_nada_instalacion():
         import json
         with open(salida, encoding="utf-8") as f:
             r1 = json.load(f)
-        assert r1["version"] == "8"
+        assert r1["version"] == "9"
 
         # Segunda corrida: la version ya esta, asi que ni siquiera entra al
         # Migrar() por las guardas de version. Y si entrara, no generaria nada.

@@ -21,6 +21,21 @@ class Formulario(QDialog):
 
     controles = {}
 
+    # Piso de tamano de una ventana de trabajo. Mas chico que esto, las
+    # pantallas quedan "apretadas": la grilla se come el ancho, las columnas
+    # quedan en su minimo de 56 px y el operador ve una franja de numeros.
+    #
+    # El piso esta aca y no ventana por ventana porque en veinticuatro
+    # pantallas queda viejo apenas se agrega una, y nadie lo va a notar.
+    ANCHO_MINIMO = 900
+    ALTO_MINIMO = 560
+
+    # Un dialogo chico --configurar el correo, el primer arranque-- no
+    # necesita una pantalla entera. Lo que decide es si tiene grilla, que es lo
+    # que de verdad necesita ancho.
+    ANCHO_MINIMO_CHICO = 620
+    ALTO_MINIMO_CHICO = 420
+
     def __init__(self, parent=None):
         QDialog.__init__(self, parent=None)
         self.Exception = self.Traceback = ""
@@ -36,6 +51,53 @@ class Formulario(QDialog):
 
     def Cerrar(self):
         self.close()
+
+    def _piso_de_tamano(self):
+        """(ancho, alto) que esta ventana no deberia bajar."""
+        from PyQt5.QtWidgets import QTableWidget
+
+        if self.findChildren(QTableWidget):
+            return self.ANCHO_MINIMO, self.ALTO_MINIMO
+        return self.ANCHO_MINIMO_CHICO, self.ALTO_MINIMO_CHICO
+
+    def ajusta_tamano(self):
+        """Agranda la ventana hasta que el contenido entre y el piso se cumpla.
+
+        Se usa `minimumSizeHint` y NO `sizeHint`. El minimo es lo que el layout
+        NECESITA para no cortar nada; el sizeHint se infla con cualquier
+        contenedor sin layout (una pestana vacia pide 640x480 de default y
+        empuja la ventana a 2678 px, que no lo quiere nadie).
+        """
+        from PyQt5.QtWidgets import QApplication
+
+        ancho_min, alto_min = self._piso_de_tamano()
+        minimo = self.minimumSizeHint()
+
+        ancho = max(self.width(), minimo.width(), ancho_min)
+        alto = max(self.height(), minimo.height(), alto_min)
+
+        # Nunca mas grande que la pantalla: un piso de 900 en una pantalla de
+        # 800 deja la ventana colgando, que es peor que chica.
+        pantalla = QApplication.primaryScreen()
+        if pantalla is not None:
+            area = pantalla.availableGeometry()
+            ancho = min(ancho, int(area.width() * 0.92))
+            alto = min(alto, int(area.height() * 0.92))
+
+        if (ancho, alto) != (self.width(), self.height()):
+            self.resize(ancho, alto)
+
+    def showEvent(self, event):
+        """Ajusta el tamano la primera vez que se muestra, y solo esa.
+
+        En `__init__` todavia no se armo el contenido, asi que
+        `minimumSizeHint` no dice nada. `showEvent` es el primer momento en que
+        el layout esta armado de verdad.
+        """
+        QDialog.showEvent(self, event)
+        if not getattr(self, "_ajustado", False):
+            self._ajustado = True
+            self.ajusta_tamano()
 
     def exec_(self):
         self.Center()
@@ -54,9 +116,12 @@ class Formulario(QDialog):
         self.move(qr.topLeft())
 
     def resizeEvent(self, QResizeEvent):
-        self.Center()
+        # Antes, aca, se llamaba a `self.Center()` y se hacia un `print` en
+        # cada movimiento del mouse. Dos cosas malas: la ventana se iba para
+        # otro lado mientras el usuario la agranda con el borde (que es como
+        # falla el gesto entero), y cada redimensionado escribia una linea en
+        # la consola. El centrado va en `Center()`, que lo llama `exec_()`.
         QDialog.resizeEvent(self, QResizeEvent)
-        print(f"Alto {self.height()} Ancho {self.width()}")
 
     def addStatusBar(self, layout=None):
         if layout:

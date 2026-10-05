@@ -25,9 +25,25 @@ class ControladorBaseABM(ControladorBase):
 
     campoclave = None #campo clave para actualizar la tabla, tiene que ser caracter
 
+    # La vista se construye con esta clase, y el subclase la cambia por la
+    # suya.
+    #
+    # Antes el `__init__` de aca hacia `self.view = ABM()` y cada subclase la
+    # reemplazaba despues con la suya: se construian DOS ventanas por
+    # apertura, y la primera se descartaba al tiro. No rompia la pantalla,
+    # pero la descartada era un `ABM` sin columnas, y ahi se caia
+    # `Grillas._reparte_anchos` con `anchos[-1]` sobre una lista vacia. Ese
+    # IndexError salia en la consola cada vez que se abria Conditions de IVA
+    # o Categorias de monotributo, con la ventana funcionando y el operador
+    # pensando que se habia roto algo.
+    #
+    # `_reparte_anchos` tambien se tapo para que una grilla sin columnas no
+    # reviente nunca, pero aca no se construye la ventana que no sirve.
+    vistaClase = ABM
+
     def __init__(self):
         super().__init__()
-        self.view = ABM()
+        self.view = self.vistaClase()
         # self.conectarWidgets()
 
     def conectarWidgets(self):

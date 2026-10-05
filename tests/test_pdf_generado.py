@@ -36,13 +36,10 @@ if RAIZ not in sys.path:
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 
-class _CAE(object):
-    def text(self):
-        return "86400944641465"
-
-
 class _View(object):
-    lineditCAE = _CAE()
+    # El CAE vive en un atributo de la vista, no en un `EntradaTexto` con
+    # `.text()`. Ver `vistas/Facturas.py::MuestraAutorizacion`.
+    cae = "86400944641465"
 
 
 class _Cabfact(object):

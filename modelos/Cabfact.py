@@ -10,6 +10,7 @@ from modelos.Cajeros import Cajero
 from modelos.Clientes import Cliente
 from modelos.Formaspago import Formapago
 from modelos.ModeloBase import ModeloBase
+from modelos.Remitos import Remito
 from modelos.Tipocomprobantes import TipoComprobante
 from modelos.Tiporesp import Tiporesp
 
@@ -42,6 +43,14 @@ class Cabfact(ModeloBase):
     concepto = CharField(max_length=1, default='')
     desde = DateField(default='0000-00-00')
     hasta = DateField(default='0000-00-00')
+
+    # El remito que documento esta factura, si hubo. Es lo que evita que la
+    # mercaderia se descuente dos veces: el remito descuenta al salir, y la
+    # factura solo descuenta cuando este campo esta vacio. Antes de existir
+    # esta columna, una venta con remito + factura no tenia forma de saber
+    # que el STOCK ya habia bajado con el remito.
+    idremito = ForeignKeyField(Remito, backref='facturas',
+                               column_name='idremito', null=True)
 
     class Meta:
         table_name = 'cabfact'

@@ -29,6 +29,7 @@ from modelos.Grupos import Grupo
 from modelos.Impuestos import Impuesto
 from modelos.Localidades import Localidad
 from modelos.ModeloBase import db
+from modelos.MovStock import MovStock
 from modelos.ParametrosSistema import ParamSist
 from modelos.PercepcionesDGR import PercepDGR
 from modelos.Proveedores import Proveedor
@@ -42,6 +43,17 @@ from modelos.Unidades import Unidad
 
 
 class MigracionBaseDatos(ControladorBase):
+
+    # Los modelos con los que se arma el schema de una base vacia. Vive aca
+    # arriba y no metido dentro de MigrarVersion0 para poder mirarlo desde un
+    # test: el orden no es cualquiera (ver el docstring de MigrarVersion0) y
+    # el error sale en MySQL, que no se puede correr en todos lados.
+    MODELOS_INICIALES = [
+        Tipodoc, Tipoiva, Tiporesp, Unidad, CentroCosto, Grupo, Impuesto,
+        Localidad, Provincia, TipoComprobante, Articulo, Formapago, Cliente,
+        Cajero, Remito, DetalleRemito, Cabfact, Detfact, CpbteRel, Proveedor,
+        CabFactProv, DetFactProv, PercepDGR, CtaCte, EmailCliente,
+    ]
 
     migraciones = []
     error = False
@@ -87,6 +99,9 @@ class MigracionBaseDatos(ControladorBase):
         if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 7:
             self.MigrarVersion7()
 
+        if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 9:
+            self.MigrarVersion9()
+
         # No usa el migrator, y va antes de RealizaMigraciones: es una
         # correccion de DATOS, no de esquema, asi que tiene que correr tambien
         # en una base recien creada, donde las migraciones de esquema fallan
@@ -107,7 +122,7 @@ class MigracionBaseDatos(ControladorBase):
                 "fallidas, y el proximo arranque las reintenta.",
                 ParamSist.ObtenerParametro("VERSION_DB") or "0")
         else:
-            ParamSist.GuardarParametro("VERSION_DB", "8")
+            ParamSist.GuardarParametro("VERSION_DB", "9")
 
         if getattr(self, "_fk_sin_hacer", False):
             logging.info(
@@ -188,6 +203,30 @@ class MigracionBaseDatos(ControladorBase):
         self.migraciones.append(
             migrator.alter_column_type(tabla, columna, campo))
 
+    def _claves_foraneas(self, tabla):
+        """Las claves foraneas que ya tiene la tabla, o [] si no se puede saber."""
+        try:
+            return db.get_foreign_keys(tabla)
+        except Exception:
+            # Si la tabla no existe todavia no tiene claves, y si la base no se
+            # puede consultar la migracion va a fallar igual al aplicarse: mejor
+            # devolver la lista vacia que romper la lectura.
+            return []
+
+    def _tiene_clave_foranea(self, tabla, columna, tabla_ref, columna_ref):
+        for clave in self._claves_foraneas(tabla):
+            # El atributo de la columna se llama 'column' y no 'column_name'
+            # en peewee 3.17 (probado con MySQL 8.4). Se leen los dos porque
+            # este metodo decide si la app arranca en una base MySQL nueva, y
+            # no puede depender de la version de peewee instalada.
+            nombre_columna = getattr(clave, "column", None) \
+                or getattr(clave, "column_name", None)
+            if (str(nombre_columna) == str(columna)
+                    and str(clave.dest_table) == str(tabla_ref)
+                    and str(clave.dest_column) == str(columna_ref)):
+                return True
+        return False
+
     def _clave_foranea(self, migrator, tabla, columna, tabla_ref, columna_ref,
                        on_delete=None, on_update=None):
         if isinstance(migrator, SqliteMigrator):
@@ -196,6 +235,21 @@ class MigracionBaseDatos(ControladorBase):
             # de MySQL, y el error se comia. Una vez y basta.
             self._fk_sin_hacer = True
             return
+
+        # Si la clave ya esta, no se agrega otra. MySQL no admite dos claves
+        # foraneas con el mismo nombre y la migracion falla con 'Duplicate
+        # foreign key constraint name'.
+        #
+        # Pasa siempre en una base nueva: MigrarVersion0 crea cada tabla desde
+        # el modelo, que ya trae sus claves foraneas, y despues MigrarVersion1
+        # intenta volver a ponerlas. En sqlite no se nota porque aca no se
+        # hace nada, y por eso el error estaba escondido. Con MySQL, una
+        # instalacion desde cero fallaba la migracion, la version no se
+        # sellaba y el schema quedaba a medias: tablas que nunca se creaban
+        # y una app que no arrancaba.
+        if self._tiene_clave_foranea(tabla, columna, tabla_ref, columna_ref):
+            return
+
         self.migraciones.append(migrator.add_foreign_key_constraint(
             tabla, columna, tabla_ref, columna_ref,
             on_delete=on_delete, on_update=on_update))
@@ -248,12 +302,29 @@ class MigracionBaseDatos(ControladorBase):
         return self.migraciones_fallidas
 
     def MigrarVersion0(self):
+        """Crea el schema en una base vacia.
 
+        `Remito` y `DetalleRemito` van en la lista aunque sus tablas las cree
+        MigrarVersion7. No es redundancia: `Cabfact` tiene `idremito`, y MySQL
+        no crea una tabla que apunte a otra que no se este creando. Sin estas
+        dos aca, `create_tables` se corta al llegar a `cabfact`, se come el
+        error con el `except` de abajo, y la base queda con nueve tablas de
+        veintitrois: ni la version se sella ni el schema esta entero.
+
+        El ORDEN de la lista no importa: peewee lo resuelve por dependencias
+        antes de crear. Lo que importa es que esten TODAS, porque lo que no
+        esta en la lista peewee no lo inventa.
+
+        En sqlite no se nota nada, porque las claves foraneas no se aplican al
+        crear la tabla. Por eso la lista conviene no cambiarla sin probarla en
+        MySQL, con tools/probar_stock_mysql.py.
+        """
         try:
-            db.create_tables([Tipodoc, Tipoiva, Tiporesp, Unidad, CentroCosto, Grupo, Impuesto, Localidad, Provincia,
-                              TipoComprobante, Articulo, Formapago, Cliente, Cajero, Cabfact, Detfact, CpbteRel,
-                              Proveedor, CabFactProv, DetFactProv, PercepDGR, CtaCte, EmailCliente])
+            db.create_tables(self.MODELOS_INICIALES)
         except:
+            # Mudo a proposito: si se tirara, la app no arrancaria en una
+            # base a medio crear. El motivo queda en el log, y el estado
+            # final de la base dice que tablas quedaron.
             logging.error("Error:", sys.exc_info()[0])
 
     def InsertaDatosBasicos(self):
@@ -488,6 +559,62 @@ class MigracionBaseDatos(ControladorBase):
                 ultcomp=0,
                 letra='X'
             )
+
+    def MigrarVersion9(self):
+        """El stock: tabla de movimientos y las columnas que lo sostienen.
+
+        Que se agrega
+        -------------
+        1. `movstock`, la tabla de movimientos. El stock actual de un articulo
+           es la SUMA de sus movimientos, no un numero guardado. Ver el
+           docstring de modelos/MovStock.py para por que.
+        2. `articulos.controlastock` y `articulos.stockminimo`. El primero
+           decide si el articulo participa del control; el segundo es contra
+           el que se comparan para saber si falta.
+        3. `cabfact.idremito`. Sin esto no hay forma de saber si una factura
+           documento una mercaderia que ya salio con un remito, y la
+           mercaderia se descuenta dos veces.
+        4. `pdetalle.idarticulo`. El renglon de una factura de proveedor era
+           solo un texto; sin articulo la compra no puede mover el stock.
+
+        Por que el stock arranca en cero
+        ---------------------------------
+        No se reconstruye desde los comprobantes viejos, y es deliberado. Las
+        facturas que ya estan en la base no generaron movimientos, y no pueden
+        generarlos retroactivos: ocho anos de ventas sobre el catalogo de hoy
+        darian un numero sin meaning. El stock lo define el inventario inicial
+        que carga el operador (movimientos con origen='INICIAL').
+
+        Idempotencia
+        ------------
+        En una base recien creada, MigrarVersion0 ya creo el schema final con
+        los modelos actualizados: las columnas existen y `movstock` se crea
+        con safe=True, que no falla si ya esta. Entonces no queda ninguna
+        migracion SQL pendiente, que es lo que exige
+        test_una_instalacion_nueva_no_genera_sql_de_migracion.
+        """
+        try:
+            db.create_tables([MovStock], safe=True)
+        except Exception as e:
+            logging.warning("No se pudo crear la tabla de stock: %s", e)
+
+        migrator = self.migrator
+        # playhouse.migrate no trae BooleanField, y el bit se guarda como
+        # entero en los dos motores igual (ver ModeloBase.BitBooleanField).
+        colbit = IntegerField(default=0)
+        colcantidad = DecimalField(default=0, max_digits=12, decimal_places=4)
+        colreferencia = IntegerField(null=True)
+
+        self._agregar_columna(migrator, 'articulos', 'controlastock', colbit)
+        self._agregar_columna(migrator, 'articulos', 'stockminimo', colcantidad)
+        self._agregar_columna(migrator, 'cabfact', 'idremito', colreferencia)
+        self._agregar_columna(migrator, 'pdetalle', 'idarticulo', colreferencia)
+
+        # Las referencias a comprobantes quedan sin clave foranea a proposito
+        # en sqlite, que no las puede agregar (ver _clave_foranea).
+        self._clave_foranea(migrator, 'cabfact', 'idremito', 'remito', 'idremito')
+        self._clave_foranea(migrator, 'pdetalle', 'idarticulo', 'articulos',
+                            'idarticulo')
 
     def CorregirCondicionIvaReceptor(self):
         """Arregla la condicion de IVA del receptor de las bases viejas.

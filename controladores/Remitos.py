@@ -5,6 +5,7 @@ from controladores.FPDFv1 import FEPDFv1
 from controladores.ControladorBase import ControladorBase
 from controladores.FE import FEv1, PyQRv1
 from libs import Ventanas, Constantes
+from libs import stock
 from libs.Utiles import DeCodifica, FechaMysql, FormatoFecha, LeerIni, getFileName, imagen, inicializar_y_capturar_excepciones, ubicacion_sistema, formato_cuit, a_entero, escribir_pdf
 from libs.instalacion import cuit_emisor
 from libs.visor import abrir_pdf
@@ -33,6 +34,7 @@ class RemitoController(ControladorBase):
     def conectarWidgets(self):
         self.view.btn_cerrar.clicked.connect(self.view.Cerrar)
         self.view.btn_guardar.clicked.connect(self.Guardar)
+        self.view.btn_facturar.clicked.connect(self.FacturarDesdeRemito)
         self.view.btn_borrar.clicked.connect(self.Borrar)
         self.view.grilla.keyPressed.connect(self.onKeyPressedGridFactura)
         self.view.tipo_comprobante.editingFinished.connect(self.onTipoComprobanteEditingFinished)
@@ -42,6 +44,20 @@ class RemitoController(ControladorBase):
     def Guardar(self, *args, **kwargs):
         if not self.Validaciones():
             return
+        idremito = self._guarda()
+        if idremito is None:
+            return
+        self.Imprimir(idremito)
+        self.view.Cerrar()
+
+    def _guarda(self):
+        """Guarda el remito y sus renglones. Devuelve su id, o None.
+
+        Acá esta todo el guardado, y no en Guardar(), porque el boton
+        Facturar hace lo mismo y despues abre la factura. Si el guardado
+        estuviera entero en Guardar(), ese boton tendria que duplicarlo o
+        Guardar() cerraria la pantalla antes de poder facturar.
+        """
         if self.modifica:
             ultimo_comprobante = self.view.numero.numero
         else:
@@ -59,10 +75,19 @@ class RemitoController(ControladorBase):
         remito.tipo_comprobante = self.view.tipo_comprobante.text()
         remito.estado = 'A'
         remito.save()
-        
+
         if self.modifica: #si se esta modificando el remito se borra todos los detalles
+            # Y con ellos hay que devolver lo que se habia descontado la vez
+            # anterior, ANTES de escribir los renglones nuevos. Si se hiciera
+            # al reves, cada edicion de un remito dejaria el stock mas bajo
+            # que el anterior, sin que ninguna pantalla avise: los movimientos
+            # viejos se quedan y se suman a los nuevos.
+            stock.revierte_de_comprobante(
+                idremito=remito.idremito,
+                observacion="Remito modificado")
             DetalleRemito.delete().where(DetalleRemito.remito == remito.idremito).execute()
-            
+
+        detalles = []
         for row in range(self.view.grilla.rowCount()):
             detalle = DetalleRemito()
             detalle.remito = remito.idremito
@@ -72,8 +97,46 @@ class RemitoController(ControladorBase):
             detalle.precio = self.view.grilla.ObtenerItem(fila=row, col='Unitario')
             detalle.tipo_iva = Articulo.get_by_id(detalle.producto).tipoiva
             detalle.save()
-        self.Imprimir(remito.idremito)
-        self.view.Cerrar()            
+            detalles.append(detalle)
+
+        # El remito es la salida de la mercaderia: se descuenta aqui y no
+        # cuando la factura llegue. Al reves, el inventario quedaria corrido
+        # entre que sale el remito y se cobra la factura. Y la factura que
+        # sale de este remito no vuelve a descontar, porque va con idremito
+        # puesto: la regla esta en libs/stock.py::aplica_factura.
+        stock.aplica_remito(detalles, idremito=remito.idremito)
+
+        return remito.idremito
+
+    @inicializar_y_capturar_excepciones
+    def FacturarDesdeRemito(self, *args, **kwargs):
+        """Guarda el remito y abre la factura con la mercaderia que sale.
+
+        Se abre el formulario de emision y no se emite directo, al reves que en
+        la venta rapida: aca la mercaderia ya salio y lo que se esta haciendo
+        es cobrarla, asi que el operador tiene que poder revisar el importe
+        antes de mandarlo a ARCA.
+        """
+        if not self.Validaciones():
+            return
+
+        if not Ventanas.showConfirmation(
+                "Facturar el remito",
+                "Se va a guardar el remito y abrir la factura con esta "
+                "mercadería.\n\nRevise el importe antes de emitir.",
+                textoOk="Abrir la factura", textoCancelar="Volver al remito"):
+            return
+
+        idremito = self._guarda()
+        if idremito is None:
+            return
+
+        from controladores.Facturas import FacturaController
+
+        factura = FacturaController()
+        factura.cargar_desde_remito(idremito)
+        factura.exec_()
+        self.view.Cerrar()
     
     @inicializar_y_capturar_excepciones
     def onKeyPressedGridFactura(self, key, *args, **kwargs):

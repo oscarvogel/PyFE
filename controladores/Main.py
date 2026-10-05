@@ -67,6 +67,8 @@ from controladores.RG3685Ventas import RG3685VentasController
 from controladores.ReImprimeFactura import ReImprimeFacturaController
 from controladores.ReImprimeRemito import ReImprimeRemitoController
 from controladores.Remitos import RemitoController
+from controladores.Stock import (AjustesStockController, MovimientosStockController,
+                                StockController)
 from controladores.RindeCAEAIndividual import RindeCAEAIndividualController
 from controladores.TipoComprobantes import TipoComprobantesController
 from controladores.Resguardo import ResguardoController
@@ -109,6 +111,30 @@ class Main(ControladorBase):
         self.AvisarPendientesDeInstalacion()
         self.conectarWidgets()
         self.initUi()
+
+    def chequearActualizaciones(self):
+        """Pregunta a vogel-releases si hay una version nueva.
+
+        NO se llama desde __init__. Lo llama `main.py` una vez que la ventana
+        esta en pantalla, y en un build de produccion.
+
+        Que no sea el constructor importa: construir `Main()` dispara la red
+        y puede abrir un dialogo, asi que cualquier test que arme el
+        controlador (tests/test_componentes.py, por ejemplo) se comeria una
+        descarga de verdad y se quedaria esperando. El chequeo de version es
+        del arranque de la aplicacion, no de armar sus piezas.
+        """
+        from controladores.Actualizador import ActualizadorController
+
+        try:
+            controlador = ActualizadorController()
+            if not controlador.habilitado():
+                return None
+            return controlador.chequear_al_arranque(parent=self.view)
+        except Exception as e:
+            print("No se pudo chequear actualizaciones: {}".format(
+                type(e).__name__))
+            return None
 
     def AvisarPendientesDeInstalacion(self):
         """Dice que falta para poder emitir, si falta algo.
@@ -221,7 +247,13 @@ class Main(ControladorBase):
             "enviar-email": lambda: self._abrir(EnvioEmailController),
 
             # -- Stock
+            # Stock primero: es la pantalla que se abre todos los dias, y
+            # productos van juntos. Los ajustes y los movimientos son de a
+            # ratos, asi que van despues.
+            "stock": lambda: self._abrir(StockController, usar_exec=False),
             "productos": lambda: self._abrir(ArticulosController, usar_exec=False),
+            "ajustes-stock": lambda: self._abrir(AjustesStockController),
+            "movimientos-stock": lambda: self._abrir(MovimientosStockController),
             "grupos": lambda: self._abrir(ABMGruposController),
             "impuestos": lambda: self._abrir(ABMImpuestoController),
             "informe-ventas-grupo": lambda: self._abrir(InformeVentasPorGrupoController,

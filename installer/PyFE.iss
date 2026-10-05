@@ -18,7 +18,12 @@
 ; ==============================================================
 
 #define AppName "Asiento"
-#define AppVersion "0.8.10"
+; AppVersion llega por linea de comandos: `iscc /DAppVersion=2026.10.05.08.37.00`
+; (lo hace release.ps1). El valor de abajo es solo el de desarrollo, para que
+; `iscc PyFE.iss` a pelo siga compilando.
+#ifndef AppVersion
+  #define AppVersion "0.9.0"
+#endif
 #define AppPublisher "Vogel Consultoria"
 #define AppExeName "main.exe"
 #define AppMutex "AsientoInstallerMutex"

@@ -22,16 +22,23 @@ from PyQt5.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox,
                              QFormLayout, QGroupBox, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QVBoxLayout)
 
+from libs.Formulario import Formulario
 
-class ConfiguracionCorreoView(QDialog):
-    """Datos del servidor de correo saliente, con botón de prueba."""
+
+class ConfiguracionCorreoView(Formulario):
+    """Datos del servidor de correo saliente, con botón de prueba.
+
+    Hereda de `Formulario` y no de `QDialog` a proposito: es la unica pantalla
+    que se saltaba la base comun, y por eso no TOMABA el piso de tamano que
+    pone `Formulario.showEvent`. Quedaba en 460 px de ancho, con los campos
+    de SMTP apretados de a tres por fila.
+    """
 
     def __init__(self, parent=None, controlador=None):
-        super(ConfiguracionCorreoView, self).__init__(parent)
+        Formulario.__init__(self, parent=None)
         self.controlador = controlador
         self.setWindowTitle("Correo de reportes de errores")
         self.setObjectName("dialogoCorreo")
-        self.setMinimumWidth(460)
 
         vertical = QVBoxLayout(self)
         vertical.setSpacing(10)

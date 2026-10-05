@@ -12,6 +12,7 @@ from libs.Grillas import Grilla
 from libs.Spinner import Periodo
 from libs.Utiles import imagen, icono
 from modelos import Proveedores, Tipocomprobantes
+from modelos.Articulos import Articulo
 from modelos.CentroCostos import CentroCosto
 from vistas.Busqueda import UiBusqueda
 
@@ -135,17 +136,44 @@ class CargaFacturaProveedorView(Formulario):
 
 class GrillaFactProv(Grilla):
 
+    # El indice de 'Producto'. Va al final a proposito: la grilla ya usaba los
+    # indices de las columnas viejas en el F2 del centro de costos, en el salto
+    # de fila con Enter y en el calculo de totales, y meter una columna en el
+    # medio correria los tres sin que se note. Agregandola al final, lo que
+    # hay que tocar es una sola linea.
+    COL_PRODUCTO = 7
+
     def __init__(self, *args, **kwargs):
         Grilla.__init__(self, *args, **kwargs)
         cabecera = [
-            'Ctro Costos', 'Cantidad', 'Neto', 'IVA', 'Detalle', 'Nombre Ctro Costos', 'Total'
+            'Ctro Costos', 'Cantidad', 'Neto', 'IVA', 'Detalle',
+            'Nombre Ctro Costos', 'Total',
+            # El producto va ultimo y es OPCIONAL: una factura de proveedor
+            # tiene gastos, impuestos y servicios que no entran al inventario.
+            # Si fuera obligatorio, habria que inventar un producto "varios"
+            # para que el renglon se pueda guardar, y ese producto terminaria
+            # con stock real. Vacio significa "este renglon no mueve stock".
+            'Producto', 'Nombre Producto',
         ]
-        self.ArmaCabeceras(cabeceras=cabecera)
+        self.ArmaCabeceras(cabeceras=cabecera, formatos=[
+            # El orden tiene que ser el de las columnas. Sin esto, "Cantidad",
+            # "Neto", "IVA" y "Total" no son columnas numericas para la
+            # grilla: se reparten como texto corto y quedan de 56 px, con el
+            # importe pegado al borde. Un importe de siete digitos necesita
+            # 110 px aunque el encabezado tenga tres letras.
+            'Entero',        # Ctro Costos
+            'Cantidad',      # Cantidad
+            'Moneda',        # Neto
+            'Moneda',        # IVA
+            'String',        # Detalle
+            'String',        # Nombre Ctro Costos
+            'Moneda',        # Total
+            'Entero',        # Producto
+            'String',        # Nombre Producto
+        ])
         self.enabled = True
-        self.columnasHabilitadas = [0, 1, 2, 3, 4]
-        item = [
-            '', '', '', '', '', ''
-        ]
+        self.columnasHabilitadas = [0, 1, 2, 3, 4, self.COL_PRODUCTO]
+        item = ['', '', '', '', '', '', '', '', '']
         for i in range(8):
             self.AgregaItem(items=item)
 
@@ -167,6 +195,23 @@ class GrillaFactProv(Grilla):
                     self.ModificaItem(fila=self.currentRow(), col=self.currentColumn(), valor=ventana.ValorRetorno)
                     self.ModificaItem(fila=self.currentRow(), col='Nombre Ctro Costos', valor=ventana.campoRetornoDetalle)
 
+            elif self.currentColumn() == self.COL_PRODUCTO:
+                ventana = UiBusqueda()
+                ventana.modelo = Articulo
+                ventana.cOrden = "nombre"
+                ventana.limite = 100
+                ventana.campos = ["idarticulo", "nombre"]
+                ventana.campoBusqueda = Articulo.nombre
+                ventana.campoRetorno = Articulo.idarticulo
+                ventana.campoRetornoDetalle = Articulo.nombre
+                ventana.CargaDatos()
+                ventana.exec_()
+                if ventana.lRetval:
+                    self.ModificaItem(fila=self.currentRow(), col='Producto',
+                                     valor=ventana.ValorRetorno)
+                    self.ModificaItem(fila=self.currentRow(), col='Nombre Producto',
+                                     valor=ventana.campoRetornoDetalle)
+
         elif event.key() in [Qt.Key_Return, Qt.Key_Enter, Qt.Key_Tab]:
             codigo = self.ObtenerItem(fila=self.currentRow(), col='Ctro Costos')
             try:
@@ -175,12 +220,29 @@ class GrillaFactProv(Grilla):
                                   valor=ctro.nombre)
             except CentroCosto.DoesNotExist:
                 pass
+
+            if self.currentColumn() == self.COL_PRODUCTO:
+                self._completa_nombre_producto(self.currentRow())
+
             if event.key() in [Qt.Key_Enter, Qt.Key_Return]:
-                if self.currentColumn() >= 4:
+                if self.currentColumn() >= self.COL_PRODUCTO:
                     self.setCurrentCell(self.currentRow() + 1, 0)
                 else:
                     self.setCurrentCell(self.currentRow(), self.currentColumn() + 1)
         super(GrillaFactProv, self).keyPressEvent(event)
+
+    def _completa_nombre_producto(self, fila):
+        """Escribe el nombre del producto al elegir el codigo, como el centro
+        de costos. Un renglon con el codigo del producto y el nombre vacio se
+        ve como un error de tipeo; con los dos llenos, se ve como lo que es."""
+        codigo = self.ObtenerItem(fila=fila, col='Producto')
+        if not codigo:
+            return
+        try:
+            articulo = Articulo.get_by_id(codigo)
+        except Articulo.DoesNotExist:
+            return
+        self.ModificaItem(fila=fila, col='Nombre Producto', valor=articulo.nombre)
 
 
 class PercepDGRView(Formulario):

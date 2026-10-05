@@ -163,7 +163,19 @@ def test_toda_clave_de_configuracion_convertida_existe_en_el_ini():
 # vistas/ABM.py tiene dos primarios a proposito: "Nuevo" vive en la pestaña
 # Lista y "Guardar" en la pestana Detalle. Nunca se ven juntos, y cada
 # pestana tiene su propia accion principal.
-EXCEPCIONES_PRIMARIOS = {"vistas/ABM.py": 2}
+#
+# vistas/Stock.py es lo mismo con ventanas en vez de pestanas: "Ajustar" es
+# la accion principal de la consulta y "Grabar" de la de ajuste. La de ajuste
+# se abre desde la de consulta, asi que las dos ventanas nunca coexisten.
+# vistas/Facturas.py tiene dos primarios a proposito: "Emitir factura" esta
+# visible antes de autorizar y "Imprimir" despues. Son el mismo boton en dos
+# estados, no dos acciones que compitan.
+#
+# vistas/Stock.py es lo mismo con ventanas en vez de estados: "Ajustar" es la
+# accion principal de la consulta y "Grabar" de la de ajuste. La de ajuste
+# se abre desde la de consulta, asi que las dos ventanas nunca coexisten.
+EXCEPCIONES_PRIMARIOS = {"vistas/ABM.py": 2, "vistas/Stock.py": 2,
+                         "vistas/Facturas.py": 2}
 
 
 def test_ninguna_pantalla_tiene_dos_acciones_principales():
