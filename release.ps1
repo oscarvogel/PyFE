@@ -228,6 +228,31 @@ $Sha = $null
 
 Push-Location $RepoRoot
 try {
+    # ------------------------------------------------- stderr no es un fallo
+    #
+    # El script corre con $ErrorActionPreference = "Stop", y con la salida
+    # capturada (una redireccion o una tuberia) PowerShell convierte CADA
+    # linea de stderr de un comando nativo en un error TERMINANTE. El problema
+    # es que casi todas las herramientas de este release escriben por stderr
+    # aunque todo vaya bien:
+    #
+    #   PyInstaller   todas sus lineas INFO, y escribe TODO ahi
+    #   gh auth      su estado de sesion
+    #   gh release    el progreso de la subida
+    #   git push      todo lo que responde
+    #   git clone     lo mismo
+    #
+    # Con "Stop" el release moria en la primera linea de INFO de PyInstaller,
+    # despues de mas de un minuto de compilacion, y el error que reportaba era
+    # esa linea de INFO, no el problema real. Se manifesto el 2026-10-05 al
+    # publicar con el arreglo del PDF.
+    #
+    # Relajar la preference NO afloja la deteccion de fallos: cada paso de este
+    # script mira $LASTEXITCODE y llama a Die si no es cero, y todos los pasos
+    # que importan son comandos nativos. Un fallo real tambien da codigo
+    # distinto de cero. El finally de mas abajo vuelve a poner "Stop".
+    $ErrorActionPreference = "Continue"
+
     # ---------------------------------------------------- 2. tests
 
     # Los tests van PRIMERO, con el arbol en estado de desarrollo.
@@ -252,8 +277,25 @@ try {
     # ---------------------------------------------------- 3. build
 
     Write-Paso "Compilando con PyInstaller"
-    & cmd /c compila.bat
-    if ($LASTEXITCODE -ne 0) { Die "Fallo la compilacion." }
+    # PyInstaller escribe TODO por stderr, incluso los INFO del exito, y este
+    # script corre con $ErrorActionPreference = "Stop". Con la salida
+    # capturada (una redireccion o una tuberia), PowerShell convierte cada
+    # linea de stderr de un comando nativo en un error TERMINANTE: el build
+    # se mataba en la primera linea de INFO, despues de mas de un minuto de
+    # trabajo. Aparecio el 2026-10-05 al publicar con el arreglo del PDF.
+    #
+    # La preference se relaja SOLO alrededor del build y el resultado se mira
+    # por el codigo de salida, que es lo unico que dice si compilo. Un fallo
+    # real de PyInstaller tambien da codigo distinto de cero.
+    $PreferenciaPrevia = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & cmd /c compila.bat
+        $CodigoCompilacion = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $PreferenciaPrevia
+    }
+    if ($CodigoCompilacion -ne 0) { Die "Fallo la compilacion (codigo $CodigoCompilacion)." }
     if (-not (Test-Path "dist\main.exe")) { Die "No quedo dist\main.exe." }
 
     # ---------------------------------- 4. distribucion y configuracion
@@ -330,8 +372,21 @@ try {
     Write-Paso "Preparando los manifiestos"
 
     if ($Token) { $env:GH_TOKEN = $Token }
-    & gh auth status 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { Die "gh no esta autenticado. Pasale -Token o logueate." }
+    # `gh auth status` escribe por stderr (es su comportamiento normal) y este
+    # script corre con $ErrorActionPreference = "Stop": con la redireccion
+    # puesta aca adentro, PowerShell convierte esa salida en error terminante
+    # y el release muere aunque gh este autenticado. Se relaja la preference y
+    # el resultado se mira por el codigo de salida, que es lo que dice si hay
+    # sesion.
+    $PreferenciaPrevia = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & gh auth status 2>&1 | Out-Null
+        $CodigoAuth = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $PreferenciaPrevia
+    }
+    if ($CodigoAuth -ne 0) { Die "gh no esta autenticado. Pasale -Token o logueate." }
 
     $ListaNotas = Get-ListaNotas -NotasPedidas $Notas -Version $BuildVersion
     Write-Ok ("notas: " + ($ListaNotas -join " | "))
@@ -407,6 +462,11 @@ try {
 }
 finally {
     # ------------------------------------------------------ 10. restaurar
+
+    # La preferencia se relajo arriba para que el stderr de PyInstaller, gh y
+    # git no matara el release. Sin restaurarla aca se filtra a la sesion de
+    # quien ejecuto el script.
+    $ErrorActionPreference = "Stop"
 
     Write-Paso "Restaurando el estado de desarrollo"
     Push-Location $RepoRoot

@@ -15,8 +15,16 @@ REM Los `rd` llevan `if exist` porque en un build limpio (la primera vez, o
 REM despues de borrar dist\) no hay nada que borrar y el `rd` escribe "El
 REM sistema no puede encontrar el archivo especificado". Es ruido que hace
 REM creer que fallo algo, cuando el build salio bien.
+REM
+REM OJO: el .exe se borra con `del`, NO con `rd`. `rd` es rmdir, que solo
+REM borra carpetas: aplicado a un archivo escribe "El nombre del directorio no
+REM es valido" en stderr. El build seguia igual (PyInstaller lo pisa), pero
+REM release.ps1 tiene $ErrorActionPreference = "Stop" y PowerShell convierte
+REM cualquier linea de stderr de un comando nativo en error TERMINANTE: mataba
+REM un build de mas de un minuto por un aviso que no era un error. Esto se
+REM manifesto el 2026-10-05, al publicar con el arreglo del PDF.
 if exist dist\main rd /S /Q dist\main
-if exist dist\main.exe rd /S /Q dist\main.exe
+if exist dist\main.exe del /F /Q dist\main.exe
 
 python -m PyInstaller --clean --hidden-import=httplib2 --collect-data httplib2 --version-file=version.txt -w -F --workpath "%TEMP%\pyfe-build" --icon="imagenes\marca\logo-vogel.ico" main.py
 if errorlevel 1 (
