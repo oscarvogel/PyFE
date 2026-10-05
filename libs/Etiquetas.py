@@ -1,7 +1,7 @@
 # coding=utf-8
 from PyQt5 import QtCore
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QLabel
+from PyQt5.QtWidgets import QLabel, QSizePolicy
 
 
 class Etiqueta(QLabel):
@@ -35,6 +35,13 @@ class EtiquetaTitulo(Etiqueta):
         # objectName: mismo resultado en todas las pantallas y sin que cada
         # titulo lleve su propio color pegado.
         self.setObjectName("tituloPantalla")
+
+        # Un titulo es UNA linea y no crece nunca. Sin esto su politica
+        # vertical es Expanding y el QVBoxLayout le pasa todo el sobrante:
+        # medido, en el dialogo de "Cantidad y precio" ocupaba 307 px de alto
+        # para 20 px de texto, y el nombre del producto quedaba flotando en
+        # el medio de la ventana con los dos campos abajo de todo.
+        self.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Fixed)
 
 class EtiquetaRoja(Etiqueta):
 

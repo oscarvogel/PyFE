@@ -55,6 +55,7 @@ from controladores.Facturas import FacturaController
 from controladores.FirmaCorreoElectronico import FirmaCorreoElectronicoController
 from controladores.GeneraCertificados import GeneraCertificadosController
 from controladores.ImportacionAFIP import ImportaAFIPController
+from controladores.ImportarArticulos import ImportarArticulosController
 from controladores.InformeRecategorizacionMonotributo import InfRecMonotributoController
 from controladores.InformeVentasPorGrupo import InformeVentasPorGrupoController
 from controladores.IVACompras import IVAComprasController
@@ -252,6 +253,7 @@ class Main(ControladorBase):
             # ratos, asi que van despues.
             "stock": lambda: self._abrir(StockController, usar_exec=False),
             "productos": lambda: self._abrir(ArticulosController, usar_exec=False),
+            "importar-articulos": lambda: self._abrir(ImportarArticulosController),
             "ajustes-stock": lambda: self._abrir(AjustesStockController),
             "movimientos-stock": lambda: self._abrir(MovimientosStockController),
             "grupos": lambda: self._abrir(ABMGruposController),

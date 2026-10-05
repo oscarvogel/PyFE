@@ -289,6 +289,85 @@ def test_un_ajuste_con_observacion_se_guarda(qt, base, monkeypatch):
     assert movimiento.observacion == "Conteo fisico de ayer"
 
 
+def test_marcar_productos_avisa_cuantos_servicios_quedaron_afuera(qt, base,
+                                                                 monkeypatch):
+    """El boton tiene que decir que no toco los servicios.
+
+    Sin este aviso, el operador marca y ve "listo", cree que todo el catalogo
+    quedo controlado, y meses despues descubre que los servicios no lo
+    quedaron. El mensaje es la unica parte del cambio que sea reversible con
+    un clic.
+
+    Se capturan los mensajes en vez de responder a pelo: showAlert es modal y
+    en un test bloquearia, y ademas queremos poder ASSERT sobre lo que dijo.
+    """
+    from controladores.Stock import StockController
+    from libs import stock
+
+    alertas = []
+    monkeypatch.setattr("libs.Ventanas.showConfirmation",
+                        lambda *a, **k: True)
+    monkeypatch.setattr("libs.Ventanas.showAlert",
+                        lambda titulo, mensaje, *a, **k: alertas.append(
+                            (titulo, mensaje)))
+
+    # Los dos sin marcar: el producto es el que se tiene que marcar.
+    stock.Articulo.update(controlastock=False).execute()
+
+    controller = StockController()
+    controller.view.show()
+    qt.processEvents()
+
+    controller.MarcarProductos()
+
+    assert stock.controla(stock.Articulo.get_by_id(1)) is True, \
+        "el producto tiene que quedar controlado"
+    assert stock.controla(stock.Articulo.get_by_id(2)) is False, \
+        "el servicio no se toca"
+
+    finales = [m for _t, m in alertas]
+    assert any("1 producto" in m for m in finales), \
+        "no dice cuantos productos marco: {}".format(finales)
+    assert any("servicio" in m for m in finales), \
+        "no dice que los servicios quedaron afuera: {}".format(finales)
+    controller.view.Cerrar()
+
+
+def test_marcar_productos_no_pide_confirmacion_si_no_hay_nada_que_marcar(
+        qt, base, monkeypatch):
+    """Con el catalogo ya controlado, avisar "marcar 0 productos" es ruido.
+
+    Y tiene que avisar igual, aunque lo unico que quede sea un servicio: si
+    no dice nada, el operador no sabe si el boton esta roto.
+    """
+    from controladores.Stock import StockController
+    from libs import stock
+
+    alertas = []
+    monkeypatch.setattr("libs.Ventanas.showConfirmation",
+                        lambda *a, **k: True)
+    monkeypatch.setattr("libs.Ventanas.showAlert",
+                        lambda titulo, mensaje, *a, **k: alertas.append(
+                            (titulo, mensaje)))
+
+    # GASOLINA controlado (viene asi en el seed), MANTENIMIENTO sin marcar.
+    stock.Articulo.update(controlastock=True).where(
+        stock.Articulo.idarticulo == 1).execute()
+
+    controller = StockController()
+    controller.view.show()
+    qt.processEvents()
+
+    controller.MarcarProductos()
+
+    assert len(alertas) == 1, \
+        "tiene que avisar una sola vez: {}".format(alertas)
+    assert "servicio" in alertas[0][1], \
+        "tiene que explicar que los servicios no se controlan: {}".format(
+            alertas[0])
+    controller.view.Cerrar()
+
+
 def test_el_aviso_de_faltantes_acumula_el_mismo_producto_dos_veces(qt, base):
     """Dos renglones del mismo producto se comparan juntos, no uno por uno.
 

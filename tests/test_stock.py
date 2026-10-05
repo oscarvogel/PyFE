@@ -559,6 +559,57 @@ def test_marcar_como_controlados_pasa_todo_lo_que_falta(base):
     acordarse de tildar veinte casillas."""
     from libs import stock
 
+    # El seed viene con GASOLINA ya controlado, asi que sin esto no habria
+    # ningun producto que marcar y el atajo no tendria nada que hacer.
+    stock.Articulo.update(controlastock=False).where(
+        stock.Articulo.idarticulo == 1).execute()
+
     assert stock.marcar_como_controlados() == 1
-    assert stock.sin_controlar() == []
-    assert stock.controla(stock.Articulo.get_by_id(2)) is True
+    assert stock.sin_controlar(incluir_servicios=False) == []
+    assert stock.controla(stock.Articulo.get_by_id(2)) is False, \
+        "el articulo 2 es MANTENIMIENTO, un servicio: marcarlo de masse lo " \
+        "manda a negativo con la primera venta"
+
+
+def test_marcar_productos_no_toca_los_servicios(base):
+    """El atajo marca productos, no todo lo que este en False.
+
+    Este es el bug que tenia: `marcar_como_controlados()` sin argumentos ponia
+    controlastock=True en TODO lo que estaba en False, y en un catalogo de
+    comercio general eso incluye los servicios. Un servicio marcado produce un
+    movimiento de stock en cada venta, queda en negativo para siempre y llena
+    el reporte de faltantes con filas que no significan nada.
+
+    El campo `controlastock` sigue siendo explicito y no deducido (ver
+    modelos/Articulos.py): un producto que no se inventa se desmarca en
+    Productos. Lo que no puede ser es que un boton de masse lo marque.
+    """
+    from libs import stock
+
+    stock.Articulo.update(controlastock=False).execute()
+
+    marcados = stock.marcar_como_controlados()
+
+    assert marcados == 1, \
+        "solo se marca GASOLINA (concepto 1); marcados={}".format(marcados)
+    assert stock.controla(stock.Articulo.get_by_id(1)) is True
+    assert stock.controla(stock.Articulo.get_by_id(2)) is False, \
+        "MANTENIMIENTO es un servicio y no se marca"
+
+
+def test_los_servicios_sin_controlar_se_pueden_preguntar(base):
+    """La pantalla los necesita para decir cuantos quedaron afuera.
+
+    Sin esto, marcar producto no puede avisar "marqué 12, quedaron 3 servicios
+    sin tocar", y el operador cree que marco todo el catalogo.
+    """
+    from libs import stock
+
+    pendientes = stock.sin_controlar(incluir_servicios=False)
+    servicios = stock.sin_controlar(solo_servicios=True)
+
+    assert [a.idarticulo for a in pendientes] == [], \
+        "GASOLINA viene controlado en el seed, asique el unico que queda sin " \
+        "controlar es el servicio"
+    assert [a.idarticulo for a in servicios] == [2], \
+        "MANTENIMIENTO es el unico servicio del catalogo de prueba"

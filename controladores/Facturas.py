@@ -1453,44 +1453,13 @@ class FacturaController(ControladorBase):
                 "plantilla normalizada para fpdf2: %s alineaciones, %s fuentes, "
                 "%s fondos heredados puestos en blanco",
                 _alineados, _fuentes, _fondos)
-        num_copias = a_entero(LeerIni(clave='num_copias', key='FACTURA'), 1) #original, duplicado y triplicado
-        lineas_max = 24 #cantidad de linas de items por página
-        qty_pos = "izq" #(cantidad a la izquierda de la descripción del artículo)
-        #Proceso la plantilla
-        ok = pyfpdf.ProcesarPlantilla(num_copias, lineas_max, qty_pos)
+        # El render y la escritura van en otro metodo: cuando el render falla
+        # hay que cortar ANTES de escribir, y con todo esto adentro de un
+        # metodo de 300 lineas el corte se pasa por alto. Ver el metodo.
+        ok, salida = self._renderizar_y_escribir(pyfpdf, cabfact, salida)
         if not ok:
-            logging.error("ProcesarPlantilla fallo para la factura %s: %s",
-                          cabfact.numero, getattr(pyfpdf, "Excepcion", ""))
-
-        # El PDF se arma a un temporal y recien despues se pasa al destino. Si
-        # el destino esta abierto en un visor, escribirlo directo lo trunca a
-        # cero bytes y se pierde el comprobante anterior. Ver escribir_pdf.
-        try:
-            if salida is None:
-                salida = join('facturas', "{}-{}.pdf".format(
-                    cabfact.tipocomp.nombre.replace(" ", "_"), cabfact.numero))
-            generado, salida, motivo = escribir_pdf(pyfpdf.GenerarPDF, salida)
-        except Exception as error:
-            # Si la ruta no se puede escribir, se cae al archivo que le
-            # sugiera el sistema. Es lo que hacia antes, con la diferencia de
-            # que la vista previa ya trae su propia ruta.
-            cArchivo = getFileName("factura", False)
-            salida = cArchivo + '.pdf'
-            generado, salida, motivo = escribir_pdf(pyfpdf.GenerarPDF, salida)
-        ok = generado
-
-        # Que exista el archivo es lo unico que prueba que se genero.
-        #
-        # Antes se devolvia True siempre. Si la plantilla falla (por ejemplo
-        # porque la libreria de PDF no es la que espera el proyecto) la
-        # factura queda IGUAL autorizada en ARCA, pero sin documento: el
-        # usuario cerraba creyendo que habia hecho todo y el cliente no
-        # recibia nada. Es el peor resultado posible, porque una factura
-        # autorizada no se puede deshacer.
-        #
-        # Aca se avisa, y se avisa con el CAE, que es lo que hace falta para
-        # volver a imprimirla despues desde Reimprimir factura.
-        if not self._pdf_generado(salida, ok, pyfpdf, cabfact, motivo):
+            # El aviso con el CAE ya lo dio _pdf_generado. Aca solo queda no
+            # dejar el comprobante a medias.
             self.facturaGenerada = None
             return False
 
@@ -1512,6 +1481,70 @@ class FacturaController(ControladorBase):
         self.facturaGenerada = salida
         return True
 
+    def _renderizar_y_escribir(self, pyfpdf, cabfact, salida=None):
+        """Renderiza la plantilla y escribe el PDF. Si algo falla, no escribe.
+
+        Devuelve `(ok, salida)`.
+
+        Por que el corte del render esta aca y no despues
+        --------------------------------------------------
+        `ProcesarPlantilla` devuelve False cuando la plantilla no se puede
+        pintar, y en ese caso pyfepdf deja la plantilla CON UNA HOJA DE ERROR
+        pegada: el traceback en `%TEMP%\\traceback.txt` y una linea roja con
+        "Excepcion <nombre>:<linea>", y todo lo que no llego a llenarse sigue
+        vacio.
+
+        Antes, despues de loguear ese False, se llamaba igual a `GenerarPDF`.
+        Eso escribia esa hoja de error con el nombre de la factura: un PDF de
+        21 KB con todos los campos vacios y numero 0000-00000000, al lado de las
+        facturas de verdad, que pesan 940 KB. Peor: como el archivo SI se
+        escribia, `_pdf_generado` lo daba por generado, la app no avisaba nada y
+        le abria ese PDF al operador creyendo que era la factura.
+
+        Y lo mas caro: si la letra que rompio el render estaba en una factura
+        YA impresa, al reimprimir le pisaba el comprobante bueno. Y una factura
+        autorizada en ARCA no se puede volver a emitir, asi que ese archivo
+        anterior era el unico que existia.
+
+        Con este corte, un render fallido no escribe nada y avisa con el CAE,
+        que es lo que hace falta para volver a imprimirlo despues.
+        """
+        num_copias = a_entero(LeerIni(clave='num_copias', key='FACTURA'), 1)
+        lineas_max = 24 # cantidad de lineas de items por pagina
+        qty_pos = "izq" # cantidad a la izquierda de la descripcion
+        #Proceso la plantilla
+        ok = pyfpdf.ProcesarPlantilla(num_copias, lineas_max, qty_pos)
+        if not ok:
+            logging.error("ProcesarPlantilla fallo para la factura %s: %s",
+                          getattr(cabfact, "numero", "?"),
+                          getattr(pyfpdf, "Excepcion", ""))
+            destino = salida or join('facturas', "{}-{}.pdf".format(
+                getattr(cabfact.tipocomp, "nombre", "").replace(" ", "_"),
+                getattr(cabfact, "numero", "?")))
+            # Se reporta por el mismo camino que un fallo de escritura: el
+            # aviso con el CAE y el "no la vuelvas a emitir" ya estan escritos
+            # y son lo que el operador necesita.
+            self._pdf_generado(
+                destino, False, pyfpdf, cabfact,
+                "el render de la plantilla fallo antes de escribir nada")
+            return False, destino
+
+        # El PDF se arma a un temporal y recien despues se pasa al destino. Si
+        # el destino esta abierto en un visor, escribirlo directo lo trunca a
+        # cero bytes y se pierde el comprobante anterior. Ver escribir_pdf.
+        try:
+            if salida is None:
+                salida = join('facturas', "{}-{}.pdf".format(
+                    cabfact.tipocomp.nombre.replace(" ", "_"), cabfact.numero))
+            generado, salida, motivo = escribir_pdf(pyfpdf.GenerarPDF, salida)
+        except Exception:
+            # Si la ruta no se puede escribir, se cae al archivo que le
+            # sugiera el sistema. Es lo que hacia antes, con la diferencia de
+            # que la vista previa ya trae su propia ruta.
+            cArchivo = getFileName("factura", False)
+            salida = cArchivo + '.pdf'
+            generado, salida, motivo = escribir_pdf(pyfpdf.GenerarPDF, salida)
+        return generado, salida
     def Validacion(self):
         retorno = True
         if not self.view.validaCliente.text():

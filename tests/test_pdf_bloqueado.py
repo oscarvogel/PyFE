@@ -161,15 +161,30 @@ def test_el_generador_que_falla_no_pisa_el_anterior(tmp_path):
 
 
 def test_la_factura_escribe_a_un_temporal():
+    """La escritura a un temporal tiene que seguir siendo la via de la factura.
+
+    El render y la escritura se movieron a `_renderizar_y_escribir` cuando se
+    agrego el corte por si la plantilla falla (ver tests/test_pdf_unicode.py).
+    La propiedad que este test protege no cambio: la factura nunca escribe
+    directo al destino, siempre a un temporal. Lo que hay que mirar ahora es el
+    metodo que escribe, y que el que arma el comprobante le pase el trabajo en
+    vez de hacerlo por su cuenta.
+    """
     import inspect
 
     import controladores.Facturas as MOD
 
-    fuente = inspect.getsource(MOD.FacturaController._armar_comprobante)
+    fuente = inspect.getsource(MOD.FacturaController._renderizar_y_escribir)
 
     assert "escribir_pdf" in fuente, "la factura sigue escribiendo al destino"
     assert "ok = pyfpdf.GenerarPDF(salida)" not in fuente, \
         "quedo la escritura directa sobre el destino"
+
+    arma = inspect.getsource(MOD.FacturaController._armar_comprobante)
+    assert "_renderizar_y_escribir" in arma, \
+        "_armar_comprobante no delega la escritura y se la hace por su cuenta"
+    assert "escribir_pdf" not in arma, \
+        "_armar_comprobante volvio a escribir por su cuenta"
 
 
 def test_el_remito_escribe_a_un_temporal():

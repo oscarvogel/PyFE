@@ -30,6 +30,10 @@ plantilla; hacerlo sobre los elementos ya cargados es lo mismo con tres lineas
 y sirve para cualquier plantilla, propia o descargada.
 """
 
+import functools
+import logging
+import unicodedata
+
 # Traduccion de los codigos de pyfepdf a los que fpdf2 entiende.
 ALIGN_PYAFIPWS = {
     "D": "R",   # "derecha", en castellano. Se usa en importes y alicuotas.
@@ -234,6 +238,205 @@ def campos_ignorados():
     return set(getattr(Template, "_campos_ignorados", ()))
 
 
+# -- Caracteres que la fuente no tiene -------------------------------------
+#
+# Que se rompe
+# ------------
+# Las plantillas de comprobante usan core fonts (helvetica, courier, times), que
+# cubren latin-1 y nada mas. fpdf2, al escribir con una de ellas, hace:
+#
+#     def normalize_text(self, text):
+#         if not self.is_ttf_font and self.core_fonts_encoding:
+#             try:
+#                 return text.encode(self.core_fonts_encoding).decode("latin-1")
+#             except UnicodeEncodeError as error:
+#                 raise FPDFUnicodeEncodingException(...)
+#
+# y revienta con el primer caracter por encima de U+00FF. El caso real: la
+# descripcion del renglon de la factura 000300000459 traia un EN DASH (U+2013)
+# en "... logistica RND – Septiembre 2026." y la factura no se pudo imprimir.
+#
+# El detalle incomodo: el error no venia de la plantilla, que es 100% ASCII,
+# sino del DATO. Recorridas las 538 descripciones de la base, era la unica con
+# un caracter fuera de latin-1. O sea que el sistema se cae por una letra que
+# escribio el usuario.
+#
+# Con fpdf 1.7.2 eso no pasaba: el mismo caracter salia como un cuadrito de
+# reemplazo, en silencio. El salto a fpdf2 no introdujo el bug, lo destapo.
+#
+# Que se hace
+# -----------
+# Se sustituye el CARACTER al escribir, no en la base. La descripcion guardada
+# queda con su en dash, que es lo que dice el dato, y lo unico que cambia es el
+# glifo que sale impreso. Tocar la base seria peor: un comprobante ya autorizado
+# en ARCA tiene su descripcion registrada alla, y cambiarla localmente deja los
+# dos copias distintas.
+#
+# Con una fuente TTF no se sustituye nada: ahi no hay problema, y cambiar el
+# texto de un comprobante que se puede imprimir bien no tiene sentido.
+
+SUSTITUCIONES = {
+    # Guiones: todos se imprimen como guion corto.
+    "\u2010": "-",  # hyphen
+    "\u2011": "-",  # non-breaking hyphen
+    "\u2012": "-",  # figure dash
+    "\u2013": "-",  # en dash  <-- el de la factura 459
+    "\u2014": "-",  # em dash
+    "\u2015": "-",  # horizontal bar
+    "\u2212": "-",  # minus
+    # Comillas tipograficas: el corrector de Word las pone solas.
+    "\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201b": "'",
+    "\u201c": '"', "\u201d": '"', "\u201e": '"', "\u201f": '"',
+    "\u2032": "'", "\u2033": '"',   # prima y doble prima
+    # Otros que aparecen al copiar texto de una pagina web.
+    "\u2026": "...",  # ellipsis
+    "\u2022": "*",    # bullet
+    "\u2007": " ", "\u202f": " ", "\u2009": " ", "\u200a": " ",  # espacios finos
+    "\u200b": "",     # zero width space
+    "\u200e": "", "\u200f": "",     # marcas de direccion
+    "\ufeff": "",     # BOM
+    "\ufffd": "?",    # el caracter de reemplazo: no se sabe que era
+}
+
+# Ojo con lo que NO esta aca: el espacio duro (U+00A0) y el soft hyphen
+# (U+00AD) estan en latin-1, asi que `_encodable` los deja pasar y nunca llegan
+# a la tabla. Se dejan intactos a proposito: se imprimen, y tocarlos seria
+# cambiar texto que ya anda. La regla es "solo lo que la fuente no tiene", y
+# esos si los tiene.
+
+# Para saber que se sustituyo, y avisar una sola vez por caracter.
+SUSTITUIDOS = set()
+LOG = logging.getLogger("pyfe")
+
+
+def _encodable(caracter, encoding):
+    """El caracter se puede escribir con esa fuente."""
+    try:
+        caracter.encode(encoding)
+        return True
+    except (UnicodeEncodeError, LookupError):
+        return False
+
+
+def _alternativa(caracter):
+    """Un reemplazo sensato para un caracter que la fuente no tiene.
+
+    Primero la tabla. Despues la descomposicion NFKD, que salva las letras con
+    acento que no entran en latin-1 (Ā -> A, ﬁ -> fi). Y si no queda nada
+    util, un '?': un caracter ilegible es preferible a una excepcion, porque la
+    excepcion deja al comprobante sin imprimir.
+    """
+    if caracter in SUSTITUCIONES:
+        return SUSTITUCIONES[caracter]
+
+    descompuesto = unicodedata.normalize("NFKD", caracter)
+    sin_acentos = "".join(
+        c for c in descompuesto if not unicodedata.combining(c))
+    if sin_acentos and sin_acentos != caracter:
+        return sin_acentos
+
+    return "?"
+
+
+def transliterar(texto, encoding="latin-1"):
+    """Cambia lo que la fuente no tiene por algo que si pueda imprimir.
+
+    `encoding` es el de la fuente, que es lo que decide: con cp1252 el euro
+    (U+20AC) entra y con latin-1 no. Por eso se pregunta por `encoding` y no se
+    asume, y por eso un texto con acentos NO se toca: estan en latin-1 y salen
+    bien.
+    """
+    if not texto or not isinstance(texto, str):
+        return texto
+    # El caso comun: no hay nada raro. No se arma una lista de mil caracteres
+    # para una factura entera que ya se puede imprimir.
+    if all(_encodable(c, encoding) for c in texto):
+        return texto
+
+    salida = []
+    for caracter in texto:
+        if _encodable(caracter, encoding):
+            salida.append(caracter)
+            continue
+        reemplazo = _alternativa(caracter)
+        # El reemplazo tiene que poder imprimirse tambien.
+        if not all(_encodable(c, encoding) for c in reemplazo):
+            reemplazo = "?"
+        if caracter not in SUSTITUIDOS:
+            SUSTITUIDOS.add(caracter)
+            # Una linea por caracter, no por cada campo de cada factura: con
+            # core fonts una factura escribe cientos de textos y el aviso se
+            # repetiria sin agregar nada.
+            LOG.warning(
+                "PDF: el caracter U+%04X (%s) no lo tiene la fuente y se "
+                "imprimio como %r. El dato guardado no se toco.",
+                ord(caracter),
+                unicodedata.name(caracter, "sin nombre"),
+                reemplazo)
+        salida.append(reemplazo)
+    return "".join(salida)
+
+
+def olvidar_sustituciones():
+    """Vacia el registro de caracteres ya avisados. Lo usan los tests."""
+    SUSTITUIDOS.clear()
+
+
+def caracteres_sustituidos():
+    """Los caracteres que hubo que cambiar para poder imprimir."""
+    return set(SUSTITUIDOS)
+
+
+def _instalar_normalize_text():
+    """Que fpdf2 no revente con un caracter que la fuente no tiene.
+
+    Envuelve `FPDF.normalize_text`, que es donde fpdf2 valida la codificacion.
+    Se intercepta ahi y no en los datos del comprobante por dos motivos: es el
+    unico punto por donde pasa TODO el texto (nombre del cliente, domicilio,
+    descripciones, observaciones, datos de la empresa), y funciona con cualquier
+    plantilla, propia o descargada.
+
+    El shim no copia la firma de la libreria: usa `*args, **kwargs` y
+    `functools.wraps`, asi que si fpdf2 cambia los argumentos, sigue andando.
+    """
+    try:
+        from fpdf import FPDF
+    except ImportError:
+        return False
+    if getattr(FPDF, "_pyfe_normalize_text", False):
+        return False
+
+    original = FPDF.normalize_text
+
+    @functools.wraps(original)
+    def normalize_text(self, *args, **kwargs):
+        # Solo para core fonts: con una TTF no hay nada que corregir y el texto
+        # se escribe tal cual. La condicion es la misma que consulta la
+        # libreria, para no inventar reglas propias.
+        if not getattr(self, "is_ttf_font", False):
+            encoding = getattr(self, "core_fonts_encoding", None)
+            if encoding and args:
+                primero = args[0]
+                if isinstance(primero, str):
+                    args = (transliterar(primero, encoding),) + args[1:]
+        return original(self, *args, **kwargs)
+
+    FPDF.normalize_text = normalize_text
+    FPDF._pyfe_normalize_text = True
+    return True
+
+
+def instalar_compatibilidad():
+    """Instala todos los shims. Idempotente.
+
+    Se llama una vez, al importar, para que ninguna de las pantallas que arman
+    un comprobante tenga que acordarse.
+    """
+    _instalar_normalize_text()
+    _instalar_has_key()
+    _relajar_setitem()
+
+
 def normalizar_plantilla(pyfpdf):
     """Deja la plantilla lista para fpdf2: metodos, alineacion y fuentes.
 
@@ -243,11 +446,17 @@ def normalizar_plantilla(pyfpdf):
 
     Devuelve cuantos campos toco cada cosa: (alineacion, fuentes, fondos).
     """
-    _instalar_has_key()
-    _relajar_setitem()
+    instalar_compatibilidad()
     plantilla = getattr(pyfpdf, "template", None)
     if plantilla is None:
         return 0, 0, 0
     return (normalizar_align(plantilla.elements),
             normalizar_fuentes(plantilla.elements),
             normalizar_fondos(plantilla.elements))
+
+
+# Los shims se instalan al importar el modulo, no cuando cada pantalla se acuerda
+# de hacerlo. El de los caracteres es el que mas importa: sin el, basta con que
+# alguien escriba un guion medio en una descripcion para que la factura no se
+# pueda imprimir.
+instalar_compatibilidad()

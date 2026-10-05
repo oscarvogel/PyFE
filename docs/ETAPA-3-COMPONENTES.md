@@ -138,8 +138,15 @@ Herramientas nuevas:
   * `tools/render_tabla.py` — renderiza una grilla **con datos**. Las capturas
     anteriores mostraban tablas vacías, que es como nacen; con una tabla vacía no
     se puede ver si los importes se leen bien.
-  * `tools/cargar_productos_prueba.py` — mete productos de ejemplo en la base
-    del sandbox para ver la venta con importes de verdad.
+  * `tools/sembrar_stock.py` — siembra el sandbox con un catálogo de ferretería,
+    mínimos, movimientos y un remito, para ver la venta y las tres pantallas de
+    stock con datos de verdad. **Reemplaza a `cargar_productos_prueba.py`**,
+    que queda como atajo que delega acá: los dos sembraban el mismo catálogo y
+    corriendo ambos quedaban duplicados, con nombres iguales y códigos de barra
+    distintos. El viejo además tenía un error de mapeo que guardaba el costo en
+    la columna `concepto` (un float en un campo de un carácter), así que sus
+    artículos no los marcaba el botón "Marcar productos" sin que se entendiera
+    por qué.
   * `tools/probar_buscador.py` — prueba el filtro y deja la salida escrita.
 
 ---

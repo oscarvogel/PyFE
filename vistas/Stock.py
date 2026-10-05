@@ -143,7 +143,7 @@ class AjustesStockView(VistaBase, _BuscarProducto):
 
     def initUi(self):
         self.setWindowTitle("Ajustar stock")
-        self.resize(560, 320)
+        self.declara_tamano(640, 340)
         self.layoutPpal = QVBoxLayout(self)
         self.layoutPpal.addWidget(EtiquetaTitulo(texto=self.windowTitle()))
 

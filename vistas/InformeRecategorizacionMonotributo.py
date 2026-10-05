@@ -21,7 +21,7 @@ class InfRecMonotributoView(VistaBase):
 
     def setupUi(self, Form):
         self.setWindowTitle("Informe de recategorización de monotributo")
-        self.resize(650, 150)
+        self.declara_tamano(650, 150)
         layoutPpal = QVBoxLayout(Form)
         self.avance = Avance()
         layoutPpal.addWidget(self.avance)

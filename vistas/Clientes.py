@@ -190,7 +190,7 @@ class FichaClienteView(VistaBase):
 
     def initUi(self):
         self.setWindowTitle("Ficha de cliente")
-        self.resize(500, 350)
+        self.declara_tamano(500, 350)
         layoutPpal = QVBoxLayout(self)
         lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
         layoutPpal.addWidget(lblTitulo)

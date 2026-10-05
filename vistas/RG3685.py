@@ -17,7 +17,7 @@ class RG3685View(Formulario):
 
     def setupUi(self, Form):
         self.setWindowTitle("RG 3685 Afip - Ventas")
-        self.resize(650, 100)
+        self.declara_tamano(650, 100)
         layoutPpal = QVBoxLayout(Form)
         lblTitulo = EtiquetaTitulo(texto=self.windowTitle())
         layoutPpal.addWidget(lblTitulo)

@@ -68,6 +68,7 @@ SECCIONES = [
     ("Stock", "productos", [
         ("stock", "Stock", "productos"),
         ("productos", "Productos", "productos"),
+        ("importar-articulos", "Importar productos desde Excel", "importar"),
         ("ajustes-stock", "Ajustes de stock", "ajustar-texto"),
         ("movimientos-stock", "Movimientos de stock", "reportes"),
         ("grupos", "Grupos", "vacio"),

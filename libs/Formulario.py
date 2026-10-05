@@ -60,6 +60,33 @@ class Formulario(QDialog):
             return self.ANCHO_MINIMO, self.ALTO_MINIMO
         return self.ANCHO_MINIMO_CHICO, self.ALTO_MINIMO_CHICO
 
+    def declara_tamano(self, ancho, alto):
+        """El tamano que esta ventana quiere, y con el mismo numero el piso.
+
+        `ajusta_tamano` agranda la ventana hasta que el contenido entre y el
+        piso se cumpla. El piso por omision (620x420) esta bien para las 40
+        pantallas del menu, que se recortaban, pero se comia a los dialogos
+        chicos: uno que pide 420x160 se abria de 620x420.
+
+        Diez dialogos caian en eso. El que mas duele es el de cantidad y
+        precio: pide 420x160 y recibia 620x420, o sea casi el triple de alto
+        para dos campos.
+
+        Con esto el dialogo dice su tamano UNA sola vez y el piso queda en ese
+        numero, en vez de estar escrito dos veces y desincronizado.
+
+        El contenido sigue mandando por encima del piso, porque
+        `minimumSizeHint` se aplica igual en `ajusta_tamano`: declarar un
+        tamano chico nunca termina con algo cortado.
+
+        Solo affecta al piso de los dialogos SIN grilla. Con grilla manda
+        `ANCHO_MINIMO`/`ALTO_MINIMO` (900x560), que es el que arreglo las
+        pantallas grandes y no se toca aca.
+        """
+        self.resize(ancho, alto)
+        self.ANCHO_MINIMO_CHICO = ancho
+        self.ALTO_MINIMO_CHICO = alto
+
     def ajusta_tamano(self):
         """Agranda la ventana hasta que el contenido entre y el piso se cumpla.
 

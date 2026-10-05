@@ -1,6 +1,7 @@
 # coding=utf-8
 from peewee import CharField, AutoField, ForeignKeyField
 
+from libs.ComboBox import ComboSQL
 from libs.Validaciones import Validaciones
 from modelos.Localidades import Localidad
 from modelos.ModeloBase import ModeloBase
@@ -27,3 +28,16 @@ class Valida(Validaciones):
     campoNombre = Proveedor.nombre
     campos = ['idproveedor', 'nombre']
     largo = 4
+
+class ComboProveedor(ComboSQL):
+    """El proveedor como desplegable, para elegir UNO de una lista corta.
+
+    Este combo se usa donde el proveedor se elige de entre los que ya estan
+    cargados, no donde se lo busca a mano. El ABM de Proveedores usa `Valida`
+    (con F2 y busqueda incremental) porque ahi el catalogo es largo; aca la
+    eleccion es de una vez y para toda una carga.
+    """
+    model = Proveedor
+    cOrden = Proveedor.nombre
+    campovalor = Proveedor.idproveedor.column_name
+    campo1 = Proveedor.nombre.column_name

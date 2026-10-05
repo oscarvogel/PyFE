@@ -45,6 +45,20 @@ CUATRO_DECIMALES = Decimal("0.0001")
 
 CERO = Decimal("0")
 
+# `articulos.concepto`: 1 = producto, 2 = servicio (ver
+# ComboConceptoFacturacion en libs/ComboBox.py, que es el combo que lo
+# edita).
+#
+# OJO con lo que esto NO es: `controlastock` NO se deduce de aca. En un
+# mismo catalogo hay productos que no se inventan y servicios que si,
+# asi que el campo sigue siendo explicito (ver modelos/Articulos.py).
+#
+# Lo unico que se deduce de `concepto` es a quien puede tocar el atajo de
+# "Marcar productos": marcar un servicio de masse lo manda a negativo con
+# la primera venta, y ese error se descubre semanas despues. Ver
+# `marcar_como_controlados`.
+CONCEPTO_PRODUCTO = '1'
+
 
 # -- Consultas ---------------------------------------------------------------
 
@@ -141,14 +155,29 @@ def faltantes():
     return salida
 
 
-def sin_controlar():
+def sin_controlar(incluir_servicios=True, solo_servicios=False):
     """Los articulos del catalogo que todavia no se marcaron.
 
     No es un error, pero es la razon por la que un producto puede no
     descontarse y el operador no entender por que. La pantalla de stock lo
     muestra y ofrece marcarlos de una vez.
+
+    Los dos flags existen para que el atajo de arranque no tenga que
+    filtrar en Python lo que la base puede filtrar: `incluir_servicios=False`
+    trae solo productos, que es lo que se puede marcar de masse, y
+    `solo_servicios=True` trae los servicios, que es lo que hay que contar
+    para poder avisar cuantos quedaron afuera.
+
+    Ojo con el nombre del flag: `incluir_servicios=False` no dice "no hay
+    servicios", dice "no los traigas". Sin servicios en el catalogo
+    devuelve una lista vacia, no None.
     """
-    return list(Articulo.select().where(Articulo.controlastock == False))  # noqa: E712
+    consulta = Articulo.select().where(Articulo.controlastock == False)  # noqa: E712
+    if not incluir_servicios:
+        consulta = consulta.where(Articulo.concepto == CONCEPTO_PRODUCTO)
+    elif solo_servicios:
+        consulta = consulta.where(Articulo.concepto != CONCEPTO_PRODUCTO)
+    return list(consulta)
 
 
 # -- Escritura ---------------------------------------------------------------
@@ -403,16 +432,40 @@ def aplica_compra(detalles, idpcabecera, origen=ORIGEN_COMPRA):
 def marcar_como_controlados(articulos=None):
     """Marca el control de stock de los que faltan.
 
-    Sin argumentos marca todo lo que este en False. Es el atajo para la
-    situacion de arranque: alguien cargo veinte productos y no quiere
-    acordarse de tildar veinte casillas.
+    Sin argumentos marca **solo los productos** (`concepto == '1'`), no todo
+    lo que este en False. Es la situacion de arranque: alguien cargo veinte
+    productos y no quiere acordarse de tildar veinte casillas.
+
+    Y el filtro a productos es lo importante. Antes marcaba tambien los
+    servicios, y en un catalogo de comercio general (que es para lo que esta
+    armado el modulo) casi todos los servicios estan en False. El resultado
+    era que cada venta de un mantenimientoaba un movimiento de stock, lo
+    dejaba en negativo para siempre y llenaba la pantalla de Stock de
+    "Negativo" en renglones que no son mercaderia.
+
+    Esto NO contradice que `controlastock` sea explicito y no deducido: el
+    filtro es para el atajo de masse, que no puede tener un boton de "dar de
+    baja" al lado. Un producto que no se inventa se desmarca en Productos, y
+    un servicio que si se quiere controlar se marca a mano, que es un caso
+    raro y deliberado.
+
+    Con `articulos` se marca la lista que se le pase y solo esa: el que elige
+    sabe lo que hace.
     """
-    consulta = Articulo.update(controlastock=True).where(
-        Articulo.controlastock == False)  # noqa: E712
     if articulos is not None:
         ids = [a.idarticulo if hasattr(a, "idarticulo") else a for a in articulos]
         if not ids:
             return 0
-        consulta = Articulo.update(controlastock=True).where(
-            Articulo.idarticulo.in_(ids))
-    return consulta.execute()
+        return Articulo.update(controlastock=True).where(
+            Articulo.idarticulo.in_(ids)).execute()
+
+    # El camino del atajo. Se pide la lista primero y recien despues se
+    # actualiza: un UPDATE con el filtro directo contaria como "modificados"
+    # las filas que ya estaban en True en MySQL (que devuelve las rows
+    # matched y no las changed), y el controller usa ese numero para decir
+    # "marque N".
+    ids = [a.idarticulo for a in sin_controlar(incluir_servicios=False)]
+    if not ids:
+        return 0
+    return Articulo.update(controlastock=True).where(
+        Articulo.idarticulo.in_(ids)).execute()

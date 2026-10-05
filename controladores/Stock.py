@@ -138,17 +138,32 @@ class StockController(ControladorBase):
 
     @inicializar_y_capturar_excepciones
     def MarcarProductos(self, *args, **kwargs):
-        """Marca como controlados los que faltan, previa confirmacion.
+        """Marca como controlados los productos que faltan, previa confirmacion.
 
-        Es un cambio de comportamiento de TODOS esos articulos de una vez, asi
+        Es un cambio de comportamiento de TODOS esos productos de una vez, asi
         que avisa y dice cuantos son. Marcar de a uno obliga a entrar veinte
         veces al ABM de Productos, y el que se saltea uno se da cuenta semanas
         despues, cuando el stock de ese producto no baja nunca.
+
+        Solo productos, nunca servicios. Marcar un servicio lo manda a
+        negativo con la primera venta, y ese error no aparece hasta que el
+        reporte de Stock esta lleno de mercaderia que no existe. Los servicios
+        que faltan se cuentan aparte y se dicen al final, para que el operador
+        sepa que el boton no los toco y no se le ocurra Marque de nuevo.
         """
-        pendientes = stock.sin_controlar()
+        pendientes = stock.sin_controlar(incluir_servicios=False)
         if not pendientes:
-            Ventanas.showAlert("Stock", "Todos los productos ya controlan stock")
+            if stock.sin_controlar(solo_servicios=True):
+                Ventanas.showAlert(
+                    "Stock",
+                    "Todos los productos ya controlan stock.\n\n"
+                    "Los servicios no se controlan: no son mercadería.")
+            else:
+                Ventanas.showAlert(
+                    "Stock", "Todos los productos ya controlan stock")
             return
+
+        servicios = stock.sin_controlar(solo_servicios=True)
 
         if not Ventanas.showConfirmation(
                 "Marcar productos",
@@ -158,8 +173,16 @@ class StockController(ControladorBase):
                 textoOk="Marcar", textoCancelar="Cancelar"):
             return
 
-        stock.marcar_como_controlados()
+        marcados = stock.marcar_como_controlados()
         self.CargaStock()
+
+        if servicios:
+            Ventanas.showAlert(
+                "Stock",
+                "Se marcaron {} producto/s.\n\n"
+                "Los {} servicio/s quedaron sin tocar: no son mercadería y no "
+                "se controlan. Si alguno sí se quiere controlar, marcalo en "
+                "Productos.".format(marcados, len(servicios)))
 
     @inicializar_y_capturar_excepciones
     def onClickExcel(self, *args, **kwargs):

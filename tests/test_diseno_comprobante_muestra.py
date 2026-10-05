@@ -100,6 +100,16 @@ def mundo(qt, tmp_path, monkeypatch):
     U.ubicacion_sistema = lambda: str(tmp_path) + os.sep
     FACMOD.ubicacion_sistema = lambda: str(tmp_path) + os.sep
 
+    # ubicacion_sistema() deduce la carpeta de donde corre el ejecutable. Bajo
+    # pytest eso es la carpeta de pytest, y el codigo busca plantillas/ en el
+    # lugar equivocado. En la app real siempre da bien, asi que se parchea
+    # solo para el test.
+    import libs.Utiles as U
+    import controladores.Facturas as FACMOD
+    original_ubicacion = (U.ubicacion_sistema, FACMOD.ubicacion_sistema)
+    U.ubicacion_sistema = lambda: str(tmp_path) + os.sep
+    FACMOD.ubicacion_sistema = lambda: str(tmp_path) + os.sep
+
     import controladores.DisenoComprobante as MOD
     original_abrir = MOD.DisenoComprobanteController._abrir_muestra
     MOD.DisenoComprobanteController._abrir_muestra = staticmethod(
@@ -110,6 +120,7 @@ def mundo(qt, tmp_path, monkeypatch):
     MOD.DisenoComprobanteController._abrir_muestra = original_abrir
     MP.ParamSist._meta.set_database(original)
     V.showAlert, V.showError, V.showConfirmation = originales
+    U.ubicacion_sistema, FACMOD.ubicacion_sistema = original_ubicacion
     U.ubicacion_sistema, FACMOD.ubicacion_sistema = original_ubicacion
 
 
