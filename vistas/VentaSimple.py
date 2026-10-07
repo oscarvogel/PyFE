@@ -1,6 +1,9 @@
 # coding=utf-8
-from PyQt5.QtCore import QSize
-from PyQt5.QtWidgets import QCheckBox, QGridLayout, QHBoxLayout, QListWidget, QVBoxLayout
+from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtGui import QFontMetrics
+from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QGridLayout,
+                             QHBoxLayout, QHeaderView, QListWidget, QTableWidget,
+                             QTableWidgetItem, QVBoxLayout)
 
 from decimal import Decimal
 
@@ -12,6 +15,24 @@ from libs.Grillas import Grilla, _formato_importe
 from libs.GroupBox import Agrupacion
 from libs.Utiles import imagen, icono
 from modelos.Formaspago import ComboFormapago
+
+
+# -- El selector de producto -------------------------------------------------
+# El precio al publico va en su PROPIA columna y no pegado al final de la fila.
+# Con los importes pegados al codigo de barras hay que contarlos a ojo para
+# compararlos; alineados se comparan de verdad, que es lo que el operador
+# esta haciendo cuando escribe "acc" y tiene 4 access points delante.
+COL_CODIGO = 0
+COL_DETALLE = 1
+COL_BARRA = 2
+COL_PRECIO = 3
+CABECERAS_ARTICULOS = ["Código", "Detalle", "Cód. barras", "Precio al público"]
+
+# El ancho se mide contra el contenido (ver `_ancho_para_contenido`), asi que
+# estos dos son solo los topes: el piso para que no quede una ventana de
+# skeleton y el techo para no pasarse de la pantalla.
+ANCHO_MINIMO_SELECTOR = 720
+ALTO_SELECTOR = 460
 
 
 class VentaSimpleCantidadPrecioDialog(Formulario):
@@ -288,12 +309,17 @@ class VentaSimpleSeleccionArticuloDialog(Formulario):
         self.articulos = []
         self.total = 0
         self.articulo = None
+        # El ancho se mide una sola vez, contra la primera busqueda. Ver
+        # `_ajustar_ancho_una_vez`.
+        self._ancho_ya_calculado = False
         self.setupUi(self)
         self.buscar(busqueda)
 
     def setupUi(self, Form):
         self.setWindowTitle("Seleccionar producto")
-        self.resize(560, 420)
+        self.resize(ANCHO_MINIMO_SELECTOR, ALTO_SELECTOR)
+        # El ancho definitivo lo calcula `buscar` con el contenido de esta
+        # busqueda, una sola vez. `resize` de arriba es el piso.
 
         self.layoutPpal = QVBoxLayout(Form)
         self.lblTitulo = EtiquetaTitulo(texto="Seleccionar producto")
@@ -307,14 +333,57 @@ class VentaSimpleSeleccionArticuloDialog(Formulario):
         self.txtBuscar.returnPressed.connect(self._elegir_para_entrar)
         self.layoutPpal.addWidget(self.txtBuscar)
 
-        self.listaArticulos = QListWidget()
+        # QTableWidget y no QListWidget porque la fila tiene que decir mas de
+        # una cosa: nombre, codigo de barras y PRECIO. En una lista el precio
+        # era texto pegado al final, sin alinear, imposible de comparar.
+        self.listaArticulos = QTableWidget(0, len(CABECERAS_ARTICULOS))
+        self.listaArticulos.setObjectName("listaArticulos")
+        self.listaArticulos.setHorizontalHeaderLabels(CABECERAS_ARTICULOS)
+        # Un selector no se edita. Si el operador escribiera en una celda se
+        # llevaria un articulo con el precio que se invento de tipear, y sin
+        # ningun aviso: en una venta eso es cobrar cualquier cosa.
+        self.listaArticulos.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        # Filas enteras y una sola eleccion: elegir una fila es elegir el
+        # articulo, no una celda suelta. Con celdas sueltas el operador
+        # marcaba el precio y Aceptar no cerraba, porque currentRow() daba -1.
+        self.listaArticulos.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.listaArticulos.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.listaArticulos.verticalHeader().setVisible(False)
         self.listaArticulos.itemDoubleClicked.connect(self.accept)
+
+        # Solo el Detalle se estira. Las otras tres columnas tienen un ancho que
+        # ya se sabe (un codigo, un codigo de barras, un importe) y con Stretch
+        # en la ultima el precio se comeria media ventana.
+        cabecera = self.listaArticulos.horizontalHeader()
+        for columna in (COL_CODIGO, COL_BARRA, COL_PRECIO):
+            cabecera.setSectionResizeMode(columna, QHeaderView.ResizeToContents)
+        cabecera.setSectionResizeMode(COL_DETALLE, QHeaderView.Fixed)
+        cabecera.setStretchLastSection(False)
+        # El ancho de Detalle lo pone `_ancho_para_contenido`, y va FIJO a
+        # proposito. Con `Stretch` Qt toma el ancho del contenido como minimo
+        # del layout, y un layout con minimo grande empuja la ventana: el
+        # dialogo crecia solo cada vez que aparecia un nombre mas largo, que es
+        # justo lo contrario de "se mide una vez al abrir". Fijo, el unico que
+        # decide el ancho es el `resize` de `_ajustar_ancho_una_vez`.
+        cabecera.setMinimumSectionSize(60)
+        # La columna de importes con el titulo pegado a la izquierda y los
+        # numeros a la derecha se ve rota: el titulo se alinea como los datos.
+        cabecera_item = self.listaArticulos.horizontalHeaderItem(COL_PRECIO)
+        if cabecera_item is not None:
+            cabecera_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.layoutPpal.addWidget(self.listaArticulos)
 
         # Igual que en el de clientes: con la lista recortada hay que poder
         # decir cuantas hay de verdad, o 100 filas no dicen si falta algo.
         self.lblCuenta = Etiqueta("")
         self.lblCuenta.setObjectName("lblCuenta")
+        # Wrap, y no por estetica. Un QLabel toma el ancho de su texto como
+        # MINIMO del layout, asi que "2 coincidencias. Elegi una con las flechas
+        # o el mouse." empujaba el dialogo mas que cualquier columna: la
+        # ventana cresia al escribir, y no por el contenido de la lista sino por
+        # el aviso de abajo. Con wrap, el mensaje se parte en dos lineas y la
+        # ventana se queda con el ancho que se midio.
+        self.lblCuenta.setWordWrap(True)
         self.layoutPpal.addWidget(self.lblCuenta)
 
         self.botones = botonera_dialogo()
@@ -324,31 +393,33 @@ class VentaSimpleSeleccionArticuloDialog(Formulario):
 
     def buscar(self, texto):
         """Vuelve a consultar y redibuja la lista."""
-        self.articulos = []
-        self.listaArticulos.clear()
-
         texto = str(texto or "").strip()
+
         if not texto:
             # Volcar el catalogo entero no es una busqueda. Ademas, con un
             # catalogo chico uno quiere ver todo, asi que se lo ofrece: los
             # primeros, avisando que hay mas.
             self.articulos, self.total = self.buscador("")
-            for articulo in self.articulos:
-                self.listaArticulos.addItem(self._texto(articulo))
+            self._poblar()
             self.lblCuenta.setText(
                 "Escribi para acotar. {} producto{} en el catalogo.".format(
                     self.total, "" if self.total == 1 else "s"))
             if self.articulos:
-                self.listaArticulos.setCurrentRow(0)
+                self.listaArticulos.setCurrentCell(0, COL_DETALLE)
+            self._ajustar_ancho_una_vez()
             return
 
         self.articulos, self.total = self.buscador(texto)
-        for articulo in self.articulos:
-            self.listaArticulos.addItem(self._texto(articulo))
+        self._poblar()
         # Con una sola coincidencia se marca sola: no hay nada que decidir y
         # Enter tiene que servir. Con varias NO: ver _elegir_para_entrar.
         if len(self.articulos) == 1:
-            self.listaArticulos.setCurrentRow(0)
+            self.listaArticulos.setCurrentCell(0, COL_DETALLE)
+        else:
+            # Sin esto, con 2 o mas la fila 0 puede quedar marcada sola al
+            # repintar, que es exactamente el bug que motivo todo esto.
+            self.listaArticulos.clearSelection()
+        self._ajustar_ancho_una_vez()
 
         if self.total > len(self.articulos):
             self.lblCuenta.setText(
@@ -366,12 +437,133 @@ class VentaSimpleSeleccionArticuloDialog(Formulario):
                 "{} coincidencia{}".format(
                     self.total, "" if self.total == 1 else "s"))
 
-    def _texto(self, articulo):
-        codigo = str(articulo.codbarra or "").strip()
-        if codigo:
-            return "{} - {} - {}".format(articulo.idarticulo, articulo.nombre,
-                                        codigo)
-        return "{} - {}".format(articulo.idarticulo, articulo.nombre)
+    def _poblar(self):
+        """Vuelca `self.articulos` en la grilla, una fila por articulo.
+
+        `setRowCount(0)` antes no es cosmetica: es lo que baja la fila
+        marcada. QTableView recuerda la fila actual entre un repintado y el
+        siguiente, asi que sin esto, escribir una letra mas con 2 coincidencias
+        dejaba la fila 0 elegida sola otra vez.
+        """
+        self.listaArticulos.setRowCount(0)
+        self.listaArticulos.clearSelection()
+        self.listaArticulos.setRowCount(len(self.articulos))
+
+        for fila, articulo in enumerate(self.articulos):
+            for columna in range(len(CABECERAS_ARTICULOS)):
+                celda = QTableWidgetItem(self._celda_texto(articulo, columna))
+                if columna == COL_PRECIO:
+                    celda.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.listaArticulos.setItem(fila, columna, celda)
+
+    def _celda_texto(self, articulo, columna):
+        if columna == COL_CODIGO:
+            return str(articulo.idarticulo)
+        if columna == COL_DETALLE:
+            return str(articulo.nombre or "")
+        if columna == COL_BARRA:
+            return str(articulo.codbarra or "")
+        return self._precio_texto(articulo)
+
+    def _precio_texto(self, articulo):
+        """El precio al publico como se lee en Argentina, o vacio si no hay.
+
+        OJO: `_formato_importe(None)` no da un importe, devuelve el TEXTO
+        "None". Un articulo viejo sin precio cargado se veria como si costara
+        "None", que parece un dato roto y no un dato que falta. Por eso el
+        None se bankea aca, antes de formatear.
+        """
+        try:
+            precio = articulo.preciopub
+        except AttributeError:
+            return ""
+        if precio is None:
+            return ""
+        return _formato_importe(precio)
+
+    # -- Ancho ----------------------------------------------------------------
+    # Por que se mide y no se elige un numero
+    # --------------------------------------
+    # El reporte decia "que sea mas ancho" con dos capturas: una del selector
+    # ya estirado a mano a ~950 px y la fila de 110 caracteres que el operador
+    # estaba intentando leer. Con el `resize(560, 420)` de antes, a 560 px
+    # entraba la mitad del nombre y habia que arrastrar la ventana cada vez,
+    # porque `resize` corre en cada construccion y no recuerda nada.
+    #
+    # Un numero inventado ("pongamosle 900") se desarma apenas aparezca un
+    # nombre de 120 caracteres. Asi que el ancho sale de medir el texto de las
+    # celdas con la fuente real de la grilla.
+
+    ANCHO_POR_COLUMNA = 24   # el padding que Qt deja a los lados de cada celda
+
+    def _ancho_para_contenido(self):
+        """El ancho de cada columna, y el total que hace falta para todas.
+
+        Devuelve el total y ademas deja la columna Detalle con el ancho medido,
+        porque es `Fixed`: si no se lo pone aca, Qt le pone el del contenido
+        y la ventana se vuelve a mover sola.
+        """
+        if not self.articulos:
+            return None
+
+        metrics = QFontMetrics(self.listaArticulos.font())
+        anchos = []
+        for columna, titulo in enumerate(CABECERAS_ARTICULOS):
+            # Se mide el titulo tambien: "Precio al publico" es mas largo que
+            # varios precios de dos decimales, y una columna que no entra
+            # muestra "Preci..." en lugar del precio.
+            mayor = metrics.horizontalAdvance(titulo)
+            for articulo in self.articulos:
+                ancho_texto = metrics.horizontalAdvance(
+                    self._celda_texto(articulo, columna))
+                if ancho_texto > mayor:
+                    mayor = ancho_texto
+            anchos.append(mayor + self.ANCHO_POR_COLUMNA)
+
+        self.listaArticulos.setColumnWidth(COL_DETALLE, anchos[COL_DETALLE])
+
+        # Las otras tres las pone `ResizeToContents` apenas tienen contenido, y
+        # eso es exacto: no hay nada que adivinar.
+        return sum(anchos)
+
+    def _ancho_maximo(self):
+        """El tope NO esta aca: lo aplica `Formulario.ajusta_tamano`.
+
+        Ese metodo corre en el `showEvent`, una sola vez, y ya hace tres cosas
+        queangian el ancho final: piso de 900x560 (porque este dialogo ahora
+        tiene una QTableWidget dentro y entra en la clase "con grilla"), el
+        `minimumSizeHint` del layout, y el tope del 92% de la pantalla. Por eso
+        este metodo no trae el suyo: dos topes distintos terminarian peleandose
+        y el menor gana siempre, que es el unico resultado que no explica nada.
+
+        Queda como metodo porque los tests lo pisan para poder medir el ancho
+        con contenido, que si no en `offscreen` (pantalla de 800 px) el tope
+        muerde siempre y todo queda en 720.
+        """
+        return 10 ** 6
+
+    def _ajustar_ancho_una_vez(self):
+        """El ancho se calcula una sola vez, al abrir.
+
+        Medir en cada tecla haría que la ventana crezca y se achique mientras
+        se escribe: el Detalle se estira a medida que el texto que se busca se
+        parece menos a los nombres largos, y eso se lee como que la pantalla
+        anda sola. Una vez al abrir es estable, y el operador puede estirarla
+        a mano si quiere.
+
+        El `resize` de aca es una peticion: la ultima palabra la tiene
+        `Formulario.ajusta_tamano`, que en el primer `show` agranda hasta que
+        el contenido entre y lo recorta al 92% de la pantalla.
+        """
+        if self._ancho_ya_calculado:
+            return
+        self._ancho_ya_calculado = True
+
+        ancho = self._ancho_para_contenido()
+        if ancho is None:
+            return
+        self.resize(max(ANCHO_MINIMO_SELECTOR, min(ancho, self._ancho_maximo())),
+                    self.height())
 
     def _elegir_para_entrar(self):
         """Enter elige lo marcado, y solo si hay algo marcado.

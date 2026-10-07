@@ -14,9 +14,9 @@ Por cada fila del Excel arma un artículo con:
 | `NOMBRE1` + `Nombre2` + `Nombre3` + `Nombre4` | `articulos.nombre` (corte en 100) y `articulos.nombreticket` (corte en 30) |
 | `GRUPO` | `articulos.idgrupo` — se crea el grupo si no existe |
 | `COSTO` | `articulos.costo` |
-| `GANANCIA` | se usa para calcular `articulos.preciopub` |
+| `GANANCIA` | se convierte a **porcentaje** y se guarda en `articulos.incre1`; con eso se calcula `articulos.preciopub` |
 | `PROVEEDOR` | **se lee pero no manda**: el proveedor es el que se elige en la pantalla |
-| `IVA` | **se lee pero no manda**: el IVA es el que se elige en la pantalla |
+| `IVA` | `articulos.tipoiva` — la alícuota de la fila si existe en el catálogo; el `0` y las planillas sin columna usan el que se elige en la pantalla |
 
 El precio al público es **`costo × ganancia`**, redondeado a 4 decimales porque
 `preciopub` es `DECIMAL(12,4)`.
@@ -29,9 +29,12 @@ Lo que se pregunta es exactamente lo que el archivo **no puede** decir:
   la base lo guarda como id. Resolver por nombre crearía un "Nordeste" duplicado
   del que ya estaba, así que se elige de los proveedores cargados. Si no hay
   ninguno, la pantalla avisa y no deja importar.
-- **La ganancia por defecto.** El archivo trae `GANANCIA` por renglón y esa
-  manda. El valor de la pantalla es solo para los renglones que llegan sin
-  ganancia, y una lista con 1.4 y 1.5 mezclados respeta la diferencia.
+- **La ganancia por defecto.** Sale del archivo renglón por renglón. El valor de
+  la pantalla es un **porcentaje** (30 es 30%) y cubre solo los renglones que
+  llegan sin ganancia; una lista con 1.4 y 1.5 mezclados respeta la
+  diferencia del proveedor. Cuando se elige la planilla, la pantalla **dice
+  cuántas filas van a depender de ese campo**, porque si no el operador se
+  entera recién en el resumen final, con los artículos ya escritos.
 - **El IVA.** Ver abajo.
 - **Unidad, concepto de facturación y control de stock.** Defaults razonables
   que se cambian para toda la carga.
@@ -45,16 +48,110 @@ dato que ya está en la planilla.
 Están confirmadas con quien pidió la herramienta:
 
 1. **`GANANCIA` es multiplicador.** 10142 × 1.4 = **14198.80**. No es un
-   porcentaje.
+   porcentaje. Pero el margen **queda guardado como porcentaje**: ese 1.4 se
+   escribe como `incre1 = 40`. Ver "El margen queda escrito" abajo.
 2. **El `0` de la columna `IVA` no es "exento".** Significa "no lo sé": el
    archivo trae la columna en cero en todas las filas y eso no es una opinión
-   sobre el impuesto, es una espera. El IVA sale del que se elige en la
-   pantalla. Si se tomara como exento, el catálogo entero quedaría con el
-   impuesto equivocado y nadie se enteraría hasta ver la factura.
+   sobre el impuesto, es una espera. Si se tomara como exento, el catálogo
+   entero quedaría con el impuesto equivocado y nadie se enteraría hasta ver la
+   factura. Con el cambio del 7 de octubre de 2026 el `0` sigue siendo "no lo
+   sé" (usa el de la pantalla), pero una alícuota **de verdad** en la fila sí
+   manda. Ver "El IVA por renglón" abajo.
 3. **Si el artículo ya existe, se actualiza.** Se le cambian costo, precio y
    proveedor. Una lista de precios se recarga, no se duplica.
 4. **El grupo que falta se crea solo**, con el impuesto por defecto de la base
    (sin percepción).
+
+## El margen queda escrito
+
+Antes del 7 de octubre de 2026 el importador usaba la `GANANCIA` del archivo
+para calcular el precio y **la tiraba**: el artículo quedaba con
+`preciopub = costo × 1.5` y `incre1 = 0`. El sistema tenía el resultado de la
+cuenta pero no la cuenta.
+
+Eso producía exactamente esta pantalla: un artículo con costo 34.540,20, precio
+51.810,30 (que es 1.5) y **"Ganancia % 0,00"**. El operador no tenía forma de
+saber de dónde salía ese precio ni cambiarlo sin editar los 704 artículos uno por
+uno. Y si cargaba 30% en "Ganancia por defecto" al importar, el catálogo
+quedaba partido sin que nadie lo supiera: 679 artículos al 50% (el 1.5 del
+archivo) y 20 al 30% (su valor de respaldo), todos con el margen en cero.
+
+Ahora el multiplicador se convierte y se guarda:
+
+| Del archivo | Se guarda en `incre1` |
+|---|---|
+| `1.5` | `50` |
+| `1.4` | `40` |
+| `1.25` | `25` |
+| el porcentaje que cargó el operador (`30`) | `30` |
+
+Y el precio sale **del margen guardado**, no del multiplicador, para que los dos
+números nunca se contradigan. Como `incre1` es `DECIMAL(12,2)`, un margen con
+más de dos decimales se redondea y el precio sigue al margen redondeado: con
+un multiplicador de 1.33333 el margen es 33.33 y el precio sale de ese 33.33.
+Con los multiplicadores de dos decimales que traen las listas reales no hay
+diferencia ninguna.
+
+**Para completar el catálogo que ya está cargado:** reimportar la misma
+planilla. Los artículos se detectan como actualizados porque el margen cambia,
+se les escribe y **no se mueve ningún precio** (el margen derivado da el mismo
+número que el que ya estaba). Es la única forma de obtener el dato sobre 700
+artículos sin tocar el catálogo a mano.
+
+## El IVA por renglón
+
+Hasta el 6 de octubre de 2026 el IVA era **uno solo para toda la carga**: el
+que se elegía en la pantalla. A partir del 7, cada fila puede traer el suyo.
+
+El archivo trae la **alícuota** (21, 10.5) y la base guarda el **código**
+(`01`, `02`), así que hay que traducir una en otra contra el catálogo de
+`tipoiva`. Las reglas:
+
+| La fila trae | Qué pasa |
+|---|---|
+| Una alícuota que está en el catálogo | Se usa esa, renglón por renglón |
+| `0`, o no hay columna IVA | Usa el que eligió el operador |
+| Una alícuota que **no** está en el catálogo (5.5, por ejemplo) | **La fila no entra**, y se dice por qué |
+
+Lo del tercer caso es una decisión, no una comodidad. Adivinar el impuesto
+produce una factura con el impuesto equivocado, y eso no se ve hasta que hay
+que emitir. Es el mismo criterio que ya se aplicaba con un `COSTO` ilegible:
+una fila mala no frena a las otras 399, pero tampoco entra a medias.
+
+Por qué el `0` no se mapea a "exento": el catálogo tiene un `50` CONCEP. NO
+GRAVADOS con alícuota 0. Si el `0` del archivo se tomara por exento, una lista
+de precios de mercaderia entera entraría sin impuesto.
+
+**El `PROVEEDOR` sigue sin mandar por renglón.** Un Excel compuesto con 2 o 3
+proveedores distintos todavía se importa entero con el proveedor que se elige en
+la pantalla. Está anotado como pendiente abajo.
+
+## Lo que la pantalla avisa antes de importar
+
+Al elegir la planilla, el resumen dice cuántas filas hay y, si hay, cuántas van
+a depender del campo "Ganancia por defecto":
+
+> La planilla tiene 704 filas de datos. 20 no traen ganancia y van a usar la
+> que está arriba: sin ese valor no entran.
+
+Sin ese número, el operador descubre el problema en el resumen final, con los
+artículos ya escritos, y tiene que rehacer la carga. En la planilla real de
+`ANYWAY` son 20 de 704 las que llegan sin ganancia.
+
+Solo se cuentan las filas que todavía son importables: una fila con un dato
+ilegible va a fallar por ese motivo y no por la ganancia, y contarla sería
+mentir sobre la causa del error que el operador va a ver después.
+
+## Pendientes
+
+- **Importación compuesta con varios proveedores.** Hoy un Excel con 2 o 3
+  proveedores distintos se importa entero con uno solo. Resolver el nombre del
+  archivo contra la base tiene el riesgo de crear un "Nordeste" duplicado del
+  "Nordeste" que ya estaba, así que hace falta una decisión explícita sobre qué
+  pasa con un proveedor que no está cargado (crearlo, como se hace con los
+  grupos, o frenar la fila).
+- **`PROVEEDOR` del archivo no se usa para nada.** Se lee, se guarda en el
+  registro, y ahí queda.
 
 ## Cómo se decide que un artículo ya existe
 

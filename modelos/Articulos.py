@@ -19,6 +19,18 @@ class Articulo(ModeloBase):
     tipoiva = ForeignKeyField(Tipoiva, backref='tipoiva', column_name='tipoiva', default='01')
     modificaprecios = BitBooleanField(default=False)
     preciopub = DecimalField(max_digits=12, decimal_places=4, default=1)
+
+    # -- Ganancia -------------------------------------------------------------
+    # El porcentaje de ganancia de la lista 1. 40 significa 40%: el precio al
+    # publico sale de costo x 1.40. No es el multiplicador 1.4 de la columna
+    # GANANCIA del importador; la cuenta vive en libs/ganancia.py.
+    #
+    # default=0 y NO null: cero significa "no hay regla cargada" y el precio se
+    # tipea a mano, que es como esta todo el catalogo que ya existia. Por eso
+    # agregar la columna no cambia el comportamiento de ningun articulo previo:
+    # el precio solo se calcula cuando el operador carga un porcentaje.
+    incre1 = DecimalField(max_digits=12, decimal_places=2, default=0)
+
     concepto = CharField(max_length=1, default='1')
     codbarra = CharField(max_length=20, default='', column_name='codbarraart')
 

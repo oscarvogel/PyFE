@@ -58,9 +58,11 @@ from decimal import Decimal, InvalidOperation
 
 from openpyxl import load_workbook
 
+from libs.ganancia import precio_desde_incre1
 from modelos.Articulos import Articulo
 from modelos.Grupos import Grupo
 from modelos.ModeloBase import _a_bit
+from modelos.Tipoiva import Tipoiva
 from modelos.Unidades import Unidad
 
 # Un articulo sin codigo de barras no se puede cobrar con lector. Para eso esta
@@ -266,6 +268,7 @@ def leer_filas(archivo):
         col_costo = _columna(mapa, "COSTO")
         col_ganancia = _columna(mapa, "GANANCIA")
         col_proveedor = _columna(mapa, "PROVEEDOR")
+        col_iva = _columna(mapa, "IVA")
         cols_nombre = [col_nombre,
                        _columna(mapa, "NOMBRE2"),
                        _columna(mapa, "NOMBRE3"),
@@ -307,6 +310,10 @@ def leer_filas(archivo):
                     "ganancia": _numero(celda(col_ganancia), "GANANCIA"),
                     "grupo": _texto(celda(col_grupo)),
                     "proveedor": _texto(celda(col_proveedor)),
+                    # La alicuota tal cual viene del archivo. El 0 NO se
+                    # resuelve aca: significa "no lo se" y lo decide el
+                    # operador (ver _iva_de_la_fila).
+                    "iva": _numero(celda(col_iva), "IVA"),
                 })
             except FilaInvalida as error:
                 # Un numero ilegible no tira toda la carga: la fila se lleva el
@@ -316,6 +323,7 @@ def leer_filas(archivo):
                     "codbarra": "", "nombre": nombre[:100],
                     "nombreticket": nombre[:30],
                     "costo": None, "ganancia": None, "grupo": "", "proveedor": "",
+                    "iva": None,
                 })
 
         if not registros:
@@ -327,22 +335,51 @@ def leer_filas(archivo):
 
 # -- Calculo del precio ------------------------------------------------------
 
-CUATRO_DECIMALES = Decimal("0.0001")
+# El margen guardado (`articulos.incre1`) es DECIMAL(12,2), asi que a dos
+# decimales. Los cuatro decimales del precio los aplica `libs/ganancia.py`,
+# que es donde vive la cuenta ahora.
+DOS_DECIMALES = Decimal("0.01")
+UNO = Decimal("1")
+CIEN = Decimal("100")
+
+
+def _porcentaje_de_ganancia(ganancia):
+    """El multiplicador del archivo como porcentaje: 1.5 -> 50.
+
+    Es la conversion que hace que el margen quede ESCRITO en el articulo y no
+    solo el precio que sale de el. Sin esto, un articulo importado queda con
+    `incre1 = 0` y el ABM le muestra "Ganancia % 0,00" al operador que tiene un
+    precio al 50% enfrente: el sistema tiene el resultado de la cuenta pero no
+    la cuenta, y no hay forma de saber de donde salio ese numero ni de
+    cambiarlo sin editar 700 articulos uno por uno.
+
+    `incre1` es DECIMAL(12,2), asi que el margen se redondea a dos decimales.
+    El precio sale DESPUES de ese redondeo (ver `calcula_precio`), y por eso
+    los dos numeros nunca se contradicen.
+    """
+    return ((Decimal(str(ganancia)) - UNO) * CIEN).quantize(DOS_DECIMALES)
 
 
 def calcula_precio(costo, ganancia):
-    """El precio al publico: costo x ganancia, redondeado a 4 decimales.
+    """El precio al publico, a partir del MULTIPLICADOR del archivo.
 
-    `preciopub` es DECIMAL(12,4), asi que el redondeo es el del modelo y no un
-    capricho: con mas decimales el numero entra y MySQL lo guarda truncado, y
-    el operador ve un precio distinto del que se calculo.
+    `ganancia` es el multiplicador (1.5), no un porcentaje: es lo que trae la
+    columna GANANCIA de la planilla. La cuenta va por el porcentaje para que el
+    precio guardado sea siempre el que sale del margen guardado. Con 1.5 da
+    exactamente lo de siempre, 10142 x 1.5 = 15213; con un multiplicador de mas
+    de dos decimales el margen se redondea y el precio sigue al margen
+    redondeado, no al original.
+
+    Redondear a 4 decimales porque `preciopub` es DECIMAL(12,4): con mas, el
+    numero entra y MySQL lo guarda truncado, y el operador ve un precio
+    distinto del que se calculo.
     """
     if costo is None:
         raise FilaInvalida("no tiene costo")
     if ganancia is None:
         raise FilaInvalida("no tiene ganancia")
 
-    return (Decimal(costo) * Decimal(ganancia)).quantize(CUATRO_DECIMALES)
+    return precio_desde_incre1(costo, _porcentaje_de_ganancia(ganancia))
 
 
 # -- Catalogos ---------------------------------------------------------------
@@ -388,6 +425,72 @@ def _resolver_grupo(nombre, cache, creados):
     if grupo.nombre not in creados:
         creados.append(grupo.nombre)
     return grupo.idgrupo
+
+
+def filas_sin_ganancia(registros):
+    """Cuantas filas van a depender de la ganancia por defecto del operador.
+
+    Vive aca y no en la pantalla a proposito: es la misma disciplina del resto
+    del modulo, que no importa Qt para que estas cuentas se puedan probar sin
+    QApplication.
+
+    Solo cuenta filas que todavia son importables. Una fila con un dato
+    ilegible va a fallar por ese motivo y no por la ganancia, y contarla aca
+    seria mentir sobre la causa del error que el operador va a ver despues.
+    """
+    return [r for r in registros
+            if not r.get("error")
+            and (r.get("ganancia") is None
+                 or Decimal(str(r.get("ganancia") or 0)) <= 0)]
+
+
+def _codigos_de_iva():
+    """(alicuota -> codigo) del catalogo de tipos de IVA, en una sola consulta.
+
+    El archivo trae la alicuota (21, 10.5) y la base guarda el codigo ('01',
+    '02'). El 0 NO se mapea: ver `_iva_de_la_fila`.
+
+    Se arma una vez y no por fila: son tres filas de tabla y la lista tiene
+    cientos de renglones.
+    """
+    codigos = {}
+    for tipo in Tipoiva.select():
+        codigos[Decimal(str(tipo.iva))] = tipo.codigo
+    return codigos
+
+
+def _iva_de_la_fila(iva_fila, iva_dialogo, codigos_iva):
+    """El tipo de IVA que le corresponde a este renglon.
+
+    Tres casos, y el tercero es el que decide:
+
+    1. La fila trae una alicuota que esta en el catalogo: se usa esa. Una
+       lista de precios con productos al 21 y al 10.5 mezclados respeta la
+       diferencia, que es justo para lo que sirve leer la columna.
+    2. La fila trae 0 o no trae columna IVA: se usa el del operador. El 0 en
+       estas planillas no es "exento", es "no lo se": ningun proveedor escribe
+       0 queriendo decir no gravado, lo escribe porque la columna se genero
+       sola. Y el catalogo tiene un '50' CONCEP. NO GRAVADOS con alicuota 0,
+       asi que confundirlos produciria artículos sin impuesto en una lista de
+       mercaderia.
+    3. La fila trae una alicuota que NO esta en el catalogo: la fila no entra.
+       Adivinar un IVA produce una factura con el impuesto equivocado, y eso
+       no se ve hasta que hay que cobrar. Es el mismo criterio que ya se usa
+       con el COSTO ilegible.
+    """
+    if iva_fila is None:
+        return iva_dialogo
+
+    alicuota = Decimal(str(iva_fila))
+    if alicuota <= 0:
+        return iva_dialogo
+
+    codigo = codigos_iva.get(alicuota)
+    if codigo is None:
+        raise FilaInvalida(
+            "el IVA {} del archivo no esta en el catalogo de tipos de IVA"
+            .format(alicuota))
+    return codigo
 
 
 def _resolver_unidad(codigo):
@@ -505,11 +608,16 @@ def importa(archivo, proveedor_id, tipoiva, unidad="UN",
       filas y se elige una vez; el nombre de la columna PROVEEDOR del archivo
       se lee pero no manda, porque un Excel puede traer el proveedor en texto
       libre y la base lo tiene como id.
-    * `tipoiva`: el IVA que se aplica a todas las filas. El 0 de la columna IVA
-      del archivo es lo que hace que se pregunte (ver el modulo).
-    * `ganancia_defecto`: la ganancia para los renglones que no traen una. Los
-      que la traen usan la del renglon, que es lo que hace que una lista con
-      1.4 y 1.5 mezclados respete la diferencia.
+    * `tipoiva`: el IVA de respaldo. El de cada renglon sale de la columna IVA
+      del archivo cuando trae una alicuota que esta en el catalogo; el 0 (o la
+      columna entera ausente) usa este. Ver `_iva_de_la_fila`.
+    * `ganancia_defecto`: el PORCENTAJE de ganancia para los renglones que no
+      traen una. 30 es 30%, no el multiplicador 1.3: es lo mismo que el campo
+      "Ganancia %" del ABM de artículos, y que sean el mismo numero en los dos
+      lugares es lo que evita tener que pensar en dos escalas.
+      Los que traen ganancia usan la del renglon, convertida a porcentaje: un
+      1.5 de la planilla se guarda como 50. Una lista con 1.4 y 1.5 mezclados
+      respeta la diferencia, y ademas queda escrito en cada artículo.
     * `unidad`: la unidad de medida de los articulos importados.
     * `controlastock`: si participan del control de stock. Por defecto si: es
       una lista de precios de mercaderia, no un catalogo de servicios.
@@ -533,7 +641,8 @@ def importa(archivo, proveedor_id, tipoiva, unidad="UN",
     existentes = set(por_codigo)
     cache_grupos = {}
     codigo_unidad = _resolver_unidad(unidad)
-    iva = str(tipoiva).zfill(2)
+    iva_dialogo = str(tipoiva).zfill(2)
+    codigos_iva = _codigos_de_iva()
 
     for registro in registros:
         numero = registro["numero"]
@@ -557,13 +666,24 @@ def importa(archivo, proveedor_id, tipoiva, unidad="UN",
                 if ganancia_defecto is None:
                     raise FilaInvalida(
                         "no tiene GANANCIA y no se eligio una por defecto", numero)
-                ganancia = Decimal(str(ganancia_defecto))
+                # `ganancia_defecto` ya viene como PORCENTAJE (30 = 30%), no
+                # como el multiplicador del archivo. Ver el parametro.
+                margen = Decimal(str(ganancia_defecto))
+            else:
+                margen = _porcentaje_de_ganancia(ganancia)
+
+            iva = _iva_de_la_fila(registro.get("iva"), iva_dialogo, codigos_iva)
 
             campos = {
                 "nombre": nombre,
                 "nombreticket": registro["nombreticket"],
                 "costo": costo,
-                "preciopub": calcula_precio(costo, ganancia),
+                # El precio sale DEL MARGEN, no del multiplicador: si se
+                # calcularan por separado, un margen que se redondea a dos
+                # decimales dejaria un precio que no sale de la cuenta que el
+                # operador tiene escrita al lado. Ver `calcula_precio`.
+                "preciopub": precio_desde_incre1(costo, margen),
+                "incre1": margen,
                 "grupo": _resolver_grupo(registro["grupo"], cache_grupos,
                                          resultado.grupos_creados),
                 "provppal": proveedor_id,

@@ -1,11 +1,27 @@
 # Actualización automática de Asiento desde vogel-releases
 
-Fecha: 2026-10-05
+Fecha: 2026-10-07
 Rama: `master` (mergeado desde `codex/vogel-gestion-simple-mvp`)
-Estado: **publicado.** Versión `2026.10.05.13.15.58` en el release `latest` de
-`oscarvogel/vogel-releases`, con su `latest.json` y su `changelog.json` (que es
-la primera vez que existe). Sigue pendiente **el E2E en una PC real**, que es lo
+Estado: **publicado.** Este documento se actualizó al publicar la versión
+`2026.10.07.19.10.56`. Sigue pendiente **el E2E en una PC real**, que es lo
 único que falta para darle el visto bueno.
+
+## Versiones publicadas
+
+| Versión | Qué trae | SHA256 (prefijo) |
+|---|---|---|
+| `2026.10.05.13.15.58` | Autoactualización: núcleo, cliente y diálogo | `7ec8e301...` |
+| `2026.10.07.19.10.56` | Selector con precio al público y búsqueda por código de barras; precio al público calculado desde el costo y un margen | `88063a09...` |
+
+La `2026.10.07.19.10.56` salió con la suite entera en verde (`917 passed`) y se
+verificó después de subir: el `digest` del asset en GitHub y el SHA256 del `.exe`
+local dan `88063a09ddc38d25d76b3f25e6e34de1d3cf9099bdd7f4fcac59df2d54211200`, y
+ese mismo hash es el que dice `latest.json`.
+
+Un detalle de esa publicación que conviene tener anotado: el build sale del
+**árbol de trabajo**, no de un commit. Publicar sin commitear primero publica
+igual, y después es imposible responder qué versión está en producción. La
+`2026.10.07.19.10.56` salió con los dos commits ya escritos.
 
 ## Qué hace
 
