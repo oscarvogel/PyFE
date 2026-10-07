@@ -15,7 +15,10 @@ exactamente lo que el archivo NO puede decir:
   renglon sin ganancia necesita un valor de respaldo, y ese valor es una
   decision comercial, no algo que se pueda deducir de una planilla.
 * **El IVA.** La columna IVA del archivo trae 0 en todas las filas, y eso no
-  es "exento": es "no lo se". Ver libs/importararticulos.py.
+  es "exento": es "no lo se". Ver libs/importararticulos.py. Si la planilla
+  trae una alicuota de verdad (21, 10.5) esa manda renglon por renglon, y lo
+  que se pregunta aca es solo el respaldo para los 0 y para las columnas
+  ausentes.
 * **Unidad, concepto y control de stock.** Defaults razonables que el
   operador puede cambiar, y que se cambian para toda la carga.
 
@@ -96,11 +99,18 @@ class ImportarArticulosView(VistaBase):
         # archivo trae una GANANCIA por renglon y se usa esa. Este campo es el
         # plan B para los renglones que llegan sin ella, y llamarlo "margen"
         # al lado de una columna que dice GANANCIA hace pensar que compiten.
-        self.spnGanancia = Spinner(decimales=4)
+        #
+        # El campo es un PORCENTAJE (30 = 30%), igual que el "Ganancia %" del
+        # ABM de artículos, y no el multiplicador 1.5 de la planilla. Son dos
+        # escalas distintas para lo mismo, y tener el mismo numero en los dos
+        # lugares de la pantalla es lo que evita que el operador cargar 30
+        # esperando 30% y termine escribiendo un factor.
+        self.spnGanancia = Spinner(decimales=2)
         self.spnGanancia.setToolTip(
-            "Se usa solo en los renglones que vienen sin ganancia. Si la "
-            "planilla trae la suya, manda la de la planilla.")
-        layDatos.addRow("Ganancia por defecto", self.spnGanancia)
+            "Porcentaje para los renglones que vienen sin ganancia: 30 es "
+            "30%.\n\nSe usa solo en los que no traen ganancia. Si la planilla "
+            "trae la suya, manda la de la planilla.")
+        layDatos.addRow("Ganancia por defecto (%)", self.spnGanancia)
 
         self.cboTipoIva = ComboIVA()
         layDatos.addRow("IVA", self.cboTipoIva)
@@ -246,6 +256,17 @@ class ImportarArticulosView(VistaBase):
         if ilegibles:
             texto += " {} tienen un dato ilegible y no se van a importar.".format(
                 len(ilegibles))
+
+        # Cuantas filas van a depender del campo "Ganancia por defecto". El
+        # archivo ya esta leido, asi que el numero sale gratis, y sin el el
+        # operador se entera del problema recien en el resumen final: cuando ya
+        # escribio 400 articulos y tiene que volver a cargar.
+        sin_ganancia = importararticulos.filas_sin_ganancia(registros)
+        if sin_ganancia:
+            texto += (" {} no traen ganancia y van a usar la que está "
+                      "arriba: sin ese valor no entran.".format(
+                          len(sin_ganancia)))
+
         self.lblResumen.setText(texto)
         self.lblResumen.setStyleSheet("")
         self.btnImportar.setEnabled(self.cboProveedor.count() > 0)
@@ -264,8 +285,13 @@ class ImportarArticulosView(VistaBase):
             return
 
         # Sin ganancia por defecto no es un error: la planilla puede traer la
+        # Sin ganancia por defecto no es un error: la planilla puede traer la
         # suya en todos los renglones, y el campo es solo el plan B. Si
         # faltara y algun renglon no la trae, lo dice el resumen de esa fila.
+        #
+        # Va como PORCENTAJE tal cual lo escribio el operador: la conversion a
+        # multiplicador, si hay que hacerla, es del modulo, no de la pantalla.
+        # Acá se toco justamente para que 30 sea 30% y no 30 veces el costo.
         ganancia = self.spnGanancia.valor()
         ganancia = ganancia if ganancia > 0 else None
 

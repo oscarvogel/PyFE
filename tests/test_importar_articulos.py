@@ -200,13 +200,25 @@ def test_el_precio_es_el_costo_por_la_ganancia():
         Decimal("10142"), Decimal("1.4")) == Decimal("14198.8000")
 
 
-def test_el_precio_respeta_cuatro_decimales():
-    """`preciopub` es DECIMAL(12,4) y MySQL cortaria lo que sobra."""
+def test_el_precio_sigue_al_margen_que_se_guarda():
+    """El precio sale del margen redondeado, no del multiplicador entero.
+
+    `incre1` es DECIMAL(12,2): un multiplicador de 1.33333 es un margen de
+    33.333 que no entra, se guarda 33.33, y el precio se calcula DESPUES con
+    ese 33.33. Si se calculara antes, el artículo quedaría con un precio que no
+    sale de la cuenta que tiene escrita al lado, y al reimportarlo se movería
+    un centavo sin que nadie lo haya tocado.
+
+    Con un multiplicador de dos decimales, que es el caso de las listas de
+    precios reales, el precio es exactamente el de siempre.
+    """
     precio = importararticulos.calcula_precio(Decimal("100"),
                                               Decimal("1.33333"))
-    # 100 x 1.33333 = 133.333 exacto; a cuatro decimales queda 133.3330.
-    assert precio == Decimal("133.3330")
-    assert str(precio).split(".")[1] == "3330"
+    assert precio == Decimal("133.3300"), precio
+
+    # El caso normal: 1.5 entra entero y no hay nada que redondear.
+    assert importararticulos.calcula_precio(
+        Decimal("10142"), Decimal("1.5")) == Decimal("15213.0000")
 
 
 def test_un_costo_negativo_no_se_importa(tmp_path, base):
@@ -439,8 +451,11 @@ def test_usa_la_ganancia_de_la_planilla_cuando_trae(tmp_path, base):
     """1.4 y 1.5 mezclados: cada renglon usa la suya.
 
     El archivo trae la ganancia renglon por renglon y esa manda. La ganancia
-    por defecto de la pantalla es solo para los que no traen, asi que un 9 de
-    respaldo no puede pisar el 1.4 del renglon.
+    por defecto de la pantalla es solo para los que no traen, asi que un 90%
+    de respaldo no puede pisar el 1.4 del renglon.
+
+    Y el multiplicador queda ESCRITO como porcentaje: 1.4 es 40 y 1.5 es 50.
+    Sin eso el ABM le muestra 0% a un artículo cuyo precio esta al 50%.
     """
     archivo = arma_xlsx(tmp_path, [
         [None, "UNO", None, None, None, "VARIOS", "N", 100, 1.4, 0],
@@ -448,23 +463,92 @@ def test_usa_la_ganancia_de_la_planilla_cuando_trae(tmp_path, base):
     ])
 
     importararticulos.importa(archivo, proveedor_id=1, tipoiva="01",
-                              ganancia_defecto=Decimal("9"))
+                              ganancia_defecto=Decimal("90"))
 
     assert crudo("UNO")["preciopub"] == Decimal("140")
     assert crudo("DOS")["preciopub"] == Decimal("150")
+    assert crudo("UNO")["incre1"] == Decimal("40.00"), \
+        "el 1.4 del archivo no quedo escrito como 40%: {}".format(
+            crudo("UNO")["incre1"])
+    assert crudo("DOS")["incre1"] == Decimal("50.00"), \
+        "el 1.5 del archivo no quedo escrito como 50%: {}".format(
+            crudo("DOS")["incre1"])
 
 
 def test_la_ganancia_por_defecto_cubre_los_renglones_sin_ganancia(tmp_path, base):
-    """Un renglon sin GANANCIA usa la que eligio el operador."""
+    """Un renglon sin GANANCIA usa el porcentaje que eligio el operador.
+
+    El campo de la pantalla es un porcentaje (50 = 50%), no el multiplicador
+    1.5 de la planilla: con 100 de costo y 50% el precio es 150, no 5000.
+    """
     archivo = arma_xlsx(tmp_path, [
         [None, "SIN GANANCIA", None, None, None, "VARIOS", "N", 100, None, 0],
     ])
 
     resultado = importararticulos.importa(
-        archivo, proveedor_id=1, tipoiva="01", ganancia_defecto=Decimal("2"))
+        archivo, proveedor_id=1, tipoiva="01", ganancia_defecto=Decimal("50"))
 
     assert resultado.creados == ["SIN GANANCIA"]
-    assert crudo("SIN GANANCIA")["preciopub"] == Decimal("200")
+    assert crudo("SIN GANANCIA")["preciopub"] == Decimal("150")
+    assert crudo("SIN GANANCIA")["incre1"] == Decimal("50.00")
+
+
+def test_reimportar_una_base_sin_margen_lo_completa(tmp_path, base):
+    """El caso del operador: los precios ya estaban, el margen no.
+
+    Es lo que paso con 704 articulos importados antes de que existiera el
+    campo: el precio estaba puesto (costo x 1.5) pero `incre1` en 0, y el ABM
+    le mostraba "Ganancia % 0,00" a un producto con el precio al 50%. Editar
+    704 articulos a mano no es una opcion, pero reimportar la misma planilla
+    completa el dato sin mover un solo precio.
+
+    Y al reimportar se detectan como ACTUALIZADOS, no como "sin cambio": si
+    el margen no entrara en la comparacion, la columna se llenaria sola una
+    vez y jamas se volveria a actualizar al cambiar el margen del archivo.
+    """
+    archivo = arma_xlsx(tmp_path, [
+        [1001, "UNO", None, None, None, "VARIOS", "N", 100, 1.5, 0],
+        [1002, "DOS", None, None, None, "VARIOS", "N", 200, 1.5, 0],
+    ])
+    importararticulos.importa(archivo, proveedor_id=1, tipoiva="01")
+
+    # Estado en el que quedo el catalogo: precio puesto, margen en cero.
+    Articulo.update(incre1=0).execute()
+    assert crudo("UNO")["incre1"] == 0
+    assert crudo("UNO")["preciopub"] == Decimal("150")
+
+    segunda = importararticulos.importa(archivo, proveedor_id=1, tipoiva="01")
+
+    assert sorted(segunda.actualizados) == ["DOS", "UNO"], segunda.actualizados
+    assert crudo("UNO")["incre1"] == Decimal("50.00")
+    # Y el precio NO se movio: el margen se completo, no se recalculo otra vez.
+    assert crudo("UNO")["preciopub"] == Decimal("150")
+    assert crudo("DOS")["preciopub"] == Decimal("300")
+
+    # Y una tercera pasada no vuelve a mover nada.
+    tercera = importararticulos.importa(archivo, proveedor_id=1, tipoiva="01")
+    assert tercera.actualizados == [], tercera.actualizados
+    assert sorted(tercera.sin_cambios) == ["DOS", "UNO"], tercera.sin_cambios
+
+
+def test_el_precio_es_siempre_el_del_margen_guardado(tmp_path, base):
+    """Precio y margen no pueden contradecirse.
+
+    Si se calcularan por separado, un margen que se redondea a dos decimales
+    dejaria un precio que no sale de la cuenta que el operador tiene escrita al
+    lado, y al reimportarlo se moveria un centavo sin que nadie lo haya tocado.
+    """
+    archivo = arma_xlsx(tmp_path, [
+        [1001, "UNO", None, None, None, "VARIOS", "N", 100, 1.5, 0],
+    ])
+
+    importararticulos.importa(archivo, proveedor_id=1, tipoiva="01")
+
+    fila = crudo("UNO")
+    esperado = Decimal(fila["costo"]) * (1 + Decimal(fila["incre1"]) / 100)
+    assert abs(fila["preciopub"] - esperado) < Decimal("0.01"), \
+        "precio {} no sale de costo {} con margen {}".format(
+            fila["preciopub"], fila["costo"], fila["incre1"])
 
 
 def test_un_renglon_sin_ganancia_sin_defecto_no_entra(tmp_path, base):
@@ -518,6 +602,19 @@ def test_el_control_de_stock_se_pide_una_sola_vez(tmp_path, base):
 
 # -- El archivo de verdad -----------------------------------------------------
 
+# 20 de las 704 filas de la planilla real NO traen GANANCIA. Sin margen por
+# defecto el importador las rechaza con "no tiene GANANCIA y no se eligio una
+# por defecto", y entonces este test, que quiere probar que la planilla REAL
+# entra completa, estaria probando una planilla que el operador no tiene.
+#
+# Se pasa el margen como lo pasa la pantalla (`vistas/ImportarArticulos.py` lo
+# lee del spinner y lo manda). El numero no importa para lo que este test
+# verifica --que no quede ninguna fila afuera y que ninguna quede en precio
+# cero-- pero tiene que ser POSITIVO, porque en cero el precio sale igual al
+# costo y el ABM trata el 0 como "no hay regla cargada".
+GANANCIA_DEFECTO = Decimal("30")
+
+
 @pytest.mark.skipif(not os.path.exists(ARCHIVO_REAL),
                     reason="la planilla original no esta en esta maquina")
 def test_la_planilla_original_se_importa_como_corresponde(base):
@@ -525,20 +622,63 @@ def test_la_planilla_original_se_importa_como_corresponde(base):
 
     Este test no sirve si se arma una planilla a mano: el problema nacio de
     ESTE archivo y sus particularidades (nombres partidos, ganancia con punto,
-    IVA en cero) tienen que estar probados contra el.
+    IVA en cero, 20 renglones sin ganancia) tienen que estar probados contra
+    el.
     """
-    resultado = importararticulos.importa(ARCHIVO_REAL, proveedor_id=1,
-                                          tipoiva="01")
+    resultado = importararticulos.importa(
+        ARCHIVO_REAL, proveedor_id=1, tipoiva="01",
+        ganancia_defecto=GANANCIA_DEFECTO)
 
     # Todas las filas del archivo entran: ninguna queda afuera.
     assert resultado.filas_con_error == []
     assert resultado.total_importados == resultado.total_leidas
     assert resultado.total_importados > 0
 
-    # El precio sale del costo por la ganancia, y ninguno queda en cero.
+    # El precio sale del costo por la ganancia, con una salvedad que la
+    # planilla REAL impone y que aca no se puede inventar:
+    #
+    # 5 de sus renglones traen COSTO 0, y con costo 0 el precio sale 0 por
+    # mas margen que se le ponga. Y hay que mirarlos antes de decidir que son
+    # un error de carga:
+    #
+    #   TELEFONIA (RECUPERO DE GASTOS)   y   VOUCHER REGALO $60000 PESOS
+    #
+    # Costo 0 es lo correcto para esos dos: no son cosas que se compren y se
+    # vendan, son conceptos. El precio lo carga el operador en el momento de
+    # la venta, que es exactamente para lo que esta
+    # `VentaSimpleCantidadPrecioDialog`. Un precio en cero significa "no hay
+    # precio cargado", no "vender a costo" (ver `docs/ARTICULOS-INCRE1.md`).
+    #
+    # Los otros tres (un mouse, dos sueteres) SI son productos para revender, y
+    # ahi el costo 0 huele a error del proveedor. Se importa igual, pero queda
+    # anotado aca para que no se pierda: si alguna vez hay que pedirle la lista
+    # corregida al proveedor, estos son los que hay que preguntar.
+    # `creados` y no `Articulo.select()`: la base del fixture ya viene con un
+    # catalogo minimo sembrado (MANTENIMIENTO y otro), y recorrerlo todo mezcla
+    # datos de la semilla con datos de la planilla. Antes pasaba de milagro
+    # porque el precio de la semilla es 5000.
+    importados = set(resultado.creados)
+    sin_costo = 0
     for fila in Articulo.select().dicts():
+        if fila["nombre"] not in importados:
+            continue
+        costo = Decimal(str(fila["costo"] or 0))
+        if costo == 0:
+            sin_costo += 1
+            # Con costo 0 el precio tiene que quedar en 0, no inventarse uno.
+            assert Decimal(str(fila["preciopub"])) == 0, (
+                "{} tiene costo 0 pero quedo en precio {}".format(
+                    fila["nombre"], fila["preciopub"]))
+            continue
         assert fila["preciopub"] > 0, "{} quedo en precio {}".format(
             fila["nombre"], fila["preciopub"])
+
+    # La planilla tiene que seguir trayendo los renglones sin costo. Si este
+    # numero baja a cero, el proveedor corrigio la lista y este comentario
+    # quedo viejo: hay que revisarlo antes de borrarlo.
+    assert sin_costo > 0, (
+        "la planilla real ya no tiene renglones con costo 0: el comentario "
+        "de arriba y la regla del precio en cero hay que revisarlas")
 
     # Los nombres de la planilla son largos: ninguno se corto a 100.
     for fila in Articulo.select().dicts():
@@ -554,13 +694,20 @@ def test_la_planilla_original_es_idempotente(base):
     Es la garantia de que el operador puede recargar una lista corregida sin
     miedo: si la segunda pasada moviera algo, no podria volver atras.
     """
-    importararticulos.importa(ARCHIVO_REAL, proveedor_id=1, tipoiva="01")
+    # La MISMA ganancia por defecto que en el test de arriba. Si las dos
+    # pasadas usaran margenes distintos, la segunda moveria los 20 articulos
+    # que no traen ganancia y este test fallaria por el motivo equivocado:
+    # parece que la importacion no es idempotente cuando lo que cambio es el
+    # margen que le pasamos.
+    importararticulos.importa(ARCHIVO_REAL, proveedor_id=1, tipoiva="01",
+                              ganancia_defecto=GANANCIA_DEFECTO)
     # El numero de articulos ya incluye los dos de la siembra de test: lo que
     # importa es que la segunda pasada NO lo haga crecer.
     articulos_tras_primera = Articulo.select().count()
 
     segunda = importararticulos.importa(ARCHIVO_REAL, proveedor_id=1,
-                                        tipoiva="01")
+                                        tipoiva="01",
+                                        ganancia_defecto=GANANCIA_DEFECTO)
 
     assert segunda.creados == []
     assert segunda.actualizados == []
@@ -691,3 +838,172 @@ def test_importar_desde_la_pantalla_crea_los_articulos(vista, tmp_path,
     assert Grupo.get_or_none(Grupo.nombre == "SUPLEMENTOS") is not None
     # Y el resumen lo dice.
     assert any("2 articulos" in m for m in mostrados), mostrados
+# -- El IVA por renglon ------------------------------------------------------
+#
+# Que se decide aca
+# ------------------
+# La columna IVA del archivo trae 0 en todas las filas de estas planillas, y un
+# 0 en una lista de precios de mercaderia no es "exento": es "no lo se". Cuando
+# el proveedor si manda una alicuota real, se respeta fila por fila, que es lo
+# que hace falta cuando el mismo Excel trae productos al 21 y al 10.5.
+#
+# El 0 sigue siendo "no lo se" y usa el valor que eligio el operador. Y una
+# alicuota que no esta en el catalogo no se adivina: la fila no entra.
+#
+# Ojo con las filas: la cabecera tiene DIEZ columnas, con Nombre2..Nombre4 en el
+# medio. Una fila de siete valores no da error, corre todo de lugar y el test
+# falla por un motivo que no tiene nada que ver con lo que prueba.
+
+
+def test_el_iva_del_archivo_manda_cuando_tiene_alicuota(base, tmp_path):
+    archivo = arma_xlsx(tmp_path, [
+        [1001, "PRODUCTO 21", None, None, None, "G1", "PROV", 100, 1.5, 21],
+        [1002, "PRODUCTO 10.5", None, None, None, "G1", "PROV", 100, 1.5, 10.5],
+    ])
+
+    res = importararticulos.importa(archivo, proveedor_id=1, tipoiva="02")
+
+    assert res.filas_con_error == [], res.filas_con_error
+    assert Articulo.get(Articulo.codbarra == "1001").tipoiva_id == "01"
+    assert Articulo.get(Articulo.codbarra == "1002").tipoiva_id == "02"
+
+
+def test_el_iva_cero_usa_el_que_eligio_el_operador(base, tmp_path):
+    """El 0 del archivo es "no lo se", no "exento".
+
+    Si el 0 se tomara por exento, una lista de precios de mercaderia entera
+    entraria con el codigo 50 CONCEP. NO GRAVADOS y las facturas saldrian sin
+    impuesto. El error es invisible hasta que hay que cobrar.
+    """
+    archivo = arma_xlsx(tmp_path, [
+        [1001, "PRODUCTO SIN IVA", None, None, None, "G1", "PROV", 100, 1.5, 0],
+    ])
+
+    importararticulos.importa(archivo, proveedor_id=1, tipoiva="02")
+
+    assert Articulo.get(Articulo.codbarra == "1001").tipoiva_id == "02"
+
+
+def test_una_planilla_sin_columna_iva_usa_el_del_operador(base, tmp_path):
+    """No todas las planillas traen la columna, y eso no puede ser un error."""
+    archivo = arma_xlsx(
+        tmp_path,
+        [[1001, "PRODUCTO", None, None, None, "G1", "PROV", 100, 1.5]],
+        cabeceras=["CODIGO DE BARRA", "NOMBRE1", "Nombre2", "Nombre3",
+                   "Nombre4", "GRUPO", "PROVEEDOR", "COSTO", "GANANCIA"])
+
+    res = importararticulos.importa(archivo, proveedor_id=1, tipoiva="02")
+
+    assert res.filas_con_error == [], res.filas_con_error
+    assert Articulo.get(Articulo.codbarra == "1001").tipoiva_id == "02"
+
+
+def test_un_iva_que_no_esta_en_el_catalogo_no_importa_la_fila(base, tmp_path):
+    """Adivinar un impuesto es peor que no importar esa fila.
+
+    Una alicuota de 5.5 no tiene codigo en el catalogo. Si se usara la del
+    operador, el articulo entraria con el 21 cuando el proveedor cobro 5.5, y
+    eso se descubre cuando hay que emitir, no antes.
+    """
+    archivo = arma_xlsx(tmp_path, [
+        [1001, "PRODUCTO RARO", None, None, None, "G1", "PROV", 100, 1.5, 5.5],
+        [1002, "PRODUCTO NORMAL", None, None, None, "G1", "PROV", 100, 1.5, 21],
+    ])
+
+    res = importararticulos.importa(archivo, proveedor_id=1, tipoiva="02")
+
+    assert res.creados == ["PRODUCTO NORMAL"], res.creados
+    assert Articulo.get_or_none(Articulo.codbarra == "1001") is None
+    assert res.filas_con_error, "la fila rara no se aviso"
+    numero, motivo = res.filas_con_error[0]
+    assert numero == 2, "el numero de fila no es el del Excel"
+    assert "5.5" in motivo, motivo
+
+
+def test_el_iva_por_fila_no_rompe_la_recarga(base, tmp_path):
+    """Importar dos veces la misma lista no mueve nada.
+
+    El IVA ahora es un valor por renglon y el nombre es el mismo de siempre: si
+    la comparacion de "cambio" no lo tiene en cuenta, una recarga de la lista
+    que ya estaba entra toda como actualizada.
+    """
+    archivo = arma_xlsx(tmp_path, [
+        [1001, "PRODUCTO 21", None, None, None, "G1", "PROV", 100, 1.5, 21],
+        [1002, "PRODUCTO 10.5", None, None, None, "G1", "PROV", 100, 1.5, 10.5],
+    ])
+
+    importararticulos.importa(archivo, proveedor_id=1, tipoiva="02")
+    segunda = importararticulos.importa(archivo, proveedor_id=1, tipoiva="02")
+
+    assert segunda.actualizados == [], segunda.actualizados
+    assert segunda.sin_cambios == ["PRODUCTO 21", "PRODUCTO 10.5"], \
+        segunda.sin_cambios
+
+
+def test_cambiar_el_iva_de_la_planilla_cambia_el_articulo(base, tmp_path):
+    """Si el proveedor sube la alicuota, el articulo tiene que reflejarlo."""
+    antes = arma_xlsx(tmp_path, [
+        [1001, "PRODUCTO", None, None, None, "G1", "PROV", 100, 1.5, 0],
+    ], nombre="antes.xlsx")
+    importararticulos.importa(antes, proveedor_id=1, tipoiva="01")
+
+    despues = arma_xlsx(tmp_path, [
+        [1001, "PRODUCTO", None, None, None, "G1", "PROV", 100, 1.5, 10.5],
+    ], nombre="despues.xlsx")
+    segunda = importararticulos.importa(despues, proveedor_id=1, tipoiva="01")
+
+    assert segunda.actualizados == ["PRODUCTO"], segunda.actualizados
+    assert Articulo.get(Articulo.codbarra == "1001").tipoiva_id == "02"
+
+
+# -- Cuantas filas dependen de la ganancia por defecto ------------------------
+
+
+def test_cuenta_las_filas_que_necesitan_la_ganancia_por_defecto(tmp_path):
+    """El numero que el operador necesita ver ANTES de importar.
+
+    Sin esto se entera cuando ya escribio 400 articulos: el error por fila
+    aparece en el resumen final y la carga entera hay que rehacerla.
+    """
+    archivo = arma_xlsx(tmp_path, [
+        [1001, "CON GANANCIA", None, None, None, "G1", "PROV", 100, 1.5, 0],
+        [1002, "SIN GANANCIA", None, None, None, "G1", "PROV", 100, None, 0],
+        [1003, "SIN GANANCIA", None, None, None, "G1", "PROV", 100, None, 0],
+        [1004, "GANANCIA CERO", None, None, None, "G1", "PROV", 100, 0, 0],
+    ])
+
+    registros = importararticulos.leer_filas(archivo)
+
+    assert len(importararticulos.filas_sin_ganancia(registros)) == 3
+
+
+def test_no_cuenta_una_fila_que_ya_esta_rota_por_otra_cosa(tmp_path):
+    """Una fila ilegible va a fallar por eso, no por la ganancia.
+
+    Contarla aca seria decir "esto necesita la ganancia por defecto" de una
+    fila que en realidad se va a rechazar por un costo que no se puede leer, y
+    el operador carga un valor que no arregla nada.
+    """
+    archivo = arma_xlsx(tmp_path, [
+        [1001, "COSTO ILEGIBLE", None, None, None, "G1", "PROV",
+         "no es un numero", 1.5, 0],
+        [1002, "SIN GANANCIA", None, None, None, "G1", "PROV", 100, None, 0],
+    ])
+
+    registros = importararticulos.leer_filas(archivo)
+    sin_ganancia = importararticulos.filas_sin_ganancia(registros)
+
+    assert [r["nombre"] for r in sin_ganancia] == ["SIN GANANCIA"], \
+        [r["nombre"] for r in sin_ganancia]
+
+
+def test_una_planilla_completa_no_necesita_la_ganancia_por_defecto(tmp_path):
+    """El caso normal: no hay nada que avisar y el campo no estorba."""
+    archivo = arma_xlsx(tmp_path, [
+        [1001, "UNO", None, None, None, "G1", "PROV", 100, 1.5, 0],
+        [1002, "DOS", None, None, None, "G1", "PROV", 100, 1.4, 0],
+    ])
+
+    registros = importararticulos.leer_filas(archivo)
+
+    assert importararticulos.filas_sin_ganancia(registros) == []

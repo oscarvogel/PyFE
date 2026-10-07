@@ -4,6 +4,7 @@ from libs.ComboBox import ComboConceptoFacturacion
 from libs.Etiquetas import Etiqueta
 from libs.Spinner import Spinner
 from libs.Utiles import inicializar_y_capturar_excepciones
+from libs.ganancia import margen_activo, precio_desde_incre1
 from modelos import Unidades, Grupos, Proveedores, Tipoiva
 from modelos.Articulos import Articulo
 from modelos.Tipoiva import ComboIVA
@@ -41,6 +42,24 @@ class ArticulosView(ABM):
         self.controles['tipoiva'].widgetNombre = self.lblNombreTipoiva
         self.ArmaEntrada('modificaprecios', boxlayout=self.layoutProvedor, control=CheckBox(), texto="Modifica precios?")
         self.layoutCosto = self.ArmaEntrada('costo', texto='Costo', control=Spinner())
+        # El porcentaje va entre el costo y el precio porque es el puente entre
+        # los dos: es lo que convierte el primero en el segundo. Con ganancia
+        # cargada el precio se calcula solo y el campo queda en solo lectura;
+        # en cero el precio se tipea a mano, como siempre. Ver libs/ganancia.py.
+        self.ArmaEntrada('incre1', boxlayout=self.layoutCosto,
+                                     control=Spinner(decimales=2),
+                                     texto="Ganancia %")
+        # ArmaEntrada devuelve el LAYOUT, no el widget: el tooltip se le pone al
+        # control ya guardado en self.controles. Con el valor de retorno tiraba
+        # 'QHBoxLayout has no attribute setToolTip' y, como ArmaCarga esta
+        # dentro de inicializar_y_capturar_excepciones, el formulario se
+        # armaba a medias: sin precio, sin concepto y sin los controles de
+        # stock.
+        self.controles['incre1'].setToolTip(
+            "Porcentaje de ganancia sobre el costo: 40 significa 40%.\n"
+            "Con ganancia cargada el precio al publico se calcula solo y el "
+            "campo de precio queda en solo lectura.\n"
+            "En 0 el precio se carga a mano.")
         self.ArmaEntrada('preciopub', boxlayout=self.layoutCosto, control=Spinner(), texto="Precio al publico")
         self.ArmaEntrada('concepto', boxlayout=self.layoutCosto, control=ComboConceptoFacturacion())
         # El control de stock va en la misma linea que el precio y no en una
@@ -52,6 +71,47 @@ class ArticulosView(ABM):
                          texto="Controla stock?")
         self.ArmaEntrada('stockminimo', boxlayout=self.layoutCosto, control=Spinner(),
                          texto="Stock minimo")
+
+        # Los dos que mandan sobre el precio. El precio NO se conecta: es
+        # destino, no origen, y escucharlo haria que cambiar el costo se pise
+        # a si mismo.
+        self.controles['costo'].valueChanged.connect(self.RecalculaPrecio)
+        self.controles['incre1'].valueChanged.connect(self.RecalculaPrecio)
+
+    def RecalculaPrecio(self, *args, **kwargs):
+        """El precio sale del costo mientras haya ganancia cargada.
+
+        Con 0 el precio queda a mano, que es el estado en el que estan todos los
+        articulos que ya existian. Con ganancia, el precio se pone en solo
+        lectura: si se pudiera editar, el precio y el costo dejarian de
+        caminar juntos sin que nadie lo note, que es justo lo que un porcentaje
+        de ganancia promete.
+        """
+        incre1 = self.controles['incre1'].valor()
+        spn_precio = self.controles['preciopub']
+        if not margen_activo(incre1):
+            spn_precio.setEnabled(True)
+            return
+
+        spn_precio.setEnabled(False)
+        precio = precio_desde_incre1(self.controles['costo'].valor(), incre1)
+        if precio is not None:
+            spn_precio.setValue(float(precio))
+
+    @inicializar_y_capturar_excepciones
+    def PostModifica(self):
+        # Al abrir un articulo el precio tiene que quedar consistente con su
+        # margen. Si no, el operador ve un precio guardado que no sale de la
+        # cuenta que tiene escrita al lado, en solo lectura.
+        self.RecalculaPrecio()
+
+    @inicializar_y_capturar_excepciones
+    def PostAgrega(self):
+        # Agrega vacia los controles pero no toca setEnabled, asi que el precio
+        # queda en solo lectura si el articulo que se estaba editando tenia
+        # ganancia, y con valor 0. El operador no podria cargarlo. Con incre1
+        # en cero, RecalculaPrecio lo vuelve a habilitar.
+        self.RecalculaPrecio()
 
     @inicializar_y_capturar_excepciones
     def btnAceptarClicked(self, *args, **kwargs):
@@ -70,7 +130,17 @@ class ArticulosView(ABM):
         articulo.provppal = int(str(self.controles['provppal'].text()) or 0)
         articulo.tipoiva = str(self.controles['tipoiva'].text()).zfill(2)
         articulo.modificaprecios = self.controles['modificaprecios'].text()
-        articulo.preciopub = self.controles['preciopub'].value()
+        # El precio se recalcula al guardar y no se confia en lo que quedo
+        # escrito en el control. El recalculo en vivo es para que el operador
+        # vea la cuenta; esto es para que lo que se persiste SEA la cuenta, y
+        # no dependa de que un valueChanged haya llegado a dispararse.
+        incre1 = self.controles['incre1'].valor()
+        articulo.incre1 = incre1
+        if margen_activo(incre1):
+            precio = precio_desde_incre1(self.controles['costo'].valor(), incre1)
+            articulo.preciopub = precio if precio is not None else 0
+        else:
+            articulo.preciopub = self.controles['preciopub'].value()
         articulo.concepto = self.controles['concepto'].text()
         articulo.codbarra = self.controles['codbarra'].text()
         # Se guardan siempre, no solo en el alta: si se omitieran, editar un

@@ -102,6 +102,9 @@ class MigracionBaseDatos(ControladorBase):
         if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 9:
             self.MigrarVersion9()
 
+        if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 10:
+            self.MigrarVersion10()
+
         # No usa el migrator, y va antes de RealizaMigraciones: es una
         # correccion de DATOS, no de esquema, asi que tiene que correr tambien
         # en una base recien creada, donde las migraciones de esquema fallan
@@ -122,7 +125,7 @@ class MigracionBaseDatos(ControladorBase):
                 "fallidas, y el proximo arranque las reintenta.",
                 ParamSist.ObtenerParametro("VERSION_DB") or "0")
         else:
-            ParamSist.GuardarParametro("VERSION_DB", "9")
+            ParamSist.GuardarParametro("VERSION_DB", "10")
 
         if getattr(self, "_fk_sin_hacer", False):
             logging.info(
@@ -615,6 +618,42 @@ class MigracionBaseDatos(ControladorBase):
         self._clave_foranea(migrator, 'cabfact', 'idremito', 'remito', 'idremito')
         self._clave_foranea(migrator, 'pdetalle', 'idarticulo', 'articulos',
                             'idarticulo')
+
+    def MigrarVersion10(self):
+        """El porcentaje de ganancia del articulo: `articulos.incre1`.
+
+        Que se agrega
+        -------------
+        `articulos.incre1`: el porcentaje de ganancia de la lista 1, que es lo
+        que gobierna como sale el precio al publico del costo (la cuenta esta en
+        libs/ganancia.py). Es DECIMAL(12,2).
+
+        Por que cero y no NULL
+        ---------------------
+        Default 0 significa "no hay regla cargada": el precio se sigue tipeando
+        a mano. Asi la columna entra sin cambiar el comportamiento de NINGUN
+        articulo que ya existia. Un articulo pasa a calcularse solo cuando el
+        operador carga un porcentaje, no por el mero hecho de que se haya
+        agregado la columna.
+
+        Y esto importa todavia mas porque los valores que ya estan en las bases
+        NO se tocan: un `incre1` que una base MySQL de produccion venia
+        usando queda como estaba. Si en esa base el campo guardaba otra cosa (un
+        multiplicador, un valor de otra epoca), el ABM recien va a empezar a
+        calcular precios con el, y eso hay que revisarlo antes de abrir el
+        catalogo, no despues. Ver docs/ARTICULOS-INCRE1.md.
+
+        En MySQL esta columna ya existe
+        -------------------------------
+        Es un campo que la base MySQL de produccion ya tiene, asi que ahi la
+        migracion no hace nada: `_agregar_columna` ve que la columna esta y no
+        genera SQL. Esta migracion existe para las instalaciones sqlite, que no
+        la tienen. Que sea no-op en MySQL es lo que la hace segura de correr en
+        los dos motores sin preguntar en cual esta.
+        """
+        migrator = self.migrator
+        colporcentaje = DecimalField(default=0, max_digits=12, decimal_places=2)
+        self._agregar_columna(migrator, 'articulos', 'incre1', colporcentaje)
 
     def CorregirCondicionIvaReceptor(self):
         """Arregla la condicion de IVA del receptor de las bases viejas.

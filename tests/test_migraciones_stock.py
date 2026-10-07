@@ -251,7 +251,7 @@ def test_una_base_vieja_no_falla_ninguna_migracion(base_vieja):
 
 
 def test_la_version_se_avanza(base_vieja):
-    assert base_vieja["version"] == "9", \
+    assert base_vieja["version"] == "10", \
         "la base vieja quedo en version {!r}, no se sello como al dia".format(
             base_vieja["version"])
 
