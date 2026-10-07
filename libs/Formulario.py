@@ -128,7 +128,11 @@ class Formulario(QDialog):
 
     def exec_(self):
         self.Center()
-        QDialog.exec_(self)
+        # Hay que devolver el resultado: QDialog.exec_() devuelve el codigo
+        # del dialogo (Accepted / Rejected). Sin este return, exec_()
+        # terminaba en None y todo `if dlg.exec_() != dlg.Accepted: return`
+        # salia siempre antes de guardar, sin error ni aviso.
+        return QDialog.exec_(self)
 
     def Center(self):
         qr = self.frameGeometry()
