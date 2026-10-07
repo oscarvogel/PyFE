@@ -99,7 +99,9 @@ def test_escribir_una_parte_no_deja_el_primero_marcado(qt):
     dialogo.txtBuscar.setText("w")
     qt.processEvents()
 
-    assert dialogo.listaArticulos.count() == 2
+    # `rowCount()` y no `count()`: la lista paso a ser una QTableWidget cuando
+    # se le agrego la columna de precio, y `count()` era de QListWidget.
+    assert dialogo.listaArticulos.rowCount() == 2
     assert dialogo.listaArticulos.currentRow() == -1, (
         "con 2 coincidencias quedo algo marcado automaticamente (fila {}). "
         "Con productos parecidos eso es elegir por el operador.".format(
@@ -161,7 +163,7 @@ def test_el_boton_aceptar_sin_elegir_no_cierra(qt):
 
 
 def test_marcar_el_segundo_lo_agrega(qt):
-    """Lo que el operador quer��a hacer: marcar el que quiere y listo."""
+    """Lo que el operador queria hacer: marcar el que quiere y listo."""
     from PyQt5.QtWidgets import QDialog
     from vistas.VentaSimple import VentaSimpleSeleccionArticuloDialog
 
@@ -170,8 +172,10 @@ def test_marcar_el_segundo_lo_agrega(qt):
     dialogo.txtBuscar.setText("whey cutter")
     qt.processEvents()
 
-    # El de FRUTILLA, que es el segundo de la lista.
-    dialogo.listaArticulos.setCurrentRow(1)
+    # El de FRUTILLA, que es el segundo de la lista. `setCurrentCell` y no
+    # `setCurrentRow`: la segunda existe en QTableView pero no en QTableWidget,
+    # que es lo que quedo al agregarle columnas.
+    dialogo.listaArticulos.setCurrentCell(1, 1)
     dialogo.accept()
     qt.processEvents()
 
@@ -201,7 +205,7 @@ def test_una_sola_coincidencia_se_elige_sola(qt):
     dialogo.txtBuscar.setFocus()
     qt.processEvents()
 
-    assert dialogo.listaArticulos.count() == 1
+    assert dialogo.listaArticulos.rowCount() == 1
     assert dialogo.listaArticulos.currentRow() == 0, (
         "con una sola coincidencia no quedo marcada sola: hay que escribir "
         "el nombre completo y un Enter de mas por producto")

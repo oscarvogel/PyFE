@@ -2,7 +2,7 @@
 import contextlib
 from decimal import Decimal, InvalidOperation
 
-from peewee import fn
+from peewee import Case, fn
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 from PyQt5 import QtGui
@@ -531,11 +531,32 @@ class VentaSimpleController(ControladorBase):
         if exacto:
             return [exacto], 1
 
-        consulta = Articulo.select().where(buscar_texto(Articulo.nombre, texto))
+        # Nombre O codigo de barras, con el codigo de barras primero.
+        #
+        # El campo de producto promete "Codigo, nombre o codigo de barras"
+        # (placeholder de la vista) y antes solo buscaba por nombre. El
+        # barcode COMPLETO ya entraba, por `_articulo_exacto`, que compara con
+        # igualdad; el PARCIAL no. Y el parcial es el caso del dia a dia: con
+        # un lector en la mano se teclean los primeros digitos.
+        #
+        # Lo que se ordena primero es lo que arranca con lo escrito, no lo que
+        # es igual: sin esto, teclear "10487" devuelve los parciales y el
+        # producto escaneado aparece en algun lugar de la lista, y el operador
+        # con la compra en la mano tiene que leer 20 filas para encontrarlo.
+        condicion = (buscar_texto(Articulo.nombre, texto) |
+                     buscar_texto(Articulo.codbarra, texto))
+        consulta = Articulo.select().where(condicion)
         total = consulta.count()
         if limite is None:
             limite = LIMITE_BUSQUEDA_ARTICULOS
-        return list(consulta.order_by(Articulo.nombre).limit(limite)), total
+
+        # Los codigos son numeros: `contiene` los ordena por texto y no por
+        # largo, asi que sin esto el "1048" buscado aparecia despues del
+        # "10487123".
+        orden = Case(None, [
+            (Articulo.codbarra.startswith(texto), 0),
+        ], 1)
+        return list(consulta.order_by(orden, Articulo.nombre).limit(limite)), total
 
     def seleccionar_articulo(self, busqueda):
         """Abre el catalogo y devuelve el articulo elegido, o None.
@@ -554,17 +575,32 @@ class VentaSimpleController(ControladorBase):
         return dialogo.articulo
 
     def buscar_articulo(self, busqueda):
-        try:
-            return Articulo.get_by_id(busqueda)
-        except Exception:
-            pass
+        """El articulo que corresponde a lo escrito, o None.
 
-        try:
-            return Articulo.get(Articulo.codbarra == busqueda)
-        except Exception:
-            pass
+        DELIGA en `_coincidencias_articulo` a proposito, y no reimplementa la
+        busqueda. Antes hacia sus propias tres cosas por separado
+        (`get_by_id`, `codbarra == texto`, `nombre.contains().first()`), y eso
+        era la mitad del bug del codigo de barras: `agregar_articulo` pregunta
+        primero por la ambiguedad (que va por `_coincidencias_articulo`) y despues
+        busca el articulo con ESTE metodo. Con un fragmento de barcode, el
+        primero contaba 1 coincidencia y este daba 0, asi que caia en el camino
+        de "Producto no encontrado. Desea agregarlo?" de un producto que ya
+        existia.
 
-        return Articulo.select().where(Articulo.nombre.contains(busqueda)).first()
+        Dos caminos que buscan distinto no se pueden revisar de a uno: el que
+        falta siempre parece un detalle del otro.
+
+        Con texto vacio devuelve None a proposito: `_coincidencias_articulo("")`
+        devuelve el catalogo entero recortado, y el primero de esa lista seria
+        un articulo arbitrario. Quien llama con el campo vacio abre el selector
+        (`seleccionar_articulo`), no esto.
+        """
+        texto = str(busqueda or "").strip()
+        if not texto:
+            return None
+
+        encontrados, _total = self._coincidencias_articulo(texto, limite=1)
+        return encontrados[0] if encontrados else None
 
     def obtener_renglones(self):
         renglones = []
