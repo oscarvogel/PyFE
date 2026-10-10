@@ -10,7 +10,7 @@ from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import QDialog, QShortcut
 
 from controladores.ControladorBase import ControladorBase
-from controladores.venta_simple_totales import RenglonVenta, calcular_totales
+from controladores.venta_simple_totales import RenglonVenta, aplicar_forma_pago, calcular_totales
 from libs import Ventanas
 from libs import stock
 from libs.Grillas import _a_numero_texto, _formato_importe
@@ -72,6 +72,14 @@ class VentaSimpleController(ControladorBase):
         # importan: Enter y salir del campo con el mouse.
         self.view.textCliente.editingFinished.connect(self.cargar_cliente_desde_busqueda)
         self.view.checkConsumidorFinal.stateChanged.connect(self.on_consumidor_final_changed)
+        try:
+            self.view.cboFormaPago.currentIndexChanged.connect(
+                self._on_forma_pago_changed)
+            self.view.cboCuotas.currentIndexChanged.connect(
+                lambda *args: self.recalcular_total())
+            self._cargar_cuotas()
+        except Exception:
+            pass
         # Editar una celda de la grilla recalcula el renglon. Antes no habia
         # ninguna conexion: la cantidad se podia cambiar a mano y el SubTotal,
         # el total y el color del stock se quedaban con los de antes.
@@ -870,9 +878,74 @@ class VentaSimpleController(ControladorBase):
         texto = str(self.view.gridVenta.ObtenerItem(fila=fila, col=col)).strip()
         return int(texto) if texto.isdigit() else None
 
+    def _on_forma_pago_changed(self, *args):
+        self._cargar_cuotas()
+        self.recalcular_total()
+
+    def _cargar_cuotas(self):
+        """Llena el selector de cuotas con los planes de la forma elegida.
+
+        Si no hay planes (EFECTIVO, CTA CTE), el selector queda escondido y
+        vale el recargo base (#9). Con tarjeta muestra "3 pagos (15%)".
+        """
+        from controladores.forma_pago_cuotas import planes_de_forma_pago
+        try:
+            fp_id = self.view.cboFormaPago.text()
+            planes = planes_de_forma_pago(fp_id)
+        except Exception:
+            planes = []
+        combo = self.view.cboCuotas
+        try:
+            combo.blockSignals(True)
+            combo.clear()
+            if not planes:
+                self.view.lblCuotas.setVisible(False)
+                combo.setVisible(False)
+                return
+            for cant, rec in planes:
+                etiqueta = ("{} pago".format(cant) if cant == 1
+                            else "{} pagos".format(cant))
+                if rec:
+                    etiqueta += " ({}%)".format(rec)
+                combo.addItem(etiqueta, int(cant))
+            self.view.lblCuotas.setVisible(True)
+            combo.setVisible(True)
+        finally:
+            try:
+                combo.blockSignals(False)
+            except Exception:
+                pass
+
+    def _cuotas_elegidas(self):
+        try:
+            return int(self.view.cboCuotas.currentData()
+                       or self.view.cboCuotas.currentText().split()[0] or 1)
+        except Exception:
+            return 1
+
+    def _forma_pago_pct(self):
+        """(descuento %, recargo %) de la forma elegida, o (0, 0).
+
+        Con tarjeta y plan elegido, el recargo del plan manda sobre el
+        recargo base (issue #37). El descuento sigue siendo el de la forma.
+        """
+        try:
+            from modelos.Formaspago import Formapago
+            from controladores.forma_pago_cuotas import recargo_de_plan
+            fp_id = self.view.cboFormaPago.text()
+            fp = Formapago.get_by_id(int(str(fp_id).strip()))
+            rec = recargo_de_plan(fp.idformapago, self._cuotas_elegidas(),
+                                  fp.recargo or 0)
+            return fp.descuento or 0, rec
+        except Exception:
+            return 0, 0
+
     def recalcular_total(self):
         responsable_inscripto = a_entero(LeerIni(clave="cat_iva", key="WSFEv1"), 0) == 1
         totales = calcular_totales(self.obtener_renglones(), responsable_inscripto)
+        descuento_pct, recargo_pct = self._forma_pago_pct()
+        total_final, _, _ = aplicar_forma_pago(
+            totales.total, descuento_pct, recargo_pct)
         # Con el formateador de importes de la app, no con `str(Decimal)`.
         # `str` de un Decimal sale "250100.00": sin punto de miles, con
         # punto decimal, y con la coma cambiada. Al lado de los SubTotal
@@ -881,7 +954,9 @@ class VentaSimpleController(ControladorBase):
         #
         # El numero en si no cambia: es el mismo `totales.total`. Lo que
         # cambia es como se lee.
-        self.view.textTotal.setText(_formato_importe(totales.total))
+        # Si la forma de pago tiene recargo/descuento %, se muestra el
+        # total final (issue #9). Con EFECTIVO 0/0 es el mismo numero.
+        self.view.textTotal.setText(_formato_importe(total_final))
 
     def borrar_renglon(self):
         fila = self.view.gridVenta.currentRow()
@@ -955,6 +1030,7 @@ class VentaSimpleController(ControladorBase):
             cliente_id=cliente_id,
             renglones=renglones,
             forma_pago_id=self.view.cboFormaPago.text(),
+            cuotas=self._cuotas_elegidas(),
         )
 
         # Se emite desde aca y NO mostrando el formulario de emision. El

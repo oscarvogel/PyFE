@@ -1,9 +1,9 @@
 # coding=utf-8
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QFontMetrics
-from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QGridLayout,
-                             QHBoxLayout, QHeaderView, QListWidget, QTableWidget,
-                             QTableWidgetItem, QVBoxLayout)
+from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox,
+                              QGridLayout, QHBoxLayout, QHeaderView, QListWidget,
+                              QTableWidget, QTableWidgetItem, QVBoxLayout)
 
 from decimal import Decimal
 
@@ -677,6 +677,15 @@ class VentaSimpleView(Formulario):
         self.textTotal.setText(_formato_importe(Decimal("0")))
         self.layoutTotales.addWidget(Etiqueta(texto="Forma de pago"))
         self.layoutTotales.addWidget(self.cboFormaPago)
+        # Cuotas de la tarjeta (issue #37). Solo se muestra cuando la forma
+        # elegida tiene planes; con EFECTIVO queda escondido.
+        self.lblCuotas = Etiqueta(texto="Cuotas")
+        self.cboCuotas = QComboBox()
+        self.cboCuotas.setFixedWidth(130)
+        self.lblCuotas.setVisible(False)
+        self.cboCuotas.setVisible(False)
+        self.layoutTotales.addWidget(self.lblCuotas)
+        self.layoutTotales.addWidget(self.cboCuotas)
         self.layoutTotales.addWidget(Etiqueta(texto="Total"))
         self.layoutTotales.addWidget(self.textTotal)
         self.layoutPpal.addLayout(self.layoutTotales)

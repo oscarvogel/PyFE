@@ -458,7 +458,7 @@ def test_la_migracion_hace_exactamente_un_trabajo(base_real):
 
 
 def test_la_version_se_avanza(base_real):
-    assert base_real["version"] == "10", \
+    assert base_real["version"] == "11", \
         "la base vieja quedo en version {!r}, no se sello como al dia".format(
             base_real["version"])
 

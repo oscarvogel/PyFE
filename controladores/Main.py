@@ -30,6 +30,8 @@ import pymysql
 from PyQt5.QtWidgets import QApplication
 
 from controladores.ABMCategoriasMonotributo import ABMCategoriaMonoController
+from controladores.ABMCuotasPago import ABMCuotasPagoController
+from controladores.ABMFormasPago import ABMFormasPagoController
 from controladores.ABMGrupos import ABMGruposController
 from controladores.ABMImpuestos import ABMImpuestoController
 from controladores.ABMParametrosSistema import ABMParamSistController
@@ -280,6 +282,8 @@ class Main(ControladorBase):
                                                      usar_exec=False),
             "tipo-documentos": lambda: self._abrir(ABMTipoDocumentoController),
             "tipo-responsable": lambda: self._abrir(ABMTipoResponsableController),
+            "formas-pago": lambda: self._abrir(ABMFormasPagoController),
+            "cuotas-pago": lambda: self._abrir(ABMCuotasPagoController),
 
             # -- Configuracion
             "configuracion": lambda: self._abrir(ConfiguracionController,

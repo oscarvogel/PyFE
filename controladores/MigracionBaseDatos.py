@@ -21,6 +21,7 @@ from modelos.Clientes import Cliente
 from modelos.CorreosEnviados import CorreoEnviado
 from modelos.CpbteRelacionado import CpbteRel
 from modelos.Ctacte import CtaCte
+from modelos.CuotasPago import CuotaPago
 from modelos.DetFactProv import DetFactProv
 from modelos.Detfact import Detfact
 from modelos.Emailcliente import EmailCliente
@@ -50,9 +51,9 @@ class MigracionBaseDatos(ControladorBase):
     # el error sale en MySQL, que no se puede correr en todos lados.
     MODELOS_INICIALES = [
         Tipodoc, Tipoiva, Tiporesp, Unidad, CentroCosto, Grupo, Impuesto,
-        Localidad, Provincia, TipoComprobante, Articulo, Formapago, Cliente,
-        Cajero, Remito, DetalleRemito, Cabfact, Detfact, CpbteRel, Proveedor,
-        CabFactProv, DetFactProv, PercepDGR, CtaCte, EmailCliente,
+        Localidad, Provincia, TipoComprobante, Articulo, Formapago, CuotaPago,
+        Cliente, Cajero, Remito, DetalleRemito, Cabfact, Detfact, CpbteRel,
+        Proveedor, CabFactProv, DetFactProv, PercepDGR, CtaCte, EmailCliente,
     ]
 
     migraciones = []
@@ -105,6 +106,9 @@ class MigracionBaseDatos(ControladorBase):
         if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 10:
             self.MigrarVersion10()
 
+        if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 11:
+            self.MigrarVersion11()
+
         # No usa el migrator, y va antes de RealizaMigraciones: es una
         # correccion de DATOS, no de esquema, asi que tiene que correr tambien
         # en una base recien creada, donde las migraciones de esquema fallan
@@ -125,7 +129,7 @@ class MigracionBaseDatos(ControladorBase):
                 "fallidas, y el proximo arranque las reintenta.",
                 ParamSist.ObtenerParametro("VERSION_DB") or "0")
         else:
-            ParamSist.GuardarParametro("VERSION_DB", "10")
+            ParamSist.GuardarParametro("VERSION_DB", "11")
 
         if getattr(self, "_fk_sin_hacer", False):
             logging.info(
@@ -391,6 +395,12 @@ class MigracionBaseDatos(ControladorBase):
             modelo=Formapago
         )
         self.cargar_csv(
+            archivo='data/cuotaspago.csv',
+            campos=[CuotaPago.idcuota, CuotaPago.formapago, CuotaPago.cuotas,
+                    CuotaPago.recargo],
+            modelo=CuotaPago
+        )
+        self.cargar_csv(
             archivo='data/clientes.csv',
             campos=[Cliente.idcliente, Cliente.nombre, Cliente.domicilio, Cliente.telefono, Cliente.localidad,
                     Cliente.cuit, Cliente.dni, Cliente.tipodocu, Cliente.tiporesp, Cliente.percepcion],
@@ -654,6 +664,52 @@ class MigracionBaseDatos(ControladorBase):
         migrator = self.migrator
         colporcentaje = DecimalField(default=0, max_digits=12, decimal_places=2)
         self._agregar_columna(migrator, 'articulos', 'incre1', colporcentaje)
+
+    def MigrarVersion11(self):
+        """Planes de cuotas por tarjeta (issue #37).
+
+        1. `cuotaspago`: cada tarjeta define sus planes (cuotas + recargo %).
+        2. Las tarjetas VISA/MASTERCARD/DEBITO en `formapago` si faltan.
+        3. Los planes semilla si faltan.
+
+        Todo idempotente y no-op en base nueva (MigrarVersion0 ya creo la
+        tabla y la siembra la cargo): solo inserta lo que falta.
+        """
+        try:
+            db.create_tables([CuotaPago], safe=True)
+        except Exception as e:
+            logging.warning("No se pudo crear la tabla de cuotas: %s", e)
+            return
+
+        semillas_forma = [
+            (3, "VISA", 1), (4, "MASTERCARD", 1), (5, "DEBITO", 1),
+        ]
+        for _id, detalle, tarjeta in semillas_forma:
+            try:
+                if Formapago.get_or_none(Formapago.idformapago == _id) is None:
+                    Formapago.create(idformapago=_id, detalle=detalle,
+                                     tarjeta=tarjeta)
+            except Exception as e:
+                logging.warning("No se pudo sembrar la forma %s: %s",
+                                detalle, e)
+
+        semillas_plan = [
+            (3, 1, 0), (3, 3, 15), (3, 6, 25),
+            (4, 1, 0), (4, 3, 18), (4, 6, 28),
+            (5, 1, 0),
+        ]
+        for forma_id, cuotas, recargo in semillas_plan:
+            try:
+                existe = (CuotaPago.select()
+                          .where((CuotaPago.formapago == forma_id)
+                                 & (CuotaPago.cuotas == cuotas))
+                          .exists())
+                if not existe:
+                    CuotaPago.create(formapago=forma_id, cuotas=cuotas,
+                                     recargo=recargo)
+            except Exception as e:
+                logging.warning("No se pudo sembrar el plan %s/%s: %s",
+                                forma_id, cuotas, e)
 
     def CorregirCondicionIvaReceptor(self):
         """Arregla la condicion de IVA del receptor de las bases viejas.

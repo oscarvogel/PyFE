@@ -22,7 +22,7 @@ CARPETAS_ESPERADAS = {
     # instalacion nueva queda con la base VACIA: sin alicuotas de IVA, sin
     # tipos de comprobante y sin formas de pago, o sea, sin poder facturar.
     "data": ["tipoiva.csv", "tipodoc.csv", "tiporesp.csv", "tipocomprobante.csv",
-             "formapago.csv", "provincias.csv", "localidades.csv",
+             "formapago.csv", "cuotaspago.csv", "provincias.csv", "localidades.csv",
              "unidad.csv", "impuestos.csv", "centrocostos.csv", "grupos.csv"],
 }
 
