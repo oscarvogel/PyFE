@@ -86,14 +86,15 @@ def test_cuota_rara_no_rompe_el_total():
         assert total == Decimal("1000.00")
 
 
-# -- Los ABM abren y muestran nombres, no ids -------------------------------
+# -- Desde Formas de pago se abre una grilla, no un ABM --------------------
+# El exec_() modal no se puede probar (bloquea), asi que se prueba lo que
+# decide a donde ir (la forma actual) y el dialogo por separado: carga,
+# guardado conjunto y validacion.
 #
 # OJO: la QApplication tiene que quedar REFERENCIADA mientras dure el modulo
 # (fixture con scope module). Si se crea en una funcion y se suelta, CPython
 # garbage-collectea el wrapper aunque el objeto C++ siga vivo, y la proxima
-# construccion de una vista muere con 0xC0000409 sin backtrace. Es el mismo
-# codigo de salida que documenta controladores/VentaSimple.py para los slots
-# con firma incorrecta.
+# construccion de una vista muere con 0xC0000409 sin backtrace.
 
 import pytest as _pytest
 
@@ -110,80 +111,13 @@ def app():
     return aplicacion
 
 
-def test_abm_cuotas_muestra_el_detalle_y_no_revienta(app):
-    with base_memoria():
-        _sembrar_tarjetas()
-        from vistas.ABMCuotasPago import ABMCuotasPagoView
-        v = ABMCuotasPagoView()
-        assert v.tableView.rowCount() == 4
-        detalles = {v.tableView.ObtenerItem(fila=f, col=1)
-                    for f in range(v.tableView.rowCount())}
-        assert detalles == {"VISA", "MASTERCARD"}, detalles
-        v.close()
-
-
-def test_abm_formas_editar_visa_carga_sus_planes(app):
-    with base_memoria():
-        _sembrar_tarjetas()
-        from vistas.ABMFormasPago import ABMFormasPagoView
-        v = ABMFormasPagoView()
-        v.show()
-        app.processEvents()
-        # La fila de VISA es la de id 3: segunda de la grilla (1, 3, 4).
-        v.tableView.setCurrentCell(1, 0)
-        v.Modifica()
-        app.processEvents()
-        assert v.gridPlanes.rowCount() == 3
-        assert v.controles['tarjeta'].isChecked()
-        assert v.gridPlanes.isVisible()
-        assert dict(v.planes_editados()) == {1: Decimal("0"),
-                                             3: Decimal("15"),
-                                             6: Decimal("25")}
-        v.close()
-
-
-def test_abm_formas_sin_tarjeta_esconde_los_planes(app):
-    with base_memoria():
-        _sembrar_tarjetas()
-        from vistas.ABMFormasPago import ABMFormasPagoView
-        v = ABMFormasPagoView()
-        v.show()
-        app.processEvents()
-        v.tableView.setCurrentCell(0, 0)  # EFECTIVO
-        v.Modifica()
-        app.processEvents()
-        assert not v.controles['tarjeta'].isChecked()
-        assert v.gridPlanes.rowCount() == 0
-        assert not v.gridPlanes.isVisible()
-        v.close()
-
-
-def test_abm_formas_guarda_forma_y_planes_juntos(app):
+def test_boton_cuotas_esta_en_la_fila_de_la_lista(app):
     with base_memoria():
         _sembrar_tarjetas()
         from controladores.ABMFormasPago import ABMFormasPagoController
         c = ABMFormasPagoController()
-        c.view.tipo = 'A'
-        c.view.controles['detalle'].setText("NARANJA")
-        c.view.controles['descuento'].setValue(0)
-        c.view.controles['recargo'].setValue(0)
-        c.view.controles['ctacte'].setChecked(False)
-        c.view.controles['tarjeta'].setChecked(True)
-        c.view.controles['mensual'].setChecked(False)
-        c.view.gridPlanes.setRowCount(0)
-        c.view.gridPlanes.AgregaItem(items=[1, Decimal("0")])
-        c.view.gridPlanes.AgregaItem(items=[3, Decimal("20")])
-        c.onClickBtnAceptar()
-        forma = Formapago.get(Formapago.detalle == "NARANJA")
-        assert bool(int(forma.tarjeta or 0))
-        assert planes_de_forma_pago(forma.idformapago) == [
-            (1, Decimal("0")), (3, Decimal("20"))]
+        assert c.view.btnCuotas.text() == "Cuotas"
         c.view.close()
-
-
-# -- Desde Formas de pago se abre la relacion de tarjetas -----------------
-# El exec_() modal no se puede probar (bloquea), asi que se prueba lo que
-# decide a donde ir: la forma actual y el filtro del otro lado.
 
 
 def test_relacion_toma_la_forma_del_detalle_en_edicion(app):
@@ -207,26 +141,82 @@ def test_relacion_toma_la_fila_seleccionada_de_la_lista(app):
         c.view.close()
 
 
-def test_relacion_filtrada_muestra_solo_esa_tarjeta(app):
+def test_relacion_sin_forma_no_abre_nada(app):
     with base_memoria():
         _sembrar_tarjetas()
-        from vistas.ABMCuotasPago import ABMCuotasPagoView
-        v = ABMCuotasPagoView()
-        v.forma_fija = 3
-        v.ArmaTabla()
-        assert v.tableView.rowCount() == 3
-        detalles = {v.tableView.ObtenerItem(fila=f, col=1)
-                    for f in range(v.tableView.rowCount())}
-        assert detalles == {"VISA"}, detalles
-        v.close()
+        from controladores.ABMFormasPago import ABMFormasPagoController
+        c = ABMFormasPagoController()
+        assert c._forma_actual() is None
+        c.view.close()
 
 
-def test_alta_dirigida_preselecciona_la_forma(app):
+def test_dialogo_carga_tarjeta_y_planes(app):
     with base_memoria():
         _sembrar_tarjetas()
-        from vistas.ABMCuotasPago import ABMCuotasPagoView
-        v = ABMCuotasPagoView()
-        v.forma_fija = 4
-        v.Agrega()
-        assert str(v.controles['formapago'].text()) == "4"
-        v.close()
+        from vistas.CuotasTarjeta import CuotasTarjetaDialog
+        dlg = CuotasTarjetaDialog(3)
+        assert "VISA" in dlg.windowTitle()
+        assert dlg.textDetalle.text() == "VISA"
+        assert dlg.gridPlanes.rowCount() == 3
+        assert dict((int(dlg.gridPlanes.ObtenerItem(fila=f, col=0)),
+                     dlg.gridPlanes.ObtenerItem(fila=f, col=1))
+                    for f in range(3)) == {1: Decimal("0"),
+                                           3: Decimal("15"),
+                                           6: Decimal("25")}
+        dlg.close()
+
+
+def test_dialogo_guarda_tarjeta_y_planes_juntos(app):
+    from PyQt5.QtCore import Qt
+    with base_memoria():
+        _sembrar_tarjetas()
+        from vistas.CuotasTarjeta import CuotasTarjetaDialog
+        dlg = CuotasTarjetaDialog(3)
+        dlg.textDetalle.setText("VISA NUEVA")
+        dlg.spinRecargo.setValue(5)
+        # El plan de 6 se desactiva, el de 3 cambia de % y se agrega el de 12.
+        dlg.gridPlanes.item(2, 2).setCheckState(Qt.Unchecked)
+        dlg.gridPlanes.ModificaItem(18, 1, 1)
+        dlg.gridPlanes.AgregaItem(items=[12, Decimal("35"), True])
+        assert dlg.guardar() is True
+        forma = Formapago.get_by_id(3)
+        assert forma.detalle == "VISA NUEVA"
+        assert float(forma.recargo) == 5
+        assert planes_de_forma_pago(3) == [(1, Decimal("0")),
+                                           (3, Decimal("18")),
+                                           (12, Decimal("35"))]
+        dlg.close()
+
+
+def test_dialogo_fila_rota_no_guarda_nada(app, monkeypatch):
+    avisos = []
+    import libs.Ventanas as Ventanas
+    monkeypatch.setattr(Ventanas, "showAlert",
+                        lambda *a, **k: avisos.append(a))
+    with base_memoria():
+        _sembrar_tarjetas()
+        from vistas.CuotasTarjeta import CuotasTarjetaDialog
+        dlg = CuotasTarjetaDialog(3)
+        dlg.gridPlanes.ModificaItem(0, 0, 0)  # 0 cuotas no es un plan
+        assert dlg.guardar() is False
+        assert avisos, "la fila rota tiene que avisar"
+        # No se toco ni la tarjeta ni los planes.
+        assert Formapago.get_by_id(3).detalle == "VISA"
+        assert planes_de_forma_pago(3) == [(1, Decimal("0")),
+                                           (3, Decimal("15")),
+                                           (6, Decimal("25"))]
+        dlg.close()
+
+
+def test_plan_inactivo_no_se_ofrece(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        (CuotaPago.update(activo=False)
+         .where((CuotaPago.formapago == 3) & (CuotaPago.cuotas == 3))
+         ).execute()
+        assert planes_de_forma_pago(3) == [(1, Decimal("0")),
+                                           (6, Decimal("25"))]
+        # Sin plan vigente para 3 pagos, vale el base (0): el total no cambia.
+        rec = recargo_de_plan(3, 3, recargo_base=0)
+        total, _, _ = aplicar_forma_pago(Decimal("1000.00"), 0, rec)
+        assert total == Decimal("1000.00")

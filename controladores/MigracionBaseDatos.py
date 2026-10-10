@@ -109,6 +109,9 @@ class MigracionBaseDatos(ControladorBase):
         if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 11:
             self.MigrarVersion11()
 
+        if int(ParamSist.ObtenerParametro("VERSION_DB") or 0) < 12:
+            self.MigrarVersion12()
+
         # No usa el migrator, y va antes de RealizaMigraciones: es una
         # correccion de DATOS, no de esquema, asi que tiene que correr tambien
         # en una base recien creada, donde las migraciones de esquema fallan
@@ -129,7 +132,7 @@ class MigracionBaseDatos(ControladorBase):
                 "fallidas, y el proximo arranque las reintenta.",
                 ParamSist.ObtenerParametro("VERSION_DB") or "0")
         else:
-            ParamSist.GuardarParametro("VERSION_DB", "11")
+            ParamSist.GuardarParametro("VERSION_DB", "12")
 
         if getattr(self, "_fk_sin_hacer", False):
             logging.info(
@@ -397,7 +400,7 @@ class MigracionBaseDatos(ControladorBase):
         self.cargar_csv(
             archivo='data/cuotaspago.csv',
             campos=[CuotaPago.idcuota, CuotaPago.formapago, CuotaPago.cuotas,
-                    CuotaPago.recargo],
+                    CuotaPago.recargo, CuotaPago.activo],
             modelo=CuotaPago
         )
         self.cargar_csv(
@@ -710,6 +713,24 @@ class MigracionBaseDatos(ControladorBase):
             except Exception as e:
                 logging.warning("No se pudo sembrar el plan %s/%s: %s",
                                 forma_id, cuotas, e)
+
+    def MigrarVersion12(self):
+        """Activo por plan: desactivar sin borrar (issue #37).
+
+        `cuotaspago.activo` dice si el plan se ofrece. Desactivar un plan
+        que el banco dejo de dar no puede borrarlo: las facturas viejas
+        ya guardaron su recargo, y el dialogo lo muestra para auditar.
+        Los planes que ya existen quedan activos.
+        """
+        migrator = self.migrator
+        colbit = IntegerField(default=1)
+        self._agregar_columna(migrator, 'cuotaspago', 'activo', colbit)
+        try:
+            (CuotaPago.update(activo=True)
+             .where(CuotaPago.activo.is_null())).execute()
+        except Exception as e:
+            logging.warning("No se pudo activar los planes existentes: %s",
+                            e)
 
     def CorregirCondicionIvaReceptor(self):
         """Arregla la condicion de IVA del receptor de las bases viejas.

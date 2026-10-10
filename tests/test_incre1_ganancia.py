@@ -450,6 +450,9 @@ def test_la_migracion_hace_exactamente_un_trabajo(base_real):
 
     Si hiciera mas, estaria tocando cosas que no le corresponden; si hiciera
     menos, se estaria comiendo trabajo.
+
+    La base vieja se arma como una nueva menos incre1, asi que ya trae
+    cuotaspago con activo: la migracion 12 no genera SQL ahi.
     """
     assert base_real["primera"]["candidatas"] == 1, \
         "una base a la que le falta incre1 deberia tener 1 migracion, tiene " \
@@ -458,7 +461,7 @@ def test_la_migracion_hace_exactamente_un_trabajo(base_real):
 
 
 def test_la_version_se_avanza(base_real):
-    assert base_real["version"] == "11", \
+    assert base_real["version"] == "12", \
         "la base vieja quedo en version {!r}, no se sello como al dia".format(
             base_real["version"])
 
@@ -469,7 +472,7 @@ def test_migrar_dos_veces_no_genera_trabajo(base_real):
     assert segunda["fallidas"] == [], \
         "la segunda corrida fallo: {}".format(segunda["fallidas"])
     assert segunda["candidatas"] == 0, \
-        "la segunda corrida quiso migrar {} cosas mas: la migracion 10 no " \
+        "la segunda corrida quiso migrar {} cosas mas: la migracion 12 no " \
         "es idempotente".format(segunda["candidatas"])
 
 

@@ -93,7 +93,6 @@ SECCIONES = [
         ("tipo-documentos", "Tipos de documento", "documento"),
         ("tipo-responsable", "Tipos de responsable", "clientes"),
         ("formas-pago", "Formas de pago", "cuentas"),
-        ("cuotas-pago", "Cuotas por tarjeta", "documento"),
     ]),
     ("Configuración", "configuracion", [
         ("configuracion", "Configuración de inicio", "configuracion"),

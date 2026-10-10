@@ -2,7 +2,6 @@
 from controladores.ControladorBase import ControladorBase
 from libs import Ventanas
 from libs.Utiles import inicializar_y_capturar_excepciones
-from modelos.CuotasPago import CuotaPago
 from modelos.Formaspago import Formapago
 from vistas.ABMFormasPago import ABMFormasPagoView
 
@@ -43,27 +42,22 @@ class ABMFormasPagoController(ControladorBase):
 
     @inicializar_y_capturar_excepciones
     def abrir_cuotas(self, *args, **kwargs):
-        """Abre la relacion de tarjetas, filtrada por la forma actual.
+        """Abre las cuotas de la forma actual: una grilla y nada mas.
 
-        Como la ficha desde clientes: se abre el otro ABM ya parado donde
-        corresponde, y al volver se refresca la lista y los planes
-        embebidos, que pueden haber cambiado del otro lado.
+        Como la ficha desde clientes: se edita la tarjeta y sus planes en
+        un dialogo ya parado donde corresponde, y al volver se refresca
+        la lista, que puede haber cambiado del otro lado (nombre, %).
         """
-        from controladores.ABMCuotasPago import ABMCuotasPagoController
+        from PyQt5.QtWidgets import QDialog
+        from vistas.CuotasTarjeta import CuotasTarjetaDialog
         forma_id = self._forma_actual()
-        cuotas = ABMCuotasPagoController()
-        if forma_id:
-            cuotas.view.forma_fija = forma_id
-            cuotas.view.ArmaTabla()
-        cuotas.exec_()
-        self.view.ArmaTabla()
-        try:
-            if (self.view.tipo == 'M' and forma_id
-                    and int(self.view.controles[
-                        Formapago.idformapago.column_name].text()) == int(forma_id)):
-                self.view.cargar_planes(forma_id)
-        except Exception:
-            pass
+        if not forma_id:
+            Ventanas.showAlert("Formas de pago",
+                               "Elegi una forma de pago para ver sus cuotas.")
+            return
+        dialogo = CuotasTarjetaDialog(forma_id)
+        if dialogo.exec_() == QDialog.Accepted:
+            self.view.ArmaTabla()
 
     @inicializar_y_capturar_excepciones
     def onClickBtnAceptar(self, *args, **kwargs):
@@ -86,30 +80,7 @@ class ABMFormasPagoController(ControladorBase):
         forma.mensual = self.view.controles[
             Formapago.mensual.column_name].isChecked()
 
-        # Los planes se validan ANTES de guardar la forma: si la grilla
-        # tiene una fila rota, se avisa y no se guarda nada, en vez de
-        # guardar la forma y perder lo escrito en los planes.
-        planes = []
-        if forma.tarjeta:
-            try:
-                planes = self.view.planes_editados()
-            except ValueError as e:
-                Ventanas.showAlert("Formas de pago", str(e))
-                return
-
+        # Los planes se editan en el dialogo de cuotas, no aca: se validan
+        # ahi antes de guardar. Aca solo va la tarjeta.
         forma.save()
-        self._grabar_planes(forma.idformapago, planes)
         self.view.btnAceptarClicked()
-
-    @staticmethod
-    def _grabar_planes(forma_id, planes):
-        """Deja los planes de la forma exactamente como la grilla.
-
-        Son pocas filas por tarjeta: se borran y se recrean, que es
-        idempotente y no deja planes huerfanos de ediciones anteriores.
-        """
-        (CuotaPago.delete()
-         .where(CuotaPago.formapago == forma_id)).execute()
-        for cuotas, recargo in planes:
-            CuotaPago.create(formapago=forma_id, cuotas=int(cuotas),
-                             recargo=recargo)
