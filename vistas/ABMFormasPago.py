@@ -26,6 +26,14 @@ class ABMFormasPagoView(ABM):
         self.forma_en_edicion = None
         ABM.__init__(self, *args, **kwargs)
 
+    def BotonesAdicionales(self):
+        # Va en la fila de botones de la lista, como "Ficha" en clientes:
+        # abre la relacion de tarjetas (los planes de cuotas) sin salir.
+        self.btnCuotas = Boton(texto='Cuotas', imagen=icono('documento'),
+                               tooltip='Planes de cuotas de la forma de pago')
+        self.btnCuotas.setObjectName("btnCuotas")
+        self.horizontalLayout.addWidget(self.btnCuotas)
+
     @inicializar_y_capturar_excepciones
     def ArmaCarga(self, *args, **kwargs):
         self.layoutID = self.ArmaEntrada(Formapago.idformapago.column_name,

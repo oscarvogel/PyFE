@@ -14,6 +14,10 @@ class ABMCuotasPagoView(ABM):
     ordenBusqueda = CuotaPago.cuotas
     campoClave = CuotaPago.idcuota
 
+    # Cuando se abre desde Formas de pago, muestra solo los planes de esa
+    # forma y da de alta sobre ella. None = todos (entrada por menu).
+    forma_fija = None
+
     def __init__(self, *args, **kwargs):
         ABM.__init__(self, *args, **kwargs)
 
@@ -58,6 +62,15 @@ class ABMCuotasPagoView(ABM):
         busqueda = normalizar(self.lineEditBusqueda.text())
         for fila in filas:
             try:
+                forma_id = int(fila.formapago_id)
+            except Exception:
+                try:
+                    forma_id = int(fila.formapago.idformapago)
+                except Exception:
+                    forma_id = None
+            if self.forma_fija and forma_id != int(self.forma_fija):
+                continue
+            try:
                 detalle = fila.formapago.detalle
             except Exception:
                 detalle = ""
@@ -65,6 +78,17 @@ class ABMCuotasPagoView(ABM):
                 continue
             self.tableView.AgregaItem(
                 items=[fila.idcuota, detalle, fila.cuotas, fila.recargo])
+
+    def PostAgrega(self):
+        # Alta dirigida desde Formas de pago: la forma ya viene elegida.
+        if self.forma_fija:
+            try:
+                combo = self.controles.get('formapago')
+                indice = combo.findData(str(int(self.forma_fija)))
+                if indice >= 0:
+                    combo.setCurrentIndex(indice)
+            except Exception:
+                pass
 
     def CargaDatos(self, data=None):
         ABM.CargaDatos(self, data)

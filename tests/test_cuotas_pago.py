@@ -179,3 +179,54 @@ def test_abm_formas_guarda_forma_y_planes_juntos(app):
         assert planes_de_forma_pago(forma.idformapago) == [
             (1, Decimal("0")), (3, Decimal("20"))]
         c.view.close()
+
+
+# -- Desde Formas de pago se abre la relacion de tarjetas -----------------
+# El exec_() modal no se puede probar (bloquea), asi que se prueba lo que
+# decide a donde ir: la forma actual y el filtro del otro lado.
+
+
+def test_relacion_toma_la_forma_del_detalle_en_edicion(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        from controladores.ABMFormasPago import ABMFormasPagoController
+        c = ABMFormasPagoController()
+        c.view.tableView.setCurrentCell(1, 0)  # VISA
+        c.view.Modifica()
+        assert c._forma_actual() == 3
+        c.view.close()
+
+
+def test_relacion_toma_la_fila_seleccionada_de_la_lista(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        from controladores.ABMFormasPago import ABMFormasPagoController
+        c = ABMFormasPagoController()
+        c.view.tableView.setCurrentCell(2, 0)  # MASTERCARD
+        assert c._forma_actual() == 4
+        c.view.close()
+
+
+def test_relacion_filtrada_muestra_solo_esa_tarjeta(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        from vistas.ABMCuotasPago import ABMCuotasPagoView
+        v = ABMCuotasPagoView()
+        v.forma_fija = 3
+        v.ArmaTabla()
+        assert v.tableView.rowCount() == 3
+        detalles = {v.tableView.ObtenerItem(fila=f, col=1)
+                    for f in range(v.tableView.rowCount())}
+        assert detalles == {"VISA"}, detalles
+        v.close()
+
+
+def test_alta_dirigida_preselecciona_la_forma(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        from vistas.ABMCuotasPago import ABMCuotasPagoView
+        v = ABMCuotasPagoView()
+        v.forma_fija = 4
+        v.Agrega()
+        assert str(v.controles['formapago'].text()) == "4"
+        v.close()

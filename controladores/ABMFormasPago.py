@@ -16,6 +16,54 @@ class ABMFormasPagoController(ControladorBase):
 
     def conectarWidgets(self):
         self.view.btnAceptar.clicked.connect(self.onClickBtnAceptar)
+        self.view.btnCuotas.clicked.connect(self.abrir_cuotas)
+
+    def _forma_actual(self):
+        """Id de la forma sobre la que se esta parado, o None.
+
+        Primero la del detalle en edicion, despues la fila seleccionada
+        de la lista. Es lo que filtra la relacion de tarjetas al abrirla.
+        """
+        try:
+            if self.view.tabDetalle.isEnabled():
+                texto = self.view.controles[
+                    Formapago.idformapago.column_name].text().strip()
+                if texto:
+                    return int(texto)
+        except Exception:
+            pass
+        try:
+            fila = self.view.tableView.currentRow()
+            if fila >= 0:
+                return int(self.view.tableView.ObtenerItem(
+                    fila=fila, col='Idformapago'))
+        except Exception:
+            pass
+        return None
+
+    @inicializar_y_capturar_excepciones
+    def abrir_cuotas(self, *args, **kwargs):
+        """Abre la relacion de tarjetas, filtrada por la forma actual.
+
+        Como la ficha desde clientes: se abre el otro ABM ya parado donde
+        corresponde, y al volver se refresca la lista y los planes
+        embebidos, que pueden haber cambiado del otro lado.
+        """
+        from controladores.ABMCuotasPago import ABMCuotasPagoController
+        forma_id = self._forma_actual()
+        cuotas = ABMCuotasPagoController()
+        if forma_id:
+            cuotas.view.forma_fija = forma_id
+            cuotas.view.ArmaTabla()
+        cuotas.exec_()
+        self.view.ArmaTabla()
+        try:
+            if (self.view.tipo == 'M' and forma_id
+                    and int(self.view.controles[
+                        Formapago.idformapago.column_name].text()) == int(forma_id)):
+                self.view.cargar_planes(forma_id)
+        except Exception:
+            pass
 
     @inicializar_y_capturar_excepciones
     def onClickBtnAceptar(self, *args, **kwargs):
