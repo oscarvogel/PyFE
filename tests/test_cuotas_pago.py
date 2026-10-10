@@ -84,3 +84,98 @@ def test_cuota_rara_no_rompe_el_total():
         rec = recargo_de_plan(3, None, recargo_base=0)
         total, _, _ = aplicar_forma_pago(Decimal("1000.00"), 0, rec)
         assert total == Decimal("1000.00")
+
+
+# -- Los ABM abren y muestran nombres, no ids -------------------------------
+#
+# OJO: la QApplication tiene que quedar REFERENCIADA mientras dure el modulo
+# (fixture con scope module). Si se crea en una funcion y se suelta, CPython
+# garbage-collectea el wrapper aunque el objeto C++ siga vivo, y la proxima
+# construccion de una vista muere con 0xC0000409 sin backtrace. Es el mismo
+# codigo de salida que documenta controladores/VentaSimple.py para los slots
+# con firma incorrecta.
+
+import pytest as _pytest
+
+
+@_pytest.fixture(scope="module")
+def app():
+    from PyQt5.QtWidgets import QApplication
+    aplicacion = QApplication.instance() or QApplication([])
+    try:
+        from libs.tema import aplicar_tema
+        aplicar_tema(aplicacion)
+    except Exception:
+        pass
+    return aplicacion
+
+
+def test_abm_cuotas_muestra_el_detalle_y_no_revienta(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        from vistas.ABMCuotasPago import ABMCuotasPagoView
+        v = ABMCuotasPagoView()
+        assert v.tableView.rowCount() == 4
+        detalles = {v.tableView.ObtenerItem(fila=f, col=1)
+                    for f in range(v.tableView.rowCount())}
+        assert detalles == {"VISA", "MASTERCARD"}, detalles
+        v.close()
+
+
+def test_abm_formas_editar_visa_carga_sus_planes(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        from vistas.ABMFormasPago import ABMFormasPagoView
+        v = ABMFormasPagoView()
+        v.show()
+        app.processEvents()
+        # La fila de VISA es la de id 3: segunda de la grilla (1, 3, 4).
+        v.tableView.setCurrentCell(1, 0)
+        v.Modifica()
+        app.processEvents()
+        assert v.gridPlanes.rowCount() == 3
+        assert v.controles['tarjeta'].isChecked()
+        assert v.gridPlanes.isVisible()
+        assert dict(v.planes_editados()) == {1: Decimal("0"),
+                                             3: Decimal("15"),
+                                             6: Decimal("25")}
+        v.close()
+
+
+def test_abm_formas_sin_tarjeta_esconde_los_planes(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        from vistas.ABMFormasPago import ABMFormasPagoView
+        v = ABMFormasPagoView()
+        v.show()
+        app.processEvents()
+        v.tableView.setCurrentCell(0, 0)  # EFECTIVO
+        v.Modifica()
+        app.processEvents()
+        assert not v.controles['tarjeta'].isChecked()
+        assert v.gridPlanes.rowCount() == 0
+        assert not v.gridPlanes.isVisible()
+        v.close()
+
+
+def test_abm_formas_guarda_forma_y_planes_juntos(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        from controladores.ABMFormasPago import ABMFormasPagoController
+        c = ABMFormasPagoController()
+        c.view.tipo = 'A'
+        c.view.controles['detalle'].setText("NARANJA")
+        c.view.controles['descuento'].setValue(0)
+        c.view.controles['recargo'].setValue(0)
+        c.view.controles['ctacte'].setChecked(False)
+        c.view.controles['tarjeta'].setChecked(True)
+        c.view.controles['mensual'].setChecked(False)
+        c.view.gridPlanes.setRowCount(0)
+        c.view.gridPlanes.AgregaItem(items=[1, Decimal("0")])
+        c.view.gridPlanes.AgregaItem(items=[3, Decimal("20")])
+        c.onClickBtnAceptar()
+        forma = Formapago.get(Formapago.detalle == "NARANJA")
+        assert bool(int(forma.tarjeta or 0))
+        assert planes_de_forma_pago(forma.idformapago) == [
+            (1, Decimal("0")), (3, Decimal("20"))]
+        c.view.close()
