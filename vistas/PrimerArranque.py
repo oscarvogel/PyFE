@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (QCheckBox, QComboBox, QDialog, QDialogButtonBox,
                              QScrollArea, QVBoxLayout, QWidget)
 
 from libs.Utiles import validar_cuit
-from libs.Constantes import NOMBRE_PRODUCTO
+from libs.build_info import nombre_build
 
 # La lista sale de libs/catalogos.py y no se escribe aca. Estaba duplicada y
 # le faltaban el 7 (Sujeto No Categorizado) y el 16 (Monotributo Trabajador
@@ -32,7 +32,7 @@ class DialogoPrimerArranque(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Configuración inicial de {}".format(NOMBRE_PRODUCTO))
+        self.setWindowTitle("Configuración inicial de {}".format(nombre_build()))
         self.setModal(True)
         self.resize(560, 640)
 
@@ -119,7 +119,7 @@ class DialogoPrimerArranque(QDialog):
         self.txtPtoVta = QLineEdit("1")
         formFact.addRow("Punto de venta", self.txtPtoVta)
 
-        self.txtNombreSistema = QLineEdit(NOMBRE_PRODUCTO)
+        self.txtNombreSistema = QLineEdit(nombre_build())
         formFact.addRow("Nombre del sistema", self.txtNombreSistema)
         vertical.addWidget(gbFact)
 
@@ -218,7 +218,7 @@ class DialogoPrimerArranque(QDialog):
             "inicio": self.txtInicio.text().strip() or "01/01/2000",
             "cat_iva": self.cmbCatIva.currentData(),
             "pto_vta": self.txtPtoVta.text().strip() or "1",
-            "nombre_sistema": self.txtNombreSistema.text().strip() or NOMBRE_PRODUCTO,
+            "nombre_sistema": self.txtNombreSistema.text().strip() or nombre_build(),
             "homo": "S",
             "cert_homo": self.txtCertHomo.text().strip(),
             "cert_prod": self.txtCertProd.text().strip(),

@@ -150,6 +150,15 @@ Thumbs.db
 # Scripts temporales de depuracion
 /_debug_*.py
 
+# Certificado de homologacion que se embarca en el instalador DEMO.
+#
+# release-demo.ps1 lo copia aca desde
+# C:\Programacion\sistema\certificados antes de compilar, y lo borra al
+# terminar. Va ignorado entero, no solo la clave: si alguien commitea el
+# certificado de todos modos, que no quede la clave privada pegada al lado.
+# El demo tampoco compila si falta el par .crt/.key.
+/installer/demo-certificados/
+
 # Salidas de las herramientas de modernizacion de la UI
 docs/ui/
 _sandbox_prueba/

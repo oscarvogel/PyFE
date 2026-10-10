@@ -342,7 +342,7 @@ try {
     }
     Write-Ok "Inno Setup: $Iscc"
 
-    & $Iscc "/DAppVersion=$BuildVersion" "installer\PyFE.iss"
+    & $Iscc "/DAppVersion=$BuildVersion" "installer\Asiento.iss"
     if ($LASTEXITCODE -ne 0) { Die "Fallo la compilacion del instalador." }
 
     $InstaladorTemporal = Join-Path $RepoRoot "instaladores\Asiento-$BuildVersion-setup.exe"

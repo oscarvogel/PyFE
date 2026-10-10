@@ -371,8 +371,12 @@ la versión se lee de `ProductVersion` / `FileVersion`, que ya estaban ahí.
   que es lo que decide si es un problema de esta máquina o del producto.
 - **Issue #32** (qué pantalla es la de emitir) sigue esperando una decisión de
   producto.
-- **`installer/PyFE.iss`** conserva el nombre de archivo. El `AppId` es un GUID,
-  así que renombrarlo a `Asiento.iss` es seguro.
+- ~~**`installer/PyFE.iss`** conserva el nombre de archivo.~~ **Resuelto el
+  2026-10-08:** ahora es `installer/Asiento.iss`, igual que `RND.iss` y
+  `FEMAG_Desktop.iss` en los otros productos. El `AppId` es un GUID, asi que el
+  rename no cambia la identidad del producto en "Agregar y quitar programas":
+  las instalaciones existentes se reconocen igual y el desinstalador sigue
+  desinstalando la misma app.
 - **El reporte automático de errores** sigue yendo a `fe@servinlgsm.com.ar` con
   el nombre del desarrollador anterior. No se tocó: cambiar a dónde llegan los
   avisos de producción es una decisión, no un cleanup.

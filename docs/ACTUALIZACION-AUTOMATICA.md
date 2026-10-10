@@ -211,7 +211,7 @@ Anotados porque son el tipo de cosa que vuelve si nadie lo escribe.
    por usuario, en `%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe`, que no es
    ninguna de las rutas donde se lo busca por defecto. `release.ps1` prueba las
    tres. Esto no lo introdujo el actualizador: `compila.bat` termina con
-   `iscc PyFE.iss` y tampoco lo encontraba, así que hoy no se puede armar un
+   `iscc Asiento.iss` y tampoco lo encontraba, así que hoy no se puede armar un
    instalador en esta máquina sin esa ruta.
 
 8. **`version.txt` quedó sin tocar.** Sigue con `0.9.0`, que es lo que quiere

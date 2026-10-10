@@ -99,4 +99,4 @@ if not exist dist\sistema.ini.example copy /Y sistema.ini.example dist\ >nul
 echo.
 echo Listo: dist\main.exe
 echo Para chequear que no falte nada:  python installer\verificar_dist.py
-echo Para armar el instalador:         cd installer ^&^& iscc PyFE.iss
+echo Para armar el instalador:         cd installer ^&^& iscc Asiento.iss

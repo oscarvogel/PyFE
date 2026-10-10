@@ -154,9 +154,9 @@ def _leer_config(Config, ruta):
 def _carpeta_de_config():
     """La carpeta donde esta (o va a estar) el sistema.ini.
 
-    No es siempre el cwd: si la carpeta de trabajo no se puede escribir
-    --una instalacion en 'Program Files', que es el caso normal-- el archivo va
-    a la carpeta de datos del usuario. Ver libs/rutas.py.
+    No es siempre el cwd: si la carpeta de trabajo no se puede escribir, o si
+    la app es la instalada y ya tiene sus datos en otra carpeta, el archivo va a
+    la carpeta de datos del usuario. Ver libs/rutas.py.
     """
     return rutas.carpeta_datos()
 
@@ -193,9 +193,11 @@ def LeerIni(clave=None, key=None, carpeta=''):
 class ErrorEscrituraConfig(OSError):
     """No se pudo guardar el sistema.ini.
 
-    Sale con mensaje propio porque casi siempre es lo mismo: la carpeta de la
-    app esta en solo lectura ('Program Files') y hay que ir a la carpeta de
-    datos del usuario. Un 'Permission denied' pelado no dice eso.
+    Sale con mensaje propio porque casi siempre es lo mismo: la carpeta donde
+    hay que escribir no se puede escribir. Un 'Permission denied' pelado no dice
+    que hacer. Ojo que desde el 2026-10-08 la app instala por usuario y su
+    carpeta se puede escribir, asi que este error ya no es lo esperable: si
+    aparece, el programa quedo en una carpeta de solo lectura.
     """
 
 
@@ -221,11 +223,11 @@ def GrabarIni(clave=None, key=None, valor='', borrar=False):
         cfgfile = open(ruta, 'w', encoding='utf-8')
     except OSError as error:
         raise ErrorEscrituraConfig(
-            "No se pudo escribir {}: {}. Si el programa esta instalado en "
-            "'Program Files', esa carpeta no se puede escribir sin permisos de "
-            "administrador: la configuracion va a {}.".format(
-                ruta, error.strerror or type(error).__name__,
-                _carpeta_de_config()))
+            "No se pudo escribir {}: {}. La carpeta {} no se puede escribir. "
+            "Si el programa quedo ahi porque es de solo lectura (una carpeta de "
+            "Program Files, o una compartida de la red), hay que reinstallarlo "
+            "en la carpeta del usuario.".format(
+                ruta, error.strerror or type(error).__name__, carpeta))
     if not Config.has_section(key):
         Config.add_section(key)
     if borrar:
