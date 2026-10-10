@@ -672,8 +672,16 @@ class VentaSimpleView(Formulario):
         #
         # `setReadOnly(True)` conserva lo que importa: no se puede
         # escribir a mano el total de una venta.
-        self.textTotal = EntradaTexto(tamanio=16, alineacion="DERECHA")
+        self.textTotal = EntradaTexto(tamanio=20, alineacion="DERECHA")
         self.textTotal.setReadOnly(True)
+        # El numero que el operador mira para cobrar: lleva objectName para
+        # que el tema lo pinte grande y en negrita (ver temas/pyfe.css). El
+        # tamanio y la negrita tambien van en el widget, por si el tema no
+        # carga (ej. instalacion sin el .css): chico y finito no vuelve mas.
+        self.textTotal.setObjectName("totalVenta")
+        fuenteTotal = self.textTotal.font()
+        fuenteTotal.setBold(True)
+        self.textTotal.setFont(fuenteTotal)
         self.textTotal.setText(_formato_importe(Decimal("0")))
         self.layoutTotales.addWidget(Etiqueta(texto="Forma de pago"))
         self.layoutTotales.addWidget(self.cboFormaPago)
@@ -686,7 +694,9 @@ class VentaSimpleView(Formulario):
         self.cboCuotas.setVisible(False)
         self.layoutTotales.addWidget(self.lblCuotas)
         self.layoutTotales.addWidget(self.cboCuotas)
-        self.layoutTotales.addWidget(Etiqueta(texto="Total"))
+        self.lblTotal = Etiqueta(texto="Total")
+        self.lblTotal.setObjectName("etiquetaTotal")
+        self.layoutTotales.addWidget(self.lblTotal)
         self.layoutTotales.addWidget(self.textTotal)
         self.layoutPpal.addLayout(self.layoutTotales)
 

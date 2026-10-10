@@ -455,8 +455,13 @@ class FacturaController(ControladorBase):
                                    decimales=self.decimales)
 
     def _on_forma_pago_changed(self, *args):
-        self._cargar_cuotas()
-        self.SumaTodo()
+        try:
+            # Se conserva la cuota elegida si la nueva forma la ofrece,
+            # igual que en la venta rapida: si no, el total caeria a la
+            # base y pareceria que el cambio de forma no recalculo nada.
+            self._cargar_cuotas(cuotas_inicial=self._cuotas_elegidas())
+        finally:
+            self.SumaTodo()
 
     def _cargar_cuotas(self, cuotas_inicial=1):
         """Llena el selector de cuotas con los planes de la forma elegida."""

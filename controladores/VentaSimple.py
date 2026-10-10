@@ -71,6 +71,11 @@ class VentaSimpleController(ControladorBase):
         # segundo encima). editingFinished alcanza para los dos casos que
         # importan: Enter y salir del campo con el mouse.
         self.view.textCliente.editingFinished.connect(self.cargar_cliente_desde_busqueda)
+        # Enter con el campo vacio abre el buscador, igual que el campo de
+        # producto abre el catalogo. Va por returnPressed y NO por
+        # editingFinished: al salir del campo con el mouse/tabulador con el
+        # campo vacio no hay que abrir nada, solo molesta.
+        self.view.textCliente.returnPressed.connect(self.buscar_cliente_con_enter)
         self.view.checkConsumidorFinal.stateChanged.connect(self.on_consumidor_final_changed)
         try:
             self.view.cboFormaPago.currentIndexChanged.connect(
@@ -156,6 +161,32 @@ class VentaSimpleController(ControladorBase):
             self.cliente = None
             self.view.textCliente.setText("")
             self.view.textDocumento.setText("")
+
+    def buscar_cliente_con_enter(self):
+        """Enter abre el buscador si el campo esta vacio y no es CF.
+
+        Con texto, no hace nada: el editingFinished que Qt emite justo
+        despues del returnPressed resuelve lo escrito (exacto, selector o
+        alta). Con consumidor final tampoco: no hay cliente que buscar.
+
+        El candado es el mismo de cargar_cliente_desde_busqueda: al abrirse
+        el dialogo modal, Qt le saca el foco al campo y eso emite
+        editingFinished con este metodo todavia en la pila. Ver ahi.
+        """
+        if self.view.checkConsumidorFinal.isChecked():
+            return
+        if self.view.textCliente.text().strip():
+            return
+        if self._resolviendo_cliente:
+            return
+
+        self._resolviendo_cliente = True
+        try:
+            cliente = self.seleccionar_cliente("")
+            if cliente is not None:
+                self.cargar_cliente_en_vista(cliente)
+        finally:
+            self._resolviendo_cliente = False
 
     def cargar_cliente_desde_busqueda(self):
         """Busca el cliente escrito y lo carga en la venta.
@@ -879,15 +910,29 @@ class VentaSimpleController(ControladorBase):
         return int(texto) if texto.isdigit() else None
 
     def _on_forma_pago_changed(self, *args):
-        self._cargar_cuotas()
-        self.recalcular_total()
+        try:
+            self._cargar_cuotas()
+        finally:
+            # El total se recalcula SIEMPRE, aunque recargar los planes
+            # falle: dejar el total viejo con otra forma elegida es cobrar
+            # con el recargo de la tarjeta anterior.
+            self.recalcular_total()
 
     def _cargar_cuotas(self):
         """Llena el selector de cuotas con los planes de la forma elegida.
 
         Si no hay planes (EFECTIVO, CTA CTE), el selector queda escondido y
         vale el recargo base (#9). Con tarjeta muestra "3 pagos (15%)".
+
+        La cuota elegida se conserva si la nueva forma tambien la ofrece
+        (VISA 6 pagos -> MASTERCARD 6 pagos): antes volvia a 1 pago y el
+        total caia a la base, que se lee como que el cambio de forma no
+        recalculo nada.
         """
+        try:
+            anteriores = self._cuotas_elegidas()
+        except Exception:
+            anteriores = 1
         from controladores.forma_pago_cuotas import planes_de_forma_pago
         try:
             fp_id = self.view.cboFormaPago.text()
@@ -908,6 +953,12 @@ class VentaSimpleController(ControladorBase):
                 if rec:
                     etiqueta += " ({}%)".format(rec)
                 combo.addItem(etiqueta, int(cant))
+            try:
+                idx = combo.findData(int(anteriores or 1))
+            except Exception:
+                idx = -1
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
             self.view.lblCuotas.setVisible(True)
             combo.setVisible(True)
         finally:
@@ -1014,8 +1065,21 @@ class VentaSimpleController(ControladorBase):
         # Primero se resuelve el cliente, y recien despues se arma el
         # FacturaController: construirlo es caro (levanta la vista entera con
         # sus combos y pestanas) y para eso ya se sabe que va a servir.
-        cliente_id = None
-        if not self.view.checkConsumidorFinal.isChecked():
+        if self.view.checkConsumidorFinal.isChecked():
+            # La factura B necesita un cliente real en la base (cabfact
+            # guarda el id y Validacion() lo exige): se emite al generico
+            # CONSUMIDOR FINAL. Sin el, antes caia en "No se ha
+            # especificado un cliente valido" con el tilde puesto.
+            from controladores.venta_simple_cliente import id_cliente_consumidor_final
+            cliente_id = id_cliente_consumidor_final()
+            if cliente_id is None:
+                Ventanas.showAlert(
+                    "Venta",
+                    "No hay un cliente CONSUMIDOR FINAL en la base.\n\n"
+                    "Cree uno con tipo Consumidor Final para emitir "
+                    "sin elegir cliente.")
+                return
+        else:
             if not self.cliente:
                 self.cargar_cliente_desde_busqueda()
             if not self.cliente:

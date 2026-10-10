@@ -913,6 +913,27 @@ QFrame[frameShape="4"] {
 }
 
 /* --------------------------------------------------------------------------
+   Total de la venta rapida: el numero que el operador mira para cobrar.
+   Grande, en negrita y en azul sobre fondo suave, para que cualquier cambio
+   (de forma de pago, de cuotas o de renglones) se vea sin buscarlo en la
+   pantalla. El objectName lo pone vistas/VentaSimple.py.
+   -------------------------------------------------------------------------- */
+QLabel[objectName="etiquetaTotal"] {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1F2933;
+}
+
+QLineEdit[objectName="totalVenta"] {
+    font-size: 22px;
+    font-weight: 700;
+    color: #063F80;
+    background-color: #E8F1FC;
+    border: 1px solid #8FA6BE;
+    padding: 6px 10px;
+}
+
+/* --------------------------------------------------------------------------
    Paleta: el contrato de tokens
    --------------------------------------------------------------------------
    primario        #0863C6   hover #0A57A8   presionado #063F80

@@ -220,3 +220,121 @@ def test_plan_inactivo_no_se_ofrece(app):
         rec = recargo_de_plan(3, 3, recargo_base=0)
         total, _, _ = aplicar_forma_pago(Decimal("1000.00"), 0, rec)
         assert total == Decimal("1000.00")
+
+
+# -- La venta recalcula al cambiar la forma de pago ------------------------
+# Con MASTERCARD 6 pagos (28%) el total es la base + 28%; al volver a
+# CONTADO tiene que volver a la base sin tocar nada mas. Y entre tarjetas
+# se conserva la cuota elegida (VISA 6 -> MASTER 6), con el % de la nueva.
+
+def _venta_con_renglon_base():
+    from controladores.VentaSimple import VentaSimpleController
+    controller = VentaSimpleController()
+    with controller._escribiendo():
+        controller.view.gridVenta.AgregaItem(items=[
+            "1", "466", "NOTEBOOK", "-", "992333.25", "21", "992333.25",
+        ])
+    controller.recalcular_total()
+    return controller
+
+
+def _elegir_forma(controller, forma_id):
+    idx = controller.view.cboFormaPago.findData(str(forma_id))
+    assert idx >= 0, "sin forma {} en el combo".format(forma_id)
+    controller.view.cboFormaPago.setCurrentIndex(idx)
+
+
+def test_cambiar_forma_de_pago_recalcula_el_total(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        CuotaPago.insert_many([
+            {"formapago": 4, "cuotas": 3, "recargo": 18},
+            {"formapago": 4, "cuotas": 6, "recargo": 28},
+        ]).execute()
+        controller = _venta_con_renglon_base()
+        try:
+            _elegir_forma(controller, 1)
+            assert controller.view.textTotal.text() == "992.333,25"
+
+            _elegir_forma(controller, 4)
+            idx6 = controller.view.cboCuotas.findData(6)
+            assert idx6 >= 0
+            controller.view.cboCuotas.setCurrentIndex(idx6)
+            assert controller.view.textTotal.text() == "1.270.186,56"
+
+            # Volver a CONTADO: el total vuelve a la base solo.
+            _elegir_forma(controller, 1)
+            assert controller.view.textTotal.text() == "992.333,25"
+        finally:
+            controller.view.Cerrar()
+
+
+def test_cambiar_entre_tarjetas_conserva_la_cuota(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        CuotaPago.insert_many([
+            {"formapago": 4, "cuotas": 3, "recargo": 18},
+            {"formapago": 4, "cuotas": 6, "recargo": 28},
+        ]).execute()
+        controller = _venta_con_renglon_base()
+        try:
+            _elegir_forma(controller, 3)
+            controller.view.cboCuotas.setCurrentIndex(
+                controller.view.cboCuotas.findData(6))
+            assert controller.view.textTotal.text() == "1.240.416,56"
+
+            # A MASTERCARD: sigue en 6 pagos pero con el 28 % de MASTER.
+            _elegir_forma(controller, 4)
+            assert controller.view.cboCuotas.currentData() == 6
+            assert controller.view.textTotal.text() == "1.270.186,56"
+        finally:
+            controller.view.Cerrar()
+
+
+def test_el_total_se_recalcula_aunque_falle_la_carga_de_cuotas(app):
+    with base_memoria():
+        _sembrar_tarjetas()
+        controller = _venta_con_renglon_base()
+        try:
+            _elegir_forma(controller, 1)
+            controller.view.textTotal.setText("0,00")
+            controller._cargar_cuotas = lambda: 1 / 0
+            # El error sigue visible, pero el total ya quedo recalculado.
+            with _pytest.raises(ZeroDivisionError):
+                controller._on_forma_pago_changed()
+            assert controller.view.textTotal.text() == "992.333,25"
+        finally:
+            controller.view.Cerrar()
+
+
+# -- Emitir a consumidor final usa el cliente generico ---------------------
+# La factura B necesita un cliente real: con el tilde puesto, la venta
+# rapida emite al CONSUMIDOR FINAL de la base en vez de pasar None (que
+# caia en "No se ha especificado un cliente valido").
+
+def test_el_generico_es_el_de_la_siembra(app):
+    with base_memoria():
+        from controladores.venta_simple_cliente import id_cliente_consumidor_final
+        assert id_cliente_consumidor_final() == 1
+
+
+def test_si_el_uno_no_es_cf_busca_por_nombre(app):
+    with base_memoria():
+        from controladores.venta_simple_cliente import id_cliente_consumidor_final
+        from modelos.Clientes import Cliente
+        Cliente.update(nombre="OTRO").where(Cliente.idcliente == 1).execute()
+        otro = Cliente.create(nombre="CONSUMIDOR FINAL", domicilio="S/N",
+                              localidad=1, dni=22222222, tipodocu=0,
+                              tiporesp=1, formapago=1, percepcion=1)
+        try:
+            assert id_cliente_consumidor_final() == otro.idcliente
+        finally:
+            otro.delete_instance()
+
+
+def test_sin_generico_no_hay_id(app):
+    with base_memoria():
+        from controladores.venta_simple_cliente import id_cliente_consumidor_final
+        from modelos.Clientes import Cliente
+        Cliente.delete_by_id(1)
+        assert id_cliente_consumidor_final() is None
