@@ -207,7 +207,20 @@ class UpdateService(object):
 
     @property
     def habilitado(self):
-        """False en builds de desarrollo. El chequeo no se hace."""
+        """True solo para un producto que tiene manifiesto publicado.
+
+        La condicion no es "app_id distinto de 'development'": es "este producto
+        tiene un manifiesto contra el cual compararse". Con la primera, el
+        build del demo (app_id `asiento-demo`) encendia el chequeo sin tener
+        manifiesto, y una maquina de demo podia terminar bajando el instalador
+        de PRODUCCION y ejecutandolo sobre una base de pruebas.
+
+        Con `es_build_productivo()` ya alcanza para produccion; este
+        `manifest_url` agrega la garantia de que, si mañana aparece una app mas,
+        pueda actualizarse solo recien cuando tenga su manifiesto.
+        """
+        if self.manifest_url is None:
+            return False
         return es_build_productivo() or self.app_id != "development"
 
     def _abrir(self, url):

@@ -27,7 +27,7 @@ el CAE y el resultado. El controlador ya no los lee con `.value()`: ahora lee
 se ve. Ver `ActualizaTotales` y `MuestraAutorizacion`.
 """
 from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel,
+from PyQt5.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel,
                              QVBoxLayout, QWidget)
 
 from libs.Botones import Boton, BotonCerrarFormulario
@@ -188,6 +188,16 @@ class FacturaView(Formulario):
         self.cboFormaPago.setFixedWidth(220)
         grilla2.addWidget(self.lblFormaPago, 0, 2)
         grilla2.addWidget(self.cboFormaPago, 0, 3)
+
+        # Cuotas de la tarjeta (issue #37). Solo visible con planes.
+        # Va en la fila de abajo para no pelear con el aviso de cta cte.
+        self.lblCuotas = self._etiquetaCampo("Cuotas")
+        self.cboCuotas = QComboBox()
+        self.cboCuotas.setFixedWidth(130)
+        self.lblCuotas.setVisible(False)
+        self.cboCuotas.setVisible(False)
+        grilla2.addWidget(self.lblCuotas, 1, 2)
+        grilla2.addWidget(self.cboCuotas, 1, 3)
 
         self.lblSinCtaCte = Etiqueta(texto="")
         self.lblSinCtaCte.setStyleSheet("color: #6B7885; font-size: 12px;")

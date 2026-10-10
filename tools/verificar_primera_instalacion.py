@@ -34,7 +34,13 @@ sys.path.insert(0, RAIZ)
 # los argumentos al importarse (para encontrar el sistema.ini) y se los
 # come. Guardar el valor primero y limpiar despues, al reves, hace que la
 # herramienta mire siempre la carpeta por omision.
-CARPETA = sys.argv[1] if len(sys.argv) > 1 else r"C:\Program Files\Asiento"
+#
+# Por omision, la carpeta donde instala `installer/Asiento.iss`: desde el
+# 2026-10-08 es `%LOCALAPPDATA%\Programs\Asiento`, por usuario. Antes vivia en
+# `C:\Program Files\Asiento` y el valor de abajo era ese.
+CARPETA = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
+    os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"),
+    "Programs", "Asiento")
 sys.argv = [sys.argv[0]]
 
 

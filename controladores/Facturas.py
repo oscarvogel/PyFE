@@ -94,6 +94,10 @@ class FacturaController(ControladorBase):
     facturaGenerada = ''
     informo = False  # indica si ya informo monto obligado de FCE
     decimales = 3  # indica la cantidad de decimales para el redondeo
+    # Importes del recargo/descuento de la forma de pago (issue #9). Se
+    # calculan en SumaTodo y se guardan en cabfact.descuento/recargo.
+    descuento_fp = 0.0
+    recargo_fp = 0.0
 
     def __init__(self):
         super(FacturaController, self).__init__()
@@ -122,6 +126,13 @@ class FacturaController(ControladorBase):
         self.view.lineEditDocumento.editingFinished.connect(self.onEditingFinishedDocumento)
         self.view.botonBorrarArt.clicked.connect(self.onClickbotonBorraArt)
         self.view.cboComprobante.currentIndexChanged.connect(self.onCurrentIndexChanged)
+        try:
+            self.view.cboFormaPago.currentIndexChanged.connect(
+                self._on_forma_pago_changed)
+            self.view.cboCuotas.currentIndexChanged.connect(
+                lambda *args: self.SumaTodo())
+        except Exception:
+            pass
 
     @inicializar_y_capturar_excepciones
     def buscar_cliente(self, *args, **kwargs):
@@ -422,12 +433,81 @@ class FacturaController(ControladorBase):
         # 1234.5 y lo que se veia era "1234.5" o "1234,50" segun como lo
         # formateara Qt. Ahora el numero vive en la vista y la etiqueta es
         # solo lo que se ve.
+        # Issue #9: la forma de pago puede traer recargo/descuento %. Se
+        # aplica sobre el total (neto+iva+tributos) y se guarda el importe
+        # para cabfact.descuento/recargo. Con EFECTIVO 0/0 no cambia nada.
+        base_total = totalgral + ivagral + dgrgral
+        try:
+            from controladores.forma_pago_cuotas import recargo_de_plan
+            fp = Formapago.get_by_id(self.view.cboFormaPago.text())
+            desc_pct = float(fp.descuento or 0)
+            rec_pct = float(recargo_de_plan(fp.idformapago,
+                                            self._cuotas_elegidas(),
+                                            fp.recargo or 0))
+        except Exception:
+            desc_pct, rec_pct = 0.0, 0.0
+        self.descuento_fp = round(base_total * desc_pct / 100.0, 2) if desc_pct else 0.0
+        self.recargo_fp = round(base_total * rec_pct / 100.0, 2) if rec_pct else 0.0
+        total_final = round(base_total - self.descuento_fp + self.recargo_fp, 2)
         self.view.ActualizaTotales(subtotal=subtotal, tributos=dgrgral,
                                    iva=ivagral,
-                                   total=totalgral + ivagral + dgrgral,
+                                   total=total_final,
                                    decimales=self.decimales)
 
-    def cargar_venta_simple(self, cliente_id=None, renglones=None, forma_pago_id=None):
+    def _on_forma_pago_changed(self, *args):
+        try:
+            # Se conserva la cuota elegida si la nueva forma la ofrece,
+            # igual que en la venta rapida: si no, el total caeria a la
+            # base y pareceria que el cambio de forma no recalculo nada.
+            self._cargar_cuotas(cuotas_inicial=self._cuotas_elegidas())
+        finally:
+            self.SumaTodo()
+
+    def _cargar_cuotas(self, cuotas_inicial=1):
+        """Llena el selector de cuotas con los planes de la forma elegida."""
+        from controladores.forma_pago_cuotas import planes_de_forma_pago
+        try:
+            planes = planes_de_forma_pago(self.view.cboFormaPago.text())
+        except Exception:
+            planes = []
+        combo = self.view.cboCuotas
+        try:
+            combo.blockSignals(True)
+            combo.clear()
+            if not planes:
+                self.view.lblCuotas.setVisible(False)
+                combo.setVisible(False)
+                return
+            for cant, rec in planes:
+                etiqueta = ("{} pago".format(cant) if cant == 1
+                            else "{} pagos".format(cant))
+                if rec:
+                    etiqueta += " ({}%)".format(rec)
+                combo.addItem(etiqueta, int(cant))
+            try:
+                idx = combo.findData(int(cuotas_inicial or 1))
+            except Exception:
+                idx = -1
+            if idx >= 0:
+                combo.setCurrentIndex(idx)
+            self.view.lblCuotas.setVisible(True)
+            combo.setVisible(True)
+        finally:
+            try:
+                combo.blockSignals(False)
+            except Exception:
+                pass
+
+    def _cuotas_elegidas(self):
+        try:
+            return int(self.view.cboCuotas.currentData()
+                       or str(self.view.cboCuotas.currentText()).split()[0]
+                       or 1)
+        except Exception:
+            return 1
+
+    def cargar_venta_simple(self, cliente_id=None, renglones=None,
+                            forma_pago_id=None, cuotas=1):
         if cliente_id:
             self.view.validaCliente.setText(str(cliente_id))
             self.CargaDatosCliente()
@@ -438,6 +518,10 @@ class FacturaController(ControladorBase):
                 self.view.cboFormaPago.setCurrentIndex(indice)
             else:
                 self.view.cboFormaPago.setText(str(forma_pago_id))
+
+        # El cambio de forma ya recargo los planes; se deja elegida la
+        # cuota que trajo la venta rapida (1 por defecto).
+        self._cargar_cuotas(cuotas_inicial=cuotas)
 
         self.view.gridFactura.setRowCount(0)
         for renglon in renglones or []:
@@ -1008,6 +1092,10 @@ class FacturaController(ControladorBase):
         cabfact.netob = self.netos[10.5]
         cabfact.iva = self.view.total_iva
         cabfact.total = self.view.total_final
+        # Issue #9: el total ya viene con recargo/descuento aplicado en
+        # SumaTodo; se guarda el desglose para auditoria.
+        cabfact.descuento = getattr(self, 'descuento_fp', 0.0) or 0.0
+        cabfact.recargo = getattr(self, 'recargo_fp', 0.0) or 0.0
         formpago = Formapago.get_by_id(self.view.cboFormaPago.text())
         # if self.view.cboFormaPago.text() == 'Contado':
         #     cabfact.saldo = 0.00
@@ -1021,6 +1109,11 @@ class FacturaController(ControladorBase):
         cabfact.cajero = 1 #por defecto cajero
         # cabfact.formapago = 1 if self.view.cboFormaPago.text() == 'Contado' else 2
         cabfact.formapago = formpago.idformapago
+        # Issue #37: la cuota elegida del plan (1 = contado).
+        try:
+            cabfact.cuotapago = int(self._cuotas_elegidas() or 1)
+        except Exception:
+            cabfact.cuotapago = 1
         cabfact.percepciondgr = self.view.total_tributos
         cabfact.nombre = self.view.lblNombreCliente.text()
         cabfact.domicilio = self.view.lineEditDomicilio.text()
@@ -1221,6 +1314,20 @@ class FacturaController(ControladorBase):
         meter filas en la base de verdad.
         """
         print("imprimir factura {}".format(cabfact.numero))
+        # Diseno moderno (HTML): camino alternativo que no toca el de
+        # siempre. La FCE sigue por su plantilla, y si algo falla se cae
+        # al camino viejo en vez de dejar la factura sin PDF.
+        try:
+            from controladores.FacturaHTML import imprimir_html, usar_factura_html
+            if usar_factura_html() and int(cabfact.tipocomp.codigo) not in Constantes.COMPROBANTES_FCE:
+                ok, ruta = imprimir_html(cabfact, salida=salida,
+                                         mostrar=mostrar,
+                                         renglones=renglones)
+                if ok:
+                    self.facturaGenerada = ruta
+                    return True
+        except Exception:
+            pass
         pyfpdf = FEPDF()
         #cuit del emisor
         pyfpdf.CUIT = cuit_emisor()
@@ -1274,6 +1381,15 @@ class FacturaController(ControladorBase):
                     moneda_id, moneda_ctz, cae, fecha_vto_cae, "",
                     nombre_cliente, domicilio_cliente, 0)
         pyfpdf.EstablecerParametro("forma_pago", cabfact.formapago.detalle)
+        # Issue #37: "VISA 3 pagos" en el PDF cuando hay cuotas.
+        try:
+            if int(getattr(cabfact, "cuotapago", 1) or 1) > 1:
+                pyfpdf.EstablecerParametro(
+                    "forma_pago",
+                    "{} {} pagos".format(cabfact.formapago.detalle,
+                                         int(cabfact.cuotapago)))
+        except Exception:
+            pass
         pyfpdf.EstablecerParametro("custom-nro-cli", "[{}]".format(str(cabfact.cliente.idcliente).zfill(5)))
         pyfpdf.EstablecerParametro("localidad_cli", cabfact.cliente.localidad.nombre)
         pyfpdf.EstablecerParametro("provincia_cli", cabfact.cliente.localidad.provincia)

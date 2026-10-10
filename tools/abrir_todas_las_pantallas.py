@@ -55,6 +55,7 @@ controladores = {
     "rinde-caea": "controladores.RindeCAEAIndividual.RindeCAEAIndividualController",
     "categorias-mono": "controladores.ABMCategoriasMonotributo.ABMCategoriasMonotributoController",
     "informe-recategorizacion": "controladores.InfRecMonotributo.InfRecMonotributoController",
+    "formas-pago": "controladores.ABMFormasPago.ABMFormasPagoController",
 }
 
 fallas = []

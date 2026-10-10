@@ -400,7 +400,19 @@ def test_busca_por_nombre_normalizado_sin_codigo(tmp_path, base):
 
 
 def test_el_codigo_generado_no_se_repite(tmp_path, base):
-    """Dos renglones sin codigo reciben codigos distintos."""
+    """Dos filas con el MISMO nombre y sin codigo son UN articulo.
+
+    CAMBIO (2026-10-08). Antes este test pedia dos codigos distintos para dos
+    filas con nombre identico, y con razon aparente: "si son el mismo nombre,
+    que no queden con el mismo codigo". Pero sin codigo de barras el nombre
+    es la unica clave, asi que dos filas con el mismo nombre son el MISMO
+    producto con dos costos: la segunda actualiza a la primera. Pedir dos
+    articulos seria crear un duplicado del mismo producto, que es peor.
+
+    Lo que importa y se sigue verificando es que el codigo generado no se
+    repita con el de OTRO producto distinto, y que la fila repetida no se
+    quede con un codigo interno que se come un sufijo al pedo.
+    """
     archivo = arma_xlsx(tmp_path, [
         [None, "IGUAL UNO", None, None, None, "VARIOS", "N", 100, 1.2, 0],
         [None, "IGUAL UNO", None, None, None, "VARIOS", "N", 200, 1.2, 0],
@@ -410,16 +422,57 @@ def test_el_codigo_generado_no_se_repite(tmp_path, base):
 
     codigos = [a.codbarra for a in Articulo.select(Articulo.codbarra)
                if a.codbarra.startswith(importararticulos.PREFIJO_CODBARRA_INTERNO)]
-    assert len(codigos) == 2
+    # Un solo articulo, con un solo codigo, sin sufijo: la segunda fila
+    # actualiza a la primera en vez de crear un "-2" que no le corresponde.
+    assert len(codigos) == 1, "codigos internos de mas: {}".format(codigos)
+    assert codigos == ["INTIGUALUNO"], \
+        "se genero un codigo con sufijo para una fila que actualiza: {}".format(codigos)
+    assert resultado.actualizados == ["IGUAL UNO"], \
+        "la segunda fila deberia actualizar al primero, no crear otro"
+    assert resultado.nombres_repetidos == ["IGUAL UNO"], \
+        "no aviso que el nombre estaba repetido en el archivo"
+
+
+def test_dos_productos_distintos_no_comparten_codigo(tmp_path, base):
+    """Nombres que arrancan igual pero NO son iguales: codigos distintos.
+
+    Es el caso que el test anterior cubria sin verlo: dos productos reales
+    que el generador de codigos internos no puede distinguir porque trunca el
+    nombre a 18 caracteres. Si los dos dieran el mismo codigo, el segundo
+    actualizaria al primero y se perderia un producto del catalogo.
+    """
+    largo_a = "PRODUCTO MUY LARGO NUMERO UNO"
+    largo_b = "PRODUCTO MUY LARGO NUMERO DOS"
+    archivo = arma_xlsx(tmp_path, [
+        [None, largo_a, None, None, None, "VARIOS", "N", 100, 1.2, 0],
+        [None, largo_b, None, None, None, "VARIOS", "N", 200, 1.2, 0],
+    ])
+
+    resultado = importararticulos.importa(archivo, proveedor_id=1, tipoiva="01")
+
+    codigos = [a.codbarra for a in Articulo.select(Articulo.codbarra)
+               if a.codbarra.startswith(importararticulos.PREFIJO_CODBARRA_INTERNO)]
+    assert len(codigos) == 2, "los dos productos comparten un solo codigo: {}".format(codigos)
     assert len(set(codigos)) == 2, "codigos repetidos: {}".format(codigos)
+    assert len(resultado.creados) == 2
 
 
-def test_el_proveedor_es_el_que_se_eligio(tmp_path, base):
-    """La columna PROVEEDOR del archivo no manda: el id elegido en pantalla si.
+def test_el_proveedor_es_el_de_la_fila_si_esta_cargado(tmp_path, base):
+    """Si el nombre de la columna PROVEEDOR esta en la base, MANDA ese.
 
-    El archivo trae "NORDESTE" en texto libre y la base lo tiene como id. Si
-    se usara el texto, habria que crear un proveedor por cada lista y el
-    catalogo de proveedores se llenaria de copias.
+    CAMBIO DE REGLA (2026-10-08). Antes este test se llamaba
+    `test_el_proveedor_es_el_que_se_eligio` y afirmaba lo contrario: que la
+    columna del archivo NO mandaba y que todos los articulos tomaban el del
+    desplegable. Ese era el comportamiento viejo y se dio vuelta.
+
+    Por que se dio vuelta: el operador pidio importar planillas con mas de un
+    proveedor segun lo que dice cada fila. Con la regla anterior, una planilla
+    compuesta entraba entera con el proveedor del desplegable y el catalogo
+    quedaba mal atribuido, sin ningun rastro de cual habia sido el error.
+
+    Lo que NO cambio, y sigue siendo lo importante: no se crea un proveedor
+    que no exista. Ver `test_un_proveedor_que_no_esta_cargado_se_avisa` en
+    tests/test_importar_proveedores_y_ganancia.py.
     """
     from modelos.Proveedores import Proveedor
 
@@ -431,9 +484,26 @@ def test_el_proveedor_es_el_que_se_eligio(tmp_path, base):
     resultado = importararticulos.importa(archivo, proveedor_id=1, tipoiva="01")
 
     assert resultado.creados == ["WHEY"]
-    # Se eligio el 1 (el que estaba sembrado), no el 2 que se creo con el
-    # nombre del archivo.
+    # El 2, que es el que dice la fila, y no el 1 del desplegable.
+    assert crudo("WHEY")["provppal"] == 2
+
+
+def test_proveedor_no_cargado_usa_el_que_se_eligio(tmp_path, base):
+    """El nombre de la fila que NO esta en la base: gana el del desplegable.
+
+    Esta es la parte que el cambio de regla tiene que conservar. Antes, este
+    caso se resolvia descartando la columna entera; ahora se resuelve nombre a
+    nombre, asi que el caso del nombre desconocido tiene que seguir cayendo
+    en el proveedor elegido.
+    """
+    archivo = arma_xlsx(tmp_path, [
+        [None, "WHEY", None, None, None, "VARIOS", "PROVEEDOR INEXISTENTE",
+         100, 1.2, 0]])
+    resultado = importararticulos.importa(archivo, proveedor_id=1, tipoiva="01")
+
+    assert resultado.creados == ["WHEY"]
     assert crudo("WHEY")["provppal"] == 1
+    assert resultado.proveedores_no_encontrados == ["PROVEEDOR INEXISTENTE"]
 
 
 def test_sin_proveedor_no_importa_nada(tmp_path, base):

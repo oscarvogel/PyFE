@@ -43,6 +43,49 @@ _MANIFESTOS = {
 
 _APP_IDS_PRODUCTIVOS = frozenset(_MANIFESTOS)
 
+# Como se llama ESTE build.
+#
+# Un solo nombre para las dos cosas que lo identifican: la carpeta de datos
+# (`%LOCALAPPDATA%\<nombre>`) y el titulo de las ventanas (`param.nombre_sistema`
+# del asistente de primer arranque).
+#
+# Por que el demo tiene uno propio
+# --------------------------------
+# De la carpeta: el demo se puede instalar en la maquina de un cliente que ya
+# tiene Asiento de produccion. Si los dos usaran `%LOCALAPPDATA%\Asiento`, el
+# demo abriria la base REAL: alguien probando el demo se encontraria con los
+# comprobantes del cliente, y cualquier factura de prueba quedaria metida en el
+# sistema de verdad. Con nombre propio, los dos conviven sin verse.
+#
+# Del titulo: sin esto, el demo se presenta como "Asiento" en todas las
+# ventanas y los avisos, y es indistinguible de produccion para el operador.
+#
+# Ojo con lo que NO esta aca: el demo no tiene entrada en `_MANIFESTOS`, y eso
+# es a proposito. `es_build_productivo()` da False, el actualizador queda
+# apagado y nadie se actualiza solo. El demo se distribuye como un asset suelto
+# del release `latest` y no por el canal de actualizaciones.
+_NOMBRES = {
+    "asiento": "Asiento",
+    "asiento-demo": "Asiento DEMO",
+}
+
+# `development` y cualquier app_id desconocido usan el nombre de produccion:
+# en el arbol de desarrollo es lo que se quiere, y un app_id desconocido
+# todavia no es motivo para inventar un nombre.
+NOMBRE_POR_DEFECTO = "Asiento"
+
+
+def nombre_build(app_id=None):
+    """Como se llama este build: carpeta de datos y nombre en pantalla.
+
+    Se resuelve por tabla y no por formato, como `manifest_url_for`: si
+    alguien agrega una app al lado sin registrarla aca, usa el de produccion en
+    vez de inventar un nombre.
+    """
+    if app_id is None:
+        app_id = APP_ID
+    return _NOMBRES.get(app_id, NOMBRE_POR_DEFECTO)
+
 
 def manifest_url_for(app_id):
     """Devuelve el manifiesto registrado para ``app_id``.

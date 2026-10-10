@@ -51,14 +51,15 @@ from modelos.Tipodoc import Tipodoc
 from modelos.Tipoiva import Tipoiva
 from modelos.Tiporesp import Tiporesp
 from modelos.Unidades import Unidad
+from modelos.CuotasPago import CuotaPago
 
 # Los que se atan a la base. Los demas no hacen falta para el stock y no se
 # crean: menos tablas y menos nombres de columnas que pueden cambiar sin que
 # se note.
 MODELOS = (Articulo, MovStock, Grupo, Proveedor, Tipoiva, Unidad, Impuesto,
-           Cliente, Localidad, Tipodoc, Tiporesp, Formapago, TipoComprobante,
-           Cajero, Cabfact, Detfact, CpbteRel, Remito, DetalleRemito,
-           CentroCosto, CabFactProv, DetFactProv)
+           Cliente, Localidad, Tipodoc, Tiporesp, Formapago, CuotaPago,
+           TipoComprobante, Cajero, Cabfact, Detfact, CpbteRel, Remito,
+           DetalleRemito, CentroCosto, CabFactProv, DetFactProv)
 
 
 def _siembra(memoria):

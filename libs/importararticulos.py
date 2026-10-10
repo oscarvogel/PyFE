@@ -62,6 +62,7 @@ from libs.ganancia import precio_desde_incre1
 from modelos.Articulos import Articulo
 from modelos.Grupos import Grupo
 from modelos.ModeloBase import _a_bit
+from modelos.Proveedores import Proveedor
 from modelos.Tipoiva import Tipoiva
 from modelos.Unidades import Unidad
 
@@ -93,6 +94,27 @@ class Resultado:
         self.sin_cambios = []
         self.filas_con_error = []       # [(numero de fila, motivo), ...]
         self.grupos_creados = []
+        # Los proveedores que aparecen en el archivo, en el orden en que se
+        # leyeron. Antes no se llevaba cuenta: la columna PROVEEDOR se leia y se
+        # tiraba, y todos los articulos quedaban con el del desplegable.
+        self.proveedores_usados = []
+        # Nombres de proveedor del archivo que NO estaban en la base y por lo
+        # tanto se importaron con el proveedor por defecto.
+        self.proveedores_no_encontrados = []
+        # Nombres que se repiten dentro del mismo archivo. Ver
+        # `_nombres_repetidos`.
+        self.nombres_repetidos = []
+        # (nombre, [numeros de fila]) de los de arriba.
+        self.detalle_repetidos = []
+        # Solo los usa `previsualiza`.
+        self.filas = []
+        self.escala_ganancia = ""
+        self.total_previsualizado = 0
+        self.total_filas = 0
+
+    def _sumar_proveedor(self, nombre):
+        if nombre and nombre not in self.proveedores_usados:
+            self.proveedores_usados.append(nombre)
 
     @property
     def total_leidas(self):
@@ -115,6 +137,24 @@ class Resultado:
         if self.grupos_creados:
             partes.append("Grupos creados: {}.".format(
                 ", ".join(self.grupos_creados)))
+        if len(self.proveedores_usados) > 1:
+            partes.append("Proveedores del archivo: {}.".format(
+                ", ".join(self.proveedores_usados)))
+        if self.proveedores_no_encontrados:
+            partes.append(
+                "ATENCION: {} proveedor(es) del archivo no estaban cargados y "
+                "sus articulos entraron con el proveedor elegido: {}.".format(
+                    len(self.proveedores_no_encontrados),
+                    ", ".join(self.proveedores_no_encontrados)))
+        if self.nombres_repetidos:
+            detalle = "; ".join(
+                "{} (filas {})".format(nombre, ", ".join(str(n) for n in filas))
+                for nombre, filas in self.detalle_repetidos[:5])
+            partes.append(
+                "{} nombre(s) se repiten en el archivo y no hay codigo de "
+                "barras para distinguirlos, asi que el ultimo costo pisa al "
+                "anterior: {}. Abri la planilla y mira si son el mismo "
+                "producto.".format(len(self.nombres_repetidos), detalle))
         if self.filas_con_error:
             partes.append("{} filas no se importaron (la primera: fila {}, {}).".format(
                 len(self.filas_con_error),
@@ -342,22 +382,60 @@ DOS_DECIMALES = Decimal("0.01")
 UNO = Decimal("1")
 CIEN = Decimal("100")
 
+# Hasta donde un valor de la columna GANANCIA se lee como multiplicador. Por
+# arriba se lee como porcentaje. Ver `_porcentaje_de_ganancia`.
+GANANCIA_MULTIPLICADOR_MAXIMO = Decimal("5")
+
 
 def _porcentaje_de_ganancia(ganancia):
-    """El multiplicador del archivo como porcentaje: 1.5 -> 50.
+    """El margen en PORCENTAJE, venga la ganancia como venga.
 
-    Es la conversion que hace que el margen quede ESCRITO en el articulo y no
-    solo el precio que sale de el. Sin esto, un articulo importado queda con
-    `incre1 = 0` y el ABM le muestra "Ganancia % 0,00" al operador que tiene un
-    precio al 50% enfrente: el sistema tiene el resultado de la cuenta pero no
-    la cuenta, y no hay forma de saber de donde salio ese numero ni de
-    cambiarlo sin editar 700 articulos uno por uno.
+    Y aqui esta el bug que aparecio con la planilla de BOTZ: la columna
+    GANANCIA no significa lo mismo en todos los proveedores. Medido sobre las
+    dos planillas reales:
+
+        ANYWAY: GANANCIA = 1.5  -> es MULTIPLICADOR  -> 50%
+        BOTZ:   GANANCIA = 30   -> es PORCENTAJE     -> 30%
+
+    Leerlas las dos como multiplicador daba (30 - 1) x 100 = 2900% y un costo
+    de 4700 se iba a 141.000 en vez de 6.110.
+
+    El corte va en 5 porque es donde las dos lecturas dejan de confundirse:
+    un multiplicador de 5 es un markup del 400%, que no existe en una lista de
+    precios, mientras que un porcentaje de 30 es lo mas comun que hay.
 
     `incre1` es DECIMAL(12,2), asi que el margen se redondea a dos decimales.
     El precio sale DESPUES de ese redondeo (ver `calcula_precio`), y por eso
     los dos numeros nunca se contradicen.
     """
-    return ((Decimal(str(ganancia)) - UNO) * CIEN).quantize(DOS_DECIMALES)
+    valor = Decimal(str(ganancia))
+    if valor > GANANCIA_MULTIPLICADOR_MAXIMO:
+        return valor.quantize(DOS_DECIMALES)
+    return ((valor - UNO) * CIEN).quantize(DOS_DECIMALES)
+
+
+def escala_ganancia(registros):
+    """Como hay que leer la columna GANANCIA de esta planilla.
+
+    Devuelve "porcentaje", "multiplicador" o "mixta". Es lo que la vista previa
+    muestra para que el operador vea COMO se leyo su archivo antes de que se
+    escriba nada.
+
+    Se decide por la fila que mas margen da, que es la que delata el problema:
+    si el archivo es todo multiplicador, el maximo da menos de 5 y no hay nada
+    que avisar.
+    """
+    valores = [Decimal(str(r["ganancia"])) for r in registros
+               if r.get("ganancia") is not None
+               and Decimal(str(r["ganancia"] or 0)) > 0]
+    if not valores:
+        return "multiplicador"
+
+    if all(v > GANANCIA_MULTIPLICADOR_MAXIMO for v in valores):
+        return "porcentaje"
+    if any(v > GANANCIA_MULTIPLICADOR_MAXIMO for v in valores):
+        return "mixta"
+    return "multiplicador"
 
 
 def calcula_precio(costo, ganancia):
@@ -444,6 +522,50 @@ def filas_sin_ganancia(registros):
                  or Decimal(str(r.get("ganancia") or 0)) <= 0)]
 
 
+def _nombres_repetidos(registros):
+    """Los nombres que aparecen mas de una vez en el mismo archivo.
+
+    Esto no lo invento: salio de la planilla de BOTZ, donde `6308` aparece dos
+    veces y no hay codigo de barras en ninguna fila.
+
+    Sin codigo, dos filas con el mismo nombre son el MISMO articulo para
+    `_busca_existente`, asi que la segunda actualiza al que la primera creo.
+    El resultado no es un error visible: el articulo existe, el costo esta
+    bien, y lo que paso es que el costo de una fila se piso con el de otra.
+    Peor: en la reimportacion la segunda vuelta actualiza otra vez, y el
+    operador tiene que importar hasta que deja de cambiar.
+    """
+    vistas = {}
+    repetidos = []
+    for registro in registros:
+        nombre = (registro.get("nombre") or "").strip()
+        if not nombre:
+            continue
+        clave = _normaliza_texto(nombre)
+        if clave in vistas and nombre not in repetidos:
+            repetidos.append(nombre)
+        vistas[clave] = True
+    return repetidos
+
+
+def detalle_repetidos(registros, repetidos):
+    """(nombre, [numeros de fila]) de los nombres que se repiten.
+
+    Va aparte de `_nombres_repetidos` porque el operador no puede corregir una
+    planilla con "6308 aparece dos veces": necesita el numero de fila para abrir
+    el Excel y ver las dos. En la de BOTZ, 6308 esta en las filas 59 y 60, con
+    costos 29.070 y 2.000, que no son el mismo producto.
+    """
+    if not repetidos:
+        return []
+    por_nombre = {}
+    for registro in registros:
+        nombre = (registro.get("nombre") or "").strip()
+        if nombre in repetidos:
+            por_nombre.setdefault(nombre, []).append(registro["numero"])
+    return [(nombre, por_nombre[nombre]) for nombre in repetidos]
+
+
 def _codigos_de_iva():
     """(alicuota -> codigo) del catalogo de tipos de IVA, en una sola consulta.
 
@@ -503,6 +625,47 @@ def _resolver_unidad(codigo):
     codigo = (codigo or "").strip() or "UN"
     existe = Unidad.get_or_none(Unidad.unidad == codigo)
     return existe.unidad if existe else "UN"
+
+
+# -- Proveedores -------------------------------------------------------------
+
+def _indice_de_proveedores():
+    """(nombre normalizado -> id) de los proveedores ya cargados.
+
+    Se arma una vez, como el indice de articulos: recorrer la tabla por cada
+    fila de una planilla de 700 renglones es la diferencia entre importar en un
+    segundo y en media hora.
+    """
+    indice = {}
+    for proveedor in Proveedor.select():
+        indice.setdefault(_normaliza_texto(proveedor.nombre), proveedor.idproveedor)
+    return indice
+
+
+def _resolver_proveedor(nombre_fila, indice, proveedor_por_defecto):
+    """(id, nombre) del proveedor que le toca a esta fila.
+
+    La columna PROVEEDOR del archivo manda, y se busca entre los proveedores
+    que YA estan cargados, normalizando el nombre: "Nordeste", "NORDESTE " y
+    "NOR DESTE" son el mismo. Asi una planilla que mezcla proveedores entra
+    con el proveedor de cada fila en vez de con el que se eligio en el
+    desplegable para toda la carga.
+
+    NO se crea un proveedor que no exista, a proposito: el nombre viene en
+    texto libre de un archivo de otro programa y "NORDESTE S.R.L." al lado de
+    un "NORDESTE" ya cargado crearia dos proveedores para el mismo. Cuando el
+    nombre no esta, la fila usa el proveedor por defecto y se anota en
+    `Resultado.proveedores_no_encontrados`, para que el operador sepa que el
+    archivo ine por un proveedor que no quedo registrado.
+    """
+    nombre = (nombre_fila or "").strip()
+    if not nombre:
+        return proveedor_por_defecto, ""
+
+    idproveedor = indice.get(_normaliza_texto(nombre))
+    if idproveedor is not None:
+        return idproveedor, nombre
+    return proveedor_por_defecto, nombre
 
 
 # -- Importacion -------------------------------------------------------------
@@ -604,10 +767,12 @@ def importa(archivo, proveedor_id, tipoiva, unidad="UN",
 
     Los parametros son los que se piden en la pantalla:
 
-    * `proveedor_id`: de que proveedor es la lista. Es el mismo para todas las
-      filas y se elige una vez; el nombre de la columna PROVEEDOR del archivo
-      se lee pero no manda, porque un Excel puede traer el proveedor en texto
-      libre y la base lo tiene como id.
+    * `proveedor_id`: de que proveedor es la lista. Es el que se usa para las
+      filas que NO traen proveedor, y para las que traen uno que no esta
+      cargado. Cuando la columna PROVEEDOR del archivo trae un nombre que si
+      esta en la base, manda esa fila: antes se leia la columna y se tiraba, y
+      una planilla con varios proveedores terminaba con todos sus articulos
+      atribuidos al que se habia elegido en el desplegable.
     * `tipoiva`: el IVA de respaldo. El de cada renglon sale de la columna IVA
       del archivo cuando trae una alicuota que esta en el catalogo; el 0 (o la
       columna entera ausente) usa este. Ver `_iva_de_la_fila`.
@@ -640,9 +805,13 @@ def importa(archivo, proveedor_id, tipoiva, unidad="UN",
     por_codigo, por_nombre = _indice_de_existentes()
     existentes = set(por_codigo)
     cache_grupos = {}
+    indice_proveedores = _indice_de_proveedores()
     codigo_unidad = _resolver_unidad(unidad)
     iva_dialogo = str(tipoiva).zfill(2)
     codigos_iva = _codigos_de_iva()
+    resultado.nombres_repetidos = _nombres_repetidos(registros)
+    resultado.detalle_repetidos = detalle_repetidos(registros,
+                                                     resultado.nombres_repetidos)
 
     for registro in registros:
         numero = registro["numero"]
@@ -674,19 +843,28 @@ def importa(archivo, proveedor_id, tipoiva, unidad="UN",
 
             iva = _iva_de_la_fila(registro.get("iva"), iva_dialogo, codigos_iva)
 
+            # El proveedor sale de la fila, no del desplegable. Antes se leia
+            # la columna PROVEEDOR y se descartaba, y TODOS los articulos
+            # quedaban con el proveedor elegido para toda la carga. Con una
+            # planilla que mezcla proveedores eso es un catalogo mal atribuido
+            # entero.
+            prov_fila, nombre_proveedor = _resolver_proveedor(
+                registro.get("proveedor"), indice_proveedores, proveedor_id)
+            if nombre_proveedor:
+                resultado._sumar_proveedor(nombre_proveedor)
+                if _normaliza_texto(nombre_proveedor) not in indice_proveedores:
+                    if nombre_proveedor not in resultado.proveedores_no_encontrados:
+                        resultado.proveedores_no_encontrados.append(nombre_proveedor)
+
             campos = {
                 "nombre": nombre,
                 "nombreticket": registro["nombreticket"],
                 "costo": costo,
-                # El precio sale DEL MARGEN, no del multiplicador: si se
-                # calcularan por separado, un margen que se redondea a dos
-                # decimales dejaria un precio que no sale de la cuenta que el
-                # operador tiene escrita al lado. Ver `calcula_precio`.
                 "preciopub": precio_desde_incre1(costo, margen),
                 "incre1": margen,
                 "grupo": _resolver_grupo(registro["grupo"], cache_grupos,
                                          resultado.grupos_creados),
-                "provppal": proveedor_id,
+                "provppal": prov_fila,
                 "tipoiva": iva,
                 "unidad": codigo_unidad,
                 "concepto": str(concepto),
@@ -695,17 +873,48 @@ def importa(archivo, proveedor_id, tipoiva, unidad="UN",
                 "stockminimo": stockminimo,
             }
 
+            id_articulo = _busca_existente(registro, por_codigo, por_nombre)
+
             codigo = campos["codbarra"]
-            if not codigo:
+            if not codigo and id_articulo is not None:
+                # La fila NO trae codigo pero el articulo YA TIENE UNO: se
+                # conserva el que hay.
+                #
+                # Sin esto, una planilla que manda la columna CODIGO DE BARRA
+                # vacia (toda la de BOTZ) BORRABA el EAN de los articulos que
+                # ya estaban cargados con lector: quedaban con codbarra = '' y
+                # dejaban de poder cobrarse escaneando. Perder el EAN es peor
+                # que no generarlo.
+                codigo = (Articulo.select()
+                          .where(Articulo.idarticulo == id_articulo)
+                          .dicts().get() or {}).get("codbarra") or ""
+                campos["codbarra"] = codigo
+            elif not codigo:
+                # Fila nueva sin codigo: se le genera uno interno. SOLO en la
+                # rama de alta: antes el codigo se generaba siempre, antes de
+                # saber si la fila actualizaba o creaba. Con dos filas del
+                # mismo nombre en el mismo archivo (que sin codigo de barras
+                # son el MISMO producto), la primera creaba `INTIGUALUNO` y la
+                # segunda se comia el `INTIGUALUNO-2` para nada.
                 codigo = _genera_codbarra(nombre, existentes)
                 campos["codbarra"] = codigo
 
-            id_articulo = _busca_existente(registro, por_codigo, por_nombre)
-
             if id_articulo is None:
-                Articulo.create(**campos)
-                por_codigo.setdefault(codigo, None)
-                por_nombre.setdefault(_normaliza_texto(nombre), None)
+                nuevo = Articulo.create(**campos)
+                # El id REAL, no `setdefault(clave, None)`: se guardaba None
+                # como si el codigo estuviera libre, y `setdefault` no vuelve
+                # a poner nada porque la clave ya existe.
+                #
+                # Por que rompia la reimportacion: una fila SIN codigo genera
+                # un codigo interno que se agrega a `existentes`. En la vuelta
+                # siguiente ese codigo ya esta ahi, asi que el generador le
+                # clava un sufijo y produce OTRO codigo. Como el nombre se
+                # busca bien y el articulo se encuentra, la fila lo actualiza y
+                # le cambia el codigo. Cada vuelta actualizaba uno mas, y el
+                # operador tenia que importar hasta que dejaba de cambiar: "me
+                # toque importarla varias veces con errores en el medio".
+                por_codigo[codigo] = nuevo.idarticulo
+                por_nombre[_normaliza_texto(nombre)] = nuevo.idarticulo
                 resultado.creados.append(nombre)
             else:
                 # Se relee con .dicts() a proposito: un Articulo tiene los
@@ -732,4 +941,145 @@ def importa(archivo, proveedor_id, tipoiva, unidad="UN",
             # sigue; el operador lo ve en el resumen con el numero de fila.
             resultado.filas_con_error.append((numero, str(error)))
 
+    return resultado
+
+
+# -- Vista previa ------------------------------------------------------------
+
+class FilaPrevia:
+    """Como va a quedar UNA fila, sin escribirla.
+
+    Es lo que muestra la grilla de la pantalla. Tiene atributos y no un dict
+    porque la grilla los lee campo por campo.
+    """
+
+    def __init__(self, numero, nombre, codbarra, proveedor, costo, margen,
+                 precio, estado, motivo=""):
+        self.numero = numero
+        self.nombre = nombre
+        self.codbarra = codbarra
+        self.proveedor = proveedor
+        self.costo = costo
+        self.margen = margen
+        self.precio = precio
+        self.estado = estado        # "nuevo" | "actualiza" | "error"
+        self.motivo = motivo
+
+
+def previsualiza(archivo, proveedor_id, tipoiva, unidad="UN",
+                 ganancia_defecto=None, concepto="1", controlastock=True,
+                 stockminimo=0, limite=500):
+    """Que va a pasar si se importa, SIN escribir nada.
+
+    Por que existe: los dos errores que se encontraron con esto (el 2900% de
+    una columna GANANCIA que en realidad traia porcentajes, y el proveedor del
+    desplegable aplicado a una planilla de varios) son INVISIBLES en el
+    resumen. El resumen dice "69 articulos importados" y los 69 tienen el
+    precio mal. Ver el precio en una grilla es lo que los hace visibles.
+
+    `limite` corta la cantidad de filas que se devuelven, no la que se
+    calcula: con 15.000 filas de las que 69 tienen datos, armar 15.000
+    objetos para pintar 500 seria una forma lenta de no hacer nada.
+    """
+    if proveedor_id is None:
+        raise ErrorImportacion("No se eligio proveedor.")
+
+    registros = leer_filas(archivo)
+    resultado = Resultado()
+    resultado.nombres_repetidos = _nombres_repetidos(registros)
+    resultado.detalle_repetidos = detalle_repetidos(registros,
+                                                     resultado.nombres_repetidos)
+    resultado.escala_ganancia = escala_ganancia(registros)
+
+    try:
+        stockminimo = Decimal(str(stockminimo or 0))
+    except (InvalidOperation, ValueError, TypeError):
+        stockminimo = Decimal(0)
+
+    por_codigo, por_nombre = _indice_de_existentes()
+    cache_grupos = {}
+    indice_proveedores = _indice_de_proveedores()
+    nombres_proveedor = {p.idproveedor: p.nombre for p in Proveedor.select()}
+    codigos_iva = _codigos_de_iva()
+    iva_dialogo = str(tipoiva).zfill(2)
+    generados = {}
+    ocupados = set(por_codigo)
+
+    filas = []
+    for registro in registros:
+        numero = registro["numero"]
+        try:
+            if registro.get("error"):
+                raise FilaInvalida(registro["error"], numero)
+
+            nombre = registro["nombre"].strip()
+            if not nombre:
+                raise FilaInvalida("el nombre quedo vacio", numero)
+
+            costo = registro["costo"]
+            if costo is None:
+                raise FilaInvalida("no tiene COSTO", numero)
+            if costo < 0:
+                raise FilaInvalida(
+                    "el costo {} es negativo".format(costo), numero)
+
+            ganancia = registro["ganancia"]
+            if ganancia is None or ganancia <= 0:
+                if ganancia_defecto is None:
+                    raise FilaInvalida(
+                        "no tiene GANANCIA y no se eligio una por defecto", numero)
+                margen = Decimal(str(ganancia_defecto))
+            else:
+                margen = _porcentaje_de_ganancia(ganancia)
+
+            iva = _iva_de_la_fila(registro.get("iva"), iva_dialogo, codigos_iva)
+
+            prov_fila, nombre_proveedor = _resolver_proveedor(
+                registro.get("proveedor"), indice_proveedores, proveedor_id)
+            if nombre_proveedor:
+                resultado._sumar_proveedor(nombre_proveedor)
+                if _normaliza_texto(nombre_proveedor) not in indice_proveedores:
+                    if nombre_proveedor not in resultado.proveedores_no_encontrados:
+                        resultado.proveedores_no_encontrados.append(nombre_proveedor)
+
+            id_articulo = _busca_existente(registro, por_codigo, por_nombre)
+
+            codigo = registro["codbarra"]
+            if not codigo:
+                if id_articulo is None:
+                    clave = _normaliza_texto(nombre)
+                    if clave not in generados:
+                        generados[clave] = _genera_codbarra(nombre, ocupados)
+                        ocupados.add(generados[clave])
+                    codigo = generados[clave]
+                else:
+                    codigo = (Articulo.select()
+                              .where(Articulo.idarticulo == id_articulo)
+                              .dicts().get() or {}).get("codbarra") or ""
+
+            if len(filas) < limite:
+                filas.append(FilaPrevia(
+                    numero=numero,
+                    nombre=nombre,
+                    codbarra=codigo,
+                    proveedor=nombre_proveedor
+                              or nombres_proveedor.get(prov_fila, ""),
+                    costo=costo,
+                    margen=margen,
+                    precio=precio_desde_incre1(costo, margen),
+                    estado="nuevo" if id_articulo is None else "actualiza",
+                ))
+            resultado.total_previsualizado += 1
+
+        except FilaInvalida as error:
+            resultado.filas_con_error.append(
+                (error.numero or numero, error.motivo))
+            if len(filas) < limite:
+                filas.append(FilaPrevia(
+                    numero=numero, nombre=registro.get("nombre", ""),
+                    codbarra="", proveedor="", costo=None, margen=None,
+                    precio=None, estado="error", motivo=error.motivo))
+
+    resultado.filas = filas
+    resultado.total_filas = len(registros)
     return resultado

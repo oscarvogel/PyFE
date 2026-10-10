@@ -1,3 +1,6 @@
 idformapago,detalle,ctacte,descuento,recargo,mensual,tarjeta
 1,EFECTIVO,0,0,0,0,0
 2,CUENTA CORRIENTE,0,0,10,0,0
+3,VISA,0,0,0,0,1
+4,MASTERCARD,0,0,0,0,1
+5,DEBITO,0,0,0,0,1

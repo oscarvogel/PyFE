@@ -1,9 +1,9 @@
 # coding=utf-8
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QFontMetrics
-from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QGridLayout,
-                             QHBoxLayout, QHeaderView, QListWidget, QTableWidget,
-                             QTableWidgetItem, QVBoxLayout)
+from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboBox,
+                              QGridLayout, QHBoxLayout, QHeaderView, QListWidget,
+                              QTableWidget, QTableWidgetItem, QVBoxLayout)
 
 from decimal import Decimal
 
@@ -672,12 +672,31 @@ class VentaSimpleView(Formulario):
         #
         # `setReadOnly(True)` conserva lo que importa: no se puede
         # escribir a mano el total de una venta.
-        self.textTotal = EntradaTexto(tamanio=16, alineacion="DERECHA")
+        self.textTotal = EntradaTexto(tamanio=20, alineacion="DERECHA")
         self.textTotal.setReadOnly(True)
+        # El numero que el operador mira para cobrar: lleva objectName para
+        # que el tema lo pinte grande y en negrita (ver temas/pyfe.css). El
+        # tamanio y la negrita tambien van en el widget, por si el tema no
+        # carga (ej. instalacion sin el .css): chico y finito no vuelve mas.
+        self.textTotal.setObjectName("totalVenta")
+        fuenteTotal = self.textTotal.font()
+        fuenteTotal.setBold(True)
+        self.textTotal.setFont(fuenteTotal)
         self.textTotal.setText(_formato_importe(Decimal("0")))
         self.layoutTotales.addWidget(Etiqueta(texto="Forma de pago"))
         self.layoutTotales.addWidget(self.cboFormaPago)
-        self.layoutTotales.addWidget(Etiqueta(texto="Total"))
+        # Cuotas de la tarjeta (issue #37). Solo se muestra cuando la forma
+        # elegida tiene planes; con EFECTIVO queda escondido.
+        self.lblCuotas = Etiqueta(texto="Cuotas")
+        self.cboCuotas = QComboBox()
+        self.cboCuotas.setFixedWidth(130)
+        self.lblCuotas.setVisible(False)
+        self.cboCuotas.setVisible(False)
+        self.layoutTotales.addWidget(self.lblCuotas)
+        self.layoutTotales.addWidget(self.cboCuotas)
+        self.lblTotal = Etiqueta(texto="Total")
+        self.lblTotal.setObjectName("etiquetaTotal")
+        self.layoutTotales.addWidget(self.lblTotal)
         self.layoutTotales.addWidget(self.textTotal)
         self.layoutPpal.addLayout(self.layoutTotales)
 

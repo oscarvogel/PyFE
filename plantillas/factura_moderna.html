@@ -1,0 +1,59 @@
+<font face="Helvetica" size="9" color="#24364A">
+$homo_banner
+$logo_img
+<table width="100%" cellpadding="2" cellspacing="0">
+<tr>
+<td width="60%"><font size="17" color="$color_secundario"><b>$empresa</b></font></td>
+<td width="40%" align="right" bgcolor="#EAF1F7"><font size="8"><b>COMPROBANTE</b></font></td>
+</tr>
+<tr>
+<td><font size="9" color="#526477">$emisor_linea1</font></td>
+<td align="right" bgcolor="#EAF1F7"><font size="14" color="$color_primario"><b>$tipo_nombre</b></font></td>
+</tr>
+<tr>
+<td><font size="9" color="#526477">$emisor_linea2</font></td>
+<td align="right" bgcolor="#F4F7FA"><font size="12"><b>Nº $numero</b></font></td>
+</tr>
+<tr>
+<td><font size="8" color="#526477">$emisor_fiscal</font></td>
+<td align="right" bgcolor="#F4F7FA"><font size="9">FECHA $fecha</font></td>
+</tr>
+<tr>
+<td><font size="8" color="#526477">$emisor_condicion</font></td>
+<td align="right" bgcolor="#F4F7FA"><font size="8">ORIGINAL</font></td>
+</tr>
+</table>
+<hr>
+<table width="100%" cellpadding="2" cellspacing="0">
+<tr bgcolor="#F1F5F8">
+<td width="22%"><font size="8" color="#73869A"><b>FACTURADO A</b></font></td>
+<td width="78%"><font size="12"><b>$recep_nombre</b></font></td>
+</tr>
+<tr bgcolor="#F1F5F8">
+<td><font size="8" color="#73869A"><b>DOMICILIO</b></font></td>
+<td><font size="9">$recep_dom</font></td>
+</tr>
+<tr bgcolor="#F1F5F8">
+<td><font size="8" color="#73869A"><b>LOCALIDAD</b></font></td>
+<td><font size="9">$recep_loc</font></td>
+</tr>
+<tr bgcolor="#F1F5F8">
+<td><font size="8" color="#73869A"><b>$recep_doc_label / IVA</b></font></td>
+<td><font size="9">$recep_doc · $recep_iva</font></td>
+</tr>
+</table>
+$periodo_html
+<p><font size="9" color="#73869A"><b>DETALLE</b></font></p>
+<table width="100%" border="1" cellpadding="2" cellspacing="0">
+<tr bgcolor="#DCE8F1">
+<th width="8%"><font size="8"><b>CÓD.</b></font></th>
+<th width="8%"><font size="8"><b>CANT.</b></font></th>
+<th width="38%"><font size="8"><b>DESCRIPCIÓN</b></font></th>
+<th width="17%" align="right"><font size="8"><b>PRECIO</b></font></th>
+<th width="9%" align="right"><font size="8"><b>IVA</b></font></th>
+<th width="20%" align="right"><font size="8"><b>IMPORTE</b></font></th>
+</tr>
+$filas_items
+</table>
+__PYFE_CIERRE__
+</font>

@@ -75,10 +75,11 @@ def emision(monkeypatch):
             registro["creado"] = True
 
         def cargar_venta_simple(self, cliente_id=None, renglones=None,
-                                forma_pago_id=None):
+                                 forma_pago_id=None, cuotas=1):
             registro["cargado"] = {"cliente_id": cliente_id,
                                    "renglones": renglones,
-                                   "forma_pago_id": forma_pago_id}
+                                   "forma_pago_id": forma_pago_id,
+                                   "cuotas": cuotas}
 
         def exec_(self):
             registro["exec"] += 1
@@ -162,3 +163,25 @@ def test_sin_cliente_no_emitir(controller, emision, qt, monkeypatch):
 
     assert emision["exec"] == 0
     assert emision["creado"] is False
+
+
+def test_a_consumidor_final_se_emite_al_cliente_generico(controller, emision,
+                                                         qt, monkeypatch):
+    """Con el tilde de consumidor final se puede emitir.
+
+    La factura B necesita un cliente real en la base: se usa el generico
+    CONSUMIDOR FINAL. Antes se pasaba None y caia en "No se ha
+    especificado un cliente valido".
+    """
+    from controladores.venta_simple_cliente import id_cliente_consumidor_final
+
+    _preparar(controller, monkeypatch)
+    controller.view.checkConsumidorFinal.setChecked(True)
+    controller.cliente = None
+
+    controller.emitir_factura()
+
+    assert emision["creado"] is True
+    assert emision["cargado"]["cliente_id"] is not None
+    assert (emision["cargado"]["cliente_id"]
+            == id_cliente_consumidor_final())

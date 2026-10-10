@@ -29,7 +29,8 @@ from PyQt5.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout,
 
 from libs.busqueda import normalizar
 from libs.Etiquetas import Etiqueta, EtiquetaTitulo
-from libs.Constantes import NOMBRE_PRODUCTO, SITIO_EMPRESA
+from libs.Constantes import SITIO_EMPRESA
+from libs.build_info import nombre_build
 from libs.Utiles import icono
 from libs.recursos import ruta_recurso
 from vistas.VistaBase import VistaBase
@@ -91,6 +92,7 @@ SECCIONES = [
         ("tipo-comprobantes", "Tipos de comprobante", "comprobantes"),
         ("tipo-documentos", "Tipos de documento", "documento"),
         ("tipo-responsable", "Tipos de responsable", "clientes"),
+        ("formas-pago", "Formas de pago", "cuentas"),
     ]),
     ("Configuración", "configuracion", [
         ("configuracion", "Configuración de inicio", "configuracion"),
@@ -140,7 +142,7 @@ class PanelBienvenida(QWidget):
         layout.setContentsMargins(28, 24, 28, 24)
         layout.setSpacing(8)
 
-        self.lblSaludo = EtiquetaTitulo(texto=NOMBRE_PRODUCTO)
+        self.lblSaludo = EtiquetaTitulo(texto=nombre_build())
         layout.addWidget(self.lblSaludo)
 
         self.lblTexto = Etiqueta(
@@ -220,7 +222,7 @@ class MainView(VistaBase):
     navegar = pyqtSignal(str)
 
     def initUi(self):
-        self.setWindowTitle(NOMBRE_PRODUCTO)
+        self.setWindowTitle(nombre_build())
         self.setMinimumSize(900, 560)
 
         raiz = QVBoxLayout(self)
@@ -280,7 +282,7 @@ class MainView(VistaBase):
 
         textos = QVBoxLayout()
         textos.setSpacing(0)
-        self.lblTitulo = EtiquetaTitulo(texto=NOMBRE_PRODUCTO)
+        self.lblTitulo = EtiquetaTitulo(texto=nombre_build())
         textos.addWidget(self.lblTitulo)
         self.lblEmpresa = Etiqueta(texto="")
         self.lblEmpresa.setObjectName("labelSubtitulo")
@@ -521,7 +523,7 @@ class MainView(VistaBase):
         from libs.Constantes import EMPRESA_DESARROLLO, WHATSAPP_EMPRESA
 
         dlg = QDialog(self)
-        dlg.setWindowTitle("Acerca de {}".format(NOMBRE_PRODUCTO))
+        dlg.setWindowTitle("Acerca de {}".format(nombre_build()))
         dlg.setObjectName("dialogoAcercaDe")
         vertical = QVBoxLayout(dlg)
         vertical.setSpacing(10)
@@ -534,7 +536,7 @@ class MainView(VistaBase):
                 48, Qt.SmoothTransformation))
             vertical.addWidget(logo)
 
-        titulo = QLabel(NOMBRE_PRODUCTO)
+        titulo = QLabel(nombre_build())
         titulo.setObjectName("tituloAcercaDe")
         titulo.setAlignment(Qt.AlignCenter)
         vertical.addWidget(titulo)

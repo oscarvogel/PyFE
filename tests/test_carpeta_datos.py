@@ -194,6 +194,120 @@ def test_la_base_tambien_va_a_la_carpeta_de_datos(tmp_path, monkeypatch):
     assert rutas.ruta_base("sistema.db") == str(datos / "Asiento" / "sistema.db")
 
 
+# -- Instalar en otro lado sin perder lo que ya estaba ---------------------
+#
+# El 2026-10-08 la instalacion paso de `C:\Program Files\Asiento` a
+# `%LOCALAPPDATA%\Programs\Asiento`. Con la regla de antes, el directorio de
+# trabajo escribible se llevaba la configuracion y la base a la carpeta nueva,
+# que viene vacia: el cliente que ya usaba el sistema habria visto el asistente
+# de nuevo y la base VACIA. Estos tests fijan la regla que lo evita.
+
+
+def _instalada(monkeypatch, instalar=True):
+    """Deja la app como si fuera el ejecutable compilado de PyInstaller."""
+    monkeypatch.setattr(rutas.sys, "frozen", instalar, raising=False)
+
+
+def test_la_app_instalada_no_abandona_los_datos_que_ya_tenia(
+        tmp_path, monkeypatch):
+    """El caso del cliente que ya venia usando el sistema.
+
+    La carpeta de datos vieja sigue mandando, aunque la carpeta del programa
+    nueva se pueda escribir. Si esto no se respeta, el cliente ve el asistente
+    de primer arranque y una base sin un solo comprobante.
+    """
+    programa = tmp_path / "Programs" / "Asiento"
+    programa.mkdir(parents=True)
+    datos = tmp_path / "localappdata"
+    (datos / "Asiento").mkdir(parents=True)
+    (datos / "Asiento" / "sistema.ini").write_text(
+        "[param]\nconfigurado = S\nempresa = Cliente Real\n", encoding="utf-8")
+
+    monkeypatch.chdir(str(programa))
+    monkeypatch.delenv(rutas.ENV_CARPETA_DATOS, raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(datos))
+    _instalada(monkeypatch)
+    monkeypatch.setattr(rutas, "puede_escribir", _escribible_siempre)
+    rutas.limpiar_cache()
+
+    assert os.path.normcase(rutas.carpeta_datos()) == \
+        os.path.normcase(str(datos / "Asiento"))
+    assert rutas.ruta_ini() == str(datos / "Asiento" / "sistema.ini")
+
+
+def test_una_instalacion_nueva_no_busca_datos_viejos(tmp_path, monkeypatch):
+    """Sin datos previos, una instalacion nueva escribe junto al programa.
+
+    Es lo que espera una maquina limpia: la carpeta del programa es del usuario
+    y se puede escribir, asi que no tiene sentido mandar la configuracion a
+    otro lado.
+    """
+    programa = tmp_path / "Programs" / "Asiento"
+    programa.mkdir(parents=True)
+    datos = tmp_path / "localappdata"
+    datos.mkdir()
+
+    monkeypatch.chdir(str(programa))
+    monkeypatch.delenv(rutas.ENV_CARPETA_DATOS, raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(datos))
+    _instalada(monkeypatch)
+    monkeypatch.setattr(rutas, "puede_escribir", _escribible_siempre)
+    rutas.limpiar_cache()
+
+    assert os.path.normcase(rutas.carpeta_datos()) == \
+        os.path.normcase(str(programa))
+
+
+def test_en_desarrollo_manda_el_directorio_de_trabajo(tmp_path, monkeypatch):
+    """Sin `sys.frozen` no hay mudanza: el `sistema.ini` del repo manda.
+
+    Importa mas de lo que parece. En una maquina donde el sistema ya esta
+    instalado, `%LOCALAPPDATA%\\Asiento\\sistema.ini` existe de verdad; si esta
+    regla no mirara `sys.frozen`, `python main.py` desde el repo leeria ese
+    archivo y no el del repo. Cambiar el archivo de la carpeta de trabajo no
+    cambiaria nada y el bug seria invisible.
+    """
+    programa = tmp_path / "repo"
+    programa.mkdir()
+    (programa / "sistema.ini").write_text("[param]\nempresa = Del Repo\n",
+                                          encoding="utf-8")
+    datos = tmp_path / "localappdata"
+    (datos / "Asiento").mkdir(parents=True)
+    (datos / "Asiento" / "sistema.ini").write_text(
+        "[param]\nempresa = Del Cliente\n", encoding="utf-8")
+
+    monkeypatch.chdir(str(programa))
+    monkeypatch.delenv(rutas.ENV_CARPETA_DATOS, raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(datos))
+    _instalada(monkeypatch, instalar=False)
+    monkeypatch.setattr(rutas, "puede_escribir", _escribible_siempre)
+    rutas.limpiar_cache()
+
+    assert os.path.normcase(rutas.carpeta_datos()) == \
+        os.path.normcase(str(programa))
+    # Y lo que lee es el archivo del repo, no el del cliente instalado.
+    assert LeerIni(clave="empresa", key="param") == "Del Repo"
+
+
+def test_buscar_datos_previos_no_crea_la_carpeta(tmp_path, monkeypatch):
+    """Preguntar no es crear.
+
+    Si `_datos_ya_existentes` creara la carpeta, arrancar la app en una
+    maquina donde nunca se instalo dejaria `%LOCALAPPDATA%\\Asiento` vacia en el
+    perfil de cada usuario.
+    """
+    datos = tmp_path / "localappdata"
+    datos.mkdir()
+    monkeypatch.delenv(rutas.ENV_CARPETA_DATOS, raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(datos))
+    _instalada(monkeypatch)
+    rutas.limpiar_cache()
+
+    assert not (datos / "Asiento").exists()
+    rutas.carpeta_datos()
+    assert not (datos / "Asiento").exists()
+
+
 # -- El asistente de primer arranque ---------------------------------------
 #
 # Este es el camino que se rompio: completar el asistente y que al guardar

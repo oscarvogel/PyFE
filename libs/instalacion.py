@@ -16,7 +16,7 @@ import os
 import sys
 
 from libs.Utiles import GrabarIni, LeerIni, formato_cuit, validar_cuit
-from libs.Constantes import NOMBRE_PRODUCTO
+from libs.build_info import nombre_build
 
 # Claves de la seccion [param]
 CLAVES_PARAM = "base", "basedatos", "usuario", "host", "homo", "nombre_sistema"
@@ -249,7 +249,7 @@ def guardar_config_inicial(datos, escribir=None):
     escribir("configurado", "param", "S")
 
     escribir("base", "param", base)
-    escribir("nombre_sistema", "param", datos.get("nombre_sistema", NOMBRE_PRODUCTO))
+    escribir("nombre_sistema", "param", datos.get("nombre_sistema", nombre_build()))
     # Homologacion por defecto: instalar en produccion por error es peor
     # que tener que cambiarlo a mano despues.
     escribir("homo", "param", datos.get("homo", "S"))

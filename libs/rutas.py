@@ -3,12 +3,16 @@
 
 Por que existe esto
 -------------------
-La app se instala en `C:\\Program Files\\Asiento` (ver `installer/PyFE.iss`).
-En Windows, un proceso normal NO puede crear archivos ahi: solo un proceso
-elevado puede. Y la app no corre elevada: el acceso directo del instalador la
-abre tal cual.
+La app se instala en `%LOCALAPPDATA%\\Programs\\Asiento` (ver
+`installer/Asiento.iss`). Esa carpeta es del usuario y se puede escribir, asi que
+en una instalacion nueva configuracion, base y logs caen ahi adentro.
 
-El instalador pide admin (`PrivilegesRequired=admin`) para poder escribir los
+Pero no siempre fue asi: hasta el 2026-10-08 instalaba en
+`C:\\Program Files\\Asiento`, que es de solo lectura. En Windows, un proceso
+normal NO puede crear archivos ahi: solo un proceso elevado puede. Y la app no
+corre elevada: el acceso directo del instalador la abre tal cual.
+
+El instalador pedia admin (`PrivilegesRequired=admin`) para poder escribir los
 archivos, pero eso no dice nada de como corre la app despues. Por eso se podia
 instalar bien y despues no poder guardar nada.
 
@@ -31,13 +35,26 @@ guardar tiraba:
 ademas de que la base (`sistema.db`), que tambien es relativa al directorio de
 trabajo, no se podria crear despues.
 
+Por que los datos NO van con el programa (2026-10-08)
+-----------------------------------------------------
+Cuando la carpeta de instalacion paso a ser `%LOCALAPPDATA%\\Programs`, la regla
+de mas abajo tal cual (usar el directorio de trabajo cuando se puede escribir)
+empezo a mandar sobre `%LOCALAPPDATA%\\Asiento`, y eso habria roto a todos los
+clientes que ya usaban el sistema: la carpeta nueva viene vacia, el asistente de
+primer arranque vuelve a aparecer y la base se ve VACIA, cuando en realidad el
+cliente tiene todo cargado en `%LOCALAPPDATA%\\Asiento`.
+
+Es el mismo problema que la migracion del final tapa, pero en sentido
+contrario. Por eso la regla 2 existe: **si ya hay una carpeta de datos con
+configuracion dentro, esa manda.** La carpeta de datos deja de depender de donde
+este instalado el programa, que es justo lo que hay que garantizar cuando se
+cambia el destino de la instalacion.
+
 La regla
 --------
-La carpeta de instalacion guarda lo que se puede LEER (el ejecutable,
-`imagenes/`, `plantillas/`, `conf/`, `data/`, `temas/`). Lo que se ESCRIBE
-(la configuracion, la base, los logs) va a una carpeta del usuario. No es una
-decision estetica: con el ejecutable en solo lectura, escribir ahi es
-imposible.
+Lo que se ESCRIBE (la configuracion, la base, los logs) va a una carpeta de
+datos. Lo que se LEE (el ejecutable, `imagenes/`, `plantillas/`, `conf/`,
+`data/`, `temas/`) se queda donde esta.
 
 Como se decide
 --------------
@@ -45,12 +62,17 @@ Como se decide
 
 1. `PYFE_CARPETA_DATOS` si esta definida. Los tests y las instalaciones
    portables la usan para fijar la carpeta a mano.
-2. El directorio de trabajo actual, **si se puede escribir**. Esto mantiene
+2. `%LOCALAPPDATA%\\Asiento`, **si ya tiene un `sistema.ini` y la app es la
+   instalada**. Es donde una instalacion anterior guardo sus datos: mientras se
+   mueva el programa de lugar, esos datos no se abandonan. Solo aplica con un
+   ejecutable de PyInstaller (`sys.frozen`), para que en desarrollo siga
+   mandando el directorio de trabajo.
+3. El directorio de trabajo actual, **si se puede escribir**. Esto mantiene
    exactamente el comportamiento de siempre en desarrollo, en los tests
    (que corren con `monkeypatch.chdir(tmp_path)`), en las instalaciones
    portables y en las herramientas de `tools/`, que dependian de que el
    `sistema.ini` se leyera del cwd.
-3. `%LOCALAPPDATA%\\Asiento`, creada si falta. Es la carpeta de datos del
+4. `%LOCALAPPDATA%\\Asiento`, creada si falta. Es la carpeta de datos del
    usuario: se elige por la misma razon que ya usa `libs/changelog.py` para el
    estado de las novedades.
 
@@ -64,7 +86,7 @@ import os
 import sys
 import tempfile
 
-from libs.Constantes import NOMBRE_PRODUCTO
+from libs.build_info import nombre_build
 
 # Variable de entorno para fijar la carpeta a mano (tests, portables, soporte).
 ENV_CARPETA_DATOS = "PYFE_CARPETA_DATOS"
@@ -145,13 +167,18 @@ def asegurar_carpeta(carpeta):
 
 
 def _carpeta_del_usuario():
-    """La carpeta de datos del usuario, segun el sistema operativo."""
+    """La carpeta de datos del usuario, segun el sistema operativo.
+
+    El nombre de la carpeta sale del build (`libs/build_info.py`), no de una
+    constante: el demo tiene la suya para no abrir la base de produccion en la
+    maquina de un cliente. En el arbol de desarrollo sale la de produccion.
+    """
     base = os.environ.get("LOCALAPPDATA")
     if not base:
         # Fuera de Windows no hay LOCALAPPDATA. Mismo criterio que
         # libs/changelog.py: la carpeta de datos del usuario.
         base = os.path.join(os.path.expanduser("~"), ".local", "share")
-    return os.path.join(base, NOMBRE_PRODUCTO)
+    return os.path.join(base, nombre_build())
 
 
 def _cwd():
@@ -162,10 +189,48 @@ def _cwd():
         return ""
 
 
+def _datos_ya_existentes():
+    """La carpeta de datos del usuario, si ya tiene configuracion dentro.
+
+    Solo se mira en la app INSTALADA (un ejecutable de PyInstaller, que es lo
+    unico donde la carpeta de datos puede haberse mudado con el cambio de
+    destino del 2026-10-08). En desarrollo y en `tools/` esto devuelve '' a
+    proposito: el directorio de trabajo manda siempre, porque ahi el
+    `sistema.ini` del repo es el que se quiere usar.
+
+    Sin este filtro, desarrollar en una maquina que tiene el sistema instalado
+    haria que la app leyera `%LOCALAPPDATA%\\Asiento\\sistema.ini` en vez del
+    `sistema.ini` de la carpeta de trabajo, y las pruebas se verian puzzling:
+    cambiar el archivo del repo no cambiaria nada.
+
+    Devuelve '' cuando no hay ninguna. **No crea nada**: la carpeta se crea
+    solo cuando se decide que es la carpeta de datos, para que el simple hecho
+    de arrancar la app no deje una carpeta vacia en el perfil de cada usuario.
+    """
+    if not getattr(sys, "frozen", False):
+        return ""
+    destino = _carpeta_del_usuario()
+    if os.path.isfile(os.path.join(destino, NOMBRE_INI)):
+        return destino
+    return ""
+
+
 def _resolver_carpeta_datos():
     forzado = os.environ.get(ENV_CARPETA_DATOS)
     if forzado:
         return asegurar_carpeta(os.path.abspath(forzado)) or os.path.abspath(forzado)
+
+    # Una carpeta de datos que YA tiene configuracion manda sobre el directorio
+    # de trabajo, aunque este se pueda escribir. Sin esto, cambiar el destino de
+    # la instalacion haria perder la base a todos los clientes que ya usaban el
+    # sistema: la carpeta nueva viene vacia, el asistente de primer arranque
+    # vuelve a aparecer y la base se ve vacia. Ver la nota del encabezado.
+    #
+    # `_datos_ya_existentes` solo devuelve algo en la app instalada, asi que en
+    # desarrollo, tests y tools/ esta linea no hace nada.
+    previos = _datos_ya_existentes()
+    if previos:
+        return asegurar_carpeta(previos) or previos
 
     # El directorio de trabajo manda mientras se pueda escribir: es lo que
     # hacen la desarrollo, los tests, las portables y tools/.

@@ -32,6 +32,7 @@ MAESTROS_IMPRESCINDIBLES = [
     "tiporesp.csv",         # responsable inscripto, consumidor final, ...
     "tipocomprobante.csv",  # que comprobante se puede emitir
     "formapago.csv",        # formas de pago
+    "cuotaspago.csv",       # planes de cuotas por tarjeta
     "provincias.csv",
     "localidades.csv",
     "unidad.csv",

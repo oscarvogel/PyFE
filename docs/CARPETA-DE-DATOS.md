@@ -1,6 +1,6 @@
 # Carpeta de datos: por que el sistema no podia guardarse en `Program Files`
 
-Fecha: 2026-10-05
+Fecha: 2026-10-05 (el bug) y 2026-10-08 (la instalacion pasa a ser por usuario)
 Windows 10 64 bits, instalador Inno Setup, ejecutable PyInstaller de una pieza.
 
 ## Que se vio
@@ -30,11 +30,15 @@ que se carguen.
 Son tres cosas que se juntaron.
 
 **1. El instalador corre como administrador; la app, no.**
-`installer/PyFE.iss` instala en `{autopf}\{#AppName}` (`C:\Program Files\Asiento`)
+`installer/Asiento.iss` instala en `{autopf}\{#AppName}` (`C:\Program Files\Asiento`)
 con `PrivilegesRequired=admin`. Eso le permite al instalador escribir los
 archivos. Pero el acceso directo que crea abre el `.exe` tal cual, sin
 elevar: en Windows, un proceso normal no puede crear archivos dentro de
 `Program Files`.
+
+> Los dos puntos siguientes quedaron sin efecto el 2026-10-08: la instalacion
+> ya no es en `Program Files` ni pide administrador. Ver la seccion de mas
+> abajo. Se los deja como estan porque explican como se llego a este bug.
 
 **2. La app elegia la carpeta donde estaba instalado para escribir.**
 `main.py::_asegurar_carpeta_de_trabajo` hace `os.chdir()` a la carpeta del
@@ -129,6 +133,83 @@ carpeta. Los tests miden la decision ("a que carpeta va el archivo"), no el
 permiso del sistema, que es cosa de cada maquina. EstaDecisionado en
 `tests/test_carpeta_datos.py`.
 
+## La instalacion pasa a ser por usuario (2026-10-08)
+
+Arreglar la carpeta de datos fue necesario pero no alcanzo: los sintomas que
+reportaron los clientes seguian.
+
+### Que se reportaba
+
+- El acceso directo caia en el menu de programas del **administrador**, no en
+  el del usuario. Con `PrivilegesRequired=admin`, `{group}` es el menu de
+  "todos los usuarios", que es el perfil del admin con el que se elevo. Un
+  usuario normal no lo veia.
+- El programa no abria.
+- La carpeta de instalacion seguia siendo de solo lectura, asi que habia cosas
+  que no se podian escribir ni con administrador: las carpetas relativas
+  (`tmp`, `excel`), y sobre todo el **certificado y la clave privada**. Las
+  rutas de `[WSAA]` son relativas (`certificados/...`) y
+  `controladores/FE.py:128` las resuelve con `abspath()` contra la carpeta del
+  programa, asi que el `.crt` que devuelve ARCA tiene que quedar adentro de
+  `C:\Program Files\Asiento\certificados\`. La pantalla Certificados si
+  dejaba elegir donde guardar el CSR y la clave (por ahi si se podia generar),
+  pero despues no había donde dejar el certificado.
+
+### Que se cambio
+
+`installer/Asiento.iss` pasa a instalar por usuario, sin pedir permisos:
+
+| | Antes | Ahora |
+| --- | --- | --- |
+| Carpeta | `C:\Program Files\Asiento` | `%LOCALAPPDATA%\Programs\Asiento` |
+| Privilegios | `PrivilegesRequired=admin` | `PrivilegesRequired=lowest` |
+| Acceso directo | `{group}` | `{autoprograms}` |
+| Lanzarlo al final | `runascurrentuser` | (nada: ya corre sin elevate) |
+| Carpeta anterior | (por omision) | `UsePreviousAppDir=no` |
+
+Es el mismo criterio que usan los instaladores de RND (`installer\RND_Demo.iss`)
+y de FEMAG Desktop (`FEMAG_Desktop_Demo.iss`): `{localappdata}\Programs\<app>`,
+`PrivilegesRequired=lowest` y `{autoprograms}`.
+
+`UsePreviousAppDir=no` es lo que hace que el cambio llegue a quien ya lo tinha
+instalado: sin esa linea Inno Setup reutiliza la carpeta que grabo la version
+anterior (`C:\Program Files\Asiento`) y el arreglo se aplica solo a las
+maquinas nuevas.
+
+### Lo que hay que hacer en las maquinas que ya lo tienen instalado
+
+La carpeta vieja queda ahi, con los archivos del programa. **Los datos del
+cliente nunca estuvieron ahi** (iban a `%LOCALAPPDATA%\Asiento`, porque la
+carpeta de `Program Files` no se puede escribir), asi que se puede borrar sin
+perder nada:
+
+```
+rmdir /s /q "C:\Program Files\Asiento"
+```
+
+Se puede hacer antes o despues de instalar la version nueva.
+
+### La regla que faltaba: los datos no se mudan con el programa
+
+Con la carpeta nueva escribible, la regla de `libs/rutas.py` tal cual (usar el
+directorio de trabajo cuando se puede escribir) mandaba sobre
+`%LOCALAPPDATA%\Asiento`. Eso habria roto a todos los clientes que ya usaban
+el sistema: la carpeta nueva viene vacia, el asistente de primer arranque
+vuelve a aparecer y la base se ve **VACIA**.
+
+Por eso se agrego la regla 2 de `carpeta_datos()`: **si la app es la
+instalada y ya hay un `%LOCALAPPDATA%\Asiento\sistema.ini`, esa carpeta
+manda**, aunque la carpeta del programa se pueda escribir.
+
+El filtro de `sys.frozen` es lo que evita el efecto contrario: en desarrollo y
+en `tools/` la regla no hace nada, asi que `python main.py` sigue leyendo el
+`sistema.ini` de la carpeta de trabajo del repo. Sin ese filtro, en una
+maquina con el sistema instalado la app leeria el archivo del cliente y
+cambiar el del repo no haria nada.
+
+Los tests de esto estan en `tests/test_carpeta_datos.py`, en la seccion
+"Instalar en otro lado sin perder lo que ya estaba".
+
 ## Bugs que aparecieron en el camino
 
 **La sonda de escritura contestaba False en toda carpeta.** La primera version
@@ -145,26 +226,29 @@ el sandbox tambien tiene un CUIT que la app no reconoce como real.
 
 ## Pendientes
 
-1. **`tmp/` y carpetas de salida relativas, en instalaciones dentro de
-   `Program Files`.** `controladores/ConstatacionComprobantes.py:117` y
-   `controladores/CargaFacturasProveedor.py:244` hacen `os.mkdir("tmp")`
-   relativo al directorio de trabajo, y arman el PDF en
-   `LeerIni('iniciosistema') + "tmp/..."`. Con la carpeta de instalacion de solo
-   lectura, la constancia de padrón sigue sin poder guardarse. Tambien
-   `controladores/DisenoComprobante.py:378` (`comprobantes de prueba`) y el
-   cache XML de `controladores/FE.py:35`. **No se tocaron**:
-   `CargaFacturasProveedor.py` esta siendo editado por otra sesion y no conviene
-   pisarlo. Van a la carpeta de datos con `rutas.ruta_base()`.
+1. ~~**`tmp/` y carpetas de salida relativas, en instalaciones dentro de
+   `Program Files`.**~~ **Resuelto por el cambio de instalacion del 2026-10-08**:
+   la carpeta del programa ahora es `%LOCALAPPDATA%\Programs\Asiento`, que es
+   del usuario y se puede escribir, asi que `os.mkdir("tmp")` y los PDF que se
+   arman ahi vuelven a funcionar. No se toco ningun controlador: si manana la
+   app vuelve a instalarse en una carpeta de solo lectura, el problema vuelve y
+   hay que pasarlos a `rutas.ruta_base()`.
 
-2. **Decidir si el instalador sigue pidiendo administrador.** Si solo escribe
-   archivos que la app no modifica, `PrivilegesRequired=lowest` alcanza y la
-   instalacion deja de depender de que el usuario tenga permisos. Es una decision
-   de producto, no se toco.
+2. ~~**Decidir si el instalador sigue pidiendo administrador.**~~ **Decidido el
+   2026-10-08: no.** `PrivilegesRequired=lowest`. Ver la seccion de mas arriba.
 
 3. **`%LOCALAPPDATA%` vs `%APPDATA%`.** Con `%LOCALAPPDATA%` los datos no
    viajan con el perfil de roaming. Para una base de facturas y certificados
    parece lo correcto, pero si se quiere que la configuracion siga al usuario
    entre equipos, `%APPDATA%` seria el lugar. Hoy no hay roaming en el producto.
 
-4. **`tools/validar_instalacion.py`** (el paso de arriba) todavia no existe:
-   quedo como pasos manuales.
+4. **`tools/validar_instalacion.py`** (el paso de "Como verificarlo a mano") no
+   existe: quedo como pasos manuales. Con la instalacion por usuario se puede
+   escribir, porque alcanza con correr la app en una maquina normal.
+
+5. **La carpeta vieja de `Program Files` no se borra sola.** `UsePreviousAppDir=no`
+   instala en el lugar nuevo y deja la copia anterior. Con el desinstalador
+   viejo todavia en la carpeta, se puede borrar desde
+   "Agregar y quitar programas" o a mano. Ningun dato del cliente se pierde
+   porque nunca estuvieron ahi, pero conviene dejarlo asentado antes de
+   mandarles la version a los que ya la tienen.

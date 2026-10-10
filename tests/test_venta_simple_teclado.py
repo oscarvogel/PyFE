@@ -140,21 +140,32 @@ def test_salir_del_campo_tambien_busca(espias, qt):
         "salir del campo no busco: quedan {} llamadas".format(llamadas["buscar"])
 
 
-def test_el_campo_de_cliente_no_tiene_conectado_el_return_pressed(espias):
-    """La forma del bug, fijada por si alguien vuelve a conectar esa senal.
+def test_return_pressed_solo_abre_el_buscador_con_campo_vacio(espias, qt):
+    """returnPressed lleva otro handler, que con texto no hace nada.
 
-    Es el guard estructural: si el campo vuelve a tener el handler en
-    returnPressed, Enter emite las dos senales y la busqueda corre dos veces
-    otra vez, aunque el test de arriba siga mirando lo correcto.
+    El resguardo anterior prohibia cualquier conexion en returnPressed,
+    porque llevaba el MISMO handler que editingFinished y Enter corria la
+    busqueda dos veces. Ahora lleva `buscar_cliente_con_enter`, que con
+    texto vuelve sin tocar nada (el caso con texto sigue en 1/1, ver
+    test_enter_busca_una_sola_vez) y con vacio abre un solo selector sin
+    pasar por la busqueda.
     """
-    controller, _ = espias
+    controller, llamadas = espias
+    assert controller.view.textCliente.receivers(
+        controller.view.textCliente.returnPressed) == 1
 
-    conexiones = controller.view.textCliente.receivers(
-        controller.view.textCliente.returnPressed)
-    assert conexiones == 0, (
-        "el campo de cliente tiene {} conexiones en returnPressed. Con esa "
-        "senal conectada, Enter corre la busqueda dos veces porque QLineEdit "
-        "emite returnPressed y editingFinished.".format(conexiones))
+    controller.view.checkConsumidorFinal.setChecked(False)
+    controller.view.textCliente.setText("")
+    controller.view.textCliente.setFocus()
+    qt.processEvents()
+
+    llamadas["buscar"] = 0
+    llamadas["seleccionar"] = 0
+    _enterar(controller, qt)
+
+    assert llamadas["buscar"] == 0
+    assert llamadas["seleccionar"] == 1, \
+        "Enter con el campo vacio tiene que abrir el buscador una vez"
 
 
 def test_editing_finished_sigue_conectado(espias):

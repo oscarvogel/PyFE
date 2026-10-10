@@ -36,8 +36,9 @@ pantalla asi. Y despues se muestra que se creo, que se actualizo y que filas
 quedaron afuera, con el numero de fila del Excel.
 """
 
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QFormLayout, QHBoxLayout, QLabel,
-                             QVBoxLayout, QWidget)
+                             QTableWidget, QVBoxLayout, QWidget)
 
 from libs import Ventanas
 from libs import importararticulos
@@ -47,6 +48,7 @@ from libs.Checkbox import CheckBox
 from libs.ComboBox import ComboConceptoFacturacion
 from libs.EntradaTexto import EntradaTexto
 from libs.Etiquetas import Etiqueta
+from libs.Grillas import Grilla, _formato_importe
 from libs.GroupBox import Agrupacion
 from libs.Spinner import Spinner
 from libs.Utiles import (icono, inicializar_y_capturar_excepciones,
@@ -56,6 +58,12 @@ from modelos.Proveedores import ComboProveedor
 from modelos.Tipoiva import ComboIVA, Tipoiva
 from modelos.Unidades import ComboUnidad
 from vistas.VistaBase import VistaBase
+
+# El fondo de error del tema (pyfe.css), el mismo que usa la grilla de venta
+# para marcar un renglón que no tiene stock. Poner otro color aca haria que
+# esta pantalla se viera distinta del resto de la app, que es justo lo que
+# se vino a arreglar.
+COLOR_ERROR_FILA = {'background': '#FDF3F2', 'color': '#C62F35'}
 
 
 class ImportarArticulosView(VistaBase):
@@ -149,6 +157,34 @@ class ImportarArticulosView(VistaBase):
         self.lblResumen.setWordWrap(True)
         layout.addWidget(self.lblResumen)
 
+        # La vista previa. Sin esto, el operador se entera de que el precio
+        # quedo mal DESPUES de que se escribieron 69 articulos, y el unico
+        # dato que tiene es "se importaron 69". Los dos errores que se
+        # encontraron con esto (una columna GANANCIA que en realidad traia
+        # porcentajes, y una planilla de varios proveedores atribuidos todos
+        # al del desplegable) son invisibles en un resumen y evidentes en una
+        # grilla con el precio al lado del costo.
+        cajaPrevia = Agrupacion(titulo="Vista previa")
+        self.grillaPrevia = Grilla()
+        # `enabled` y las cabeceras pasadas POR PARAMETRO a ArmaCabeceras, y
+        # no como atributo de instancia: es como lo hacen las grillas que
+        # andan (vistas/Stock.py y las de compra).
+        #
+        # Puestas como atributo, la pantalla se caia con un access violation de
+        # Qt al hacer resize (3221225477): sin backtrace, sin exception y sin
+        # decir que era esto. `ArmaCabeceras` sin argumento lee la lista de
+        # CLASE, que es compartida entre todas las Grillas del proceso, y una
+        # grilla que no sabe cuantas columnas tiene se rompe al maquetar.
+        self.grillaPrevia.enabled = True
+        self.grillaPrevia.ArmaCabeceras(cabeceras=[
+            "Fila", "Código", "Nombre", "Proveedor",
+            "Costo", "Ganancia %", "Precio", "Estado"])
+        self.grillaPrevia.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.grillaPrevia.setSelectionBehavior(QTableWidget.SelectRows)
+        cajaPrevia.setLayout(QVBoxLayout())
+        cajaPrevia.layout().addWidget(self.grillaPrevia)
+        layout.addWidget(cajaPrevia, 1)
+
         self.avance = Avance()
         self.avance.setVisible(False)
         layout.addWidget(self.avance)
@@ -162,7 +198,10 @@ class ImportarArticulosView(VistaBase):
         layBotones.addWidget(self.btnCerrar)
         layout.addLayout(layBotones)
 
-        self.declara_tamano(660, 560)
+        # Mas alta que antes: la grilla de la vista previa necesita el lugar
+        # que antes ocupaba el aire entre el resumen y los botones. Sin esto
+        # se ven ocho filas de las 69 y la pantalla sigue pareciendo la misma.
+        self.declara_tamano(900, 720)
 
     def _poner_el_iva_general_por_defecto(self):
         """Deja el IVA general (01) elegido, no el primero de la lista.
@@ -218,6 +257,14 @@ class ImportarArticulosView(VistaBase):
         self.btnCerrar.clicked.connect(self.cerrarformulario)
         self.txtArchivo.textChanged.connect(self.mostrarResumenPreliminar)
 
+        # La vista previa depende de estos, asi que cambiar cualquiera tiene
+        # que repintarla. Sin esto, el operador cambia el proveedor o la
+        # ganancia y la grilla sigue mostrando los precios de antes: la
+        # pantalla le esta mintiendo justo en el dato que la hace util.
+        self.cboProveedor.currentIndexChanged.connect(self.mostrarResumenPreliminar)
+        self.spnGanancia.valueChanged.connect(self.mostrarResumenPreliminar)
+        self.cboTipoIva.currentIndexChanged.connect(self.mostrarResumenPreliminar)
+
     # -- Acciones ------------------------------------------------------------
 
     @inicializar_y_capturar_excepciones
@@ -231,7 +278,7 @@ class ImportarArticulosView(VistaBase):
 
     @inicializar_y_capturar_excepciones
     def mostrarResumenPreliminar(self, *args, **kwargs):
-        """Cuenta las filas del archivo antes de importar nada.
+        """Cuenta las filas y las muestra con su precio, antes de importar.
 
         Es el unico momento en que se descubre que el archivo no es una lista
         de precios. Sin esto, el error sale despues de haber creado cien
@@ -240,36 +287,141 @@ class ImportarArticulosView(VistaBase):
         archivo = self.txtArchivo.text().strip()
         if not archivo:
             self.lblResumen.setText("")
+            self.grillaPrevia.setRowCount(0)
             self.btnImportar.setEnabled(False)
             return
 
+        # `currentData()`, NO `text()`. El ComboProveedor muestra el NOMBRE y
+        # guarda el id en el dato, asi que `text()` devuelve el id ("2") y se
+        # puede leer por accidente pensando que es el nombre. Con `text()`
+        # el chequeo de "no hay proveedor" comparaba contra un texto vacio y
+        # la vista previa nunca se armaba sola: habia que tocar otro campo
+        # para que apareciera.
+        proveedor = self.cboProveedor.currentData()
+        if proveedor is None:
+            self.grillaPrevia.setRowCount(0)
+            self.btnImportar.setEnabled(False)
+            return
+
+        ganancia = self.spnGanancia.valor()
+        ganancia = ganancia if ganancia > 0 else None
+
         try:
-            registros = importararticulos.leer_filas(archivo)
+            previa = importararticulos.previsualiza(
+                archivo,
+                proveedor_id=int(proveedor),
+                tipoiva=str(self.cboTipoIva.text()),
+                unidad=str(self.cboUnidad.text()),
+                ganancia_defecto=ganancia,
+                concepto=str(self.cboConcepto.text()),
+                controlastock=self.chkControla.isChecked(),
+                stockminimo=self.spnMinimo.value(),
+            )
         except importararticulos.ErrorImportacion as error:
             self.lblResumen.setText(str(error))
             self.lblResumen.setStyleSheet("color: #C62F35;")
+            self.grillaPrevia.setRowCount(0)
             self.btnImportar.setEnabled(False)
             return
 
-        ilegibles = [r for r in registros if r.get("error")]
-        texto = "La planilla tiene {} filas de datos.".format(len(registros))
-        if ilegibles:
-            texto += " {} tienen un dato ilegible y no se van a importar.".format(
-                len(ilegibles))
-
-        # Cuantas filas van a depender del campo "Ganancia por defecto". El
-        # archivo ya esta leido, asi que el numero sale gratis, y sin el el
-        # operador se entera del problema recien en el resumen final: cuando ya
-        # escribio 400 articulos y tiene que volver a cargar.
-        sin_ganancia = importararticulos.filas_sin_ganancia(registros)
-        if sin_ganancia:
-            texto += (" {} no traen ganancia y van a usar la que está "
-                      "arriba: sin ese valor no entran.".format(
-                          len(sin_ganancia)))
-
-        self.lblResumen.setText(texto)
+        self.pintar_previa(previa)
+        self.lblResumen.setText(self._texto_del_resumen(previa))
         self.lblResumen.setStyleSheet("")
         self.btnImportar.setEnabled(self.cboProveedor.count() > 0)
+
+    def _texto_del_resumen(self, previa):
+        """Lo que va arriba de la grilla: cuentas y avisos.
+
+        Los avisos van PRIMERO y en rojo cuando importan. Es lo que el
+        operador lee antes de apretar Importar, asi que si tiene que avisar
+        que dos filas del archivo se pisan entre si, va aca y no en el
+        resumen de despues, que llega tarde para corregir.
+        """
+        partes = []
+
+        # La escala de la ganancia se lee sola, y es mejor que el operador lo
+        # vea: con la planilla de BOTZ (GANANCIA=30) el precio salia 20 veces
+        # mas caro y el resumen decia "69 articulos importados" como si
+        # estuviera todo bien.
+        if previa.escala_ganancia == "porcentaje":
+            partes.append(
+                "La columna GANANCIA trae PORCENTAJES: se leyó como 30% y no "
+                "como multiplicador.")
+        elif previa.escala_ganancia == "mixta":
+            partes.append(
+                "ATENCION: la columna GANANCIA mezcla porcentajes y "
+                "multiplicadores. Revisá la columna antes de importar.")
+
+        if previa.proveedores_no_encontrados:
+            partes.append(
+                "ATENCION: el archivo trae el proveedor {}, que NO está "
+                "cargado. Sus artículos entraron con el proveedor de arriba. "
+                "Cargalo en Proveedores y volvé a elegir la planilla si "
+                "querés que salga bien.".format(
+                    ", ".join(previa.proveedores_no_encontrados)))
+
+        if len(previa.proveedores_usados) > 1:
+            partes.append("El archivo trae {} proveedores: cada artículo va "
+                          "con el de su fila.".format(
+                              len(previa.proveedores_usados)))
+
+        if previa.nombres_repetidos:
+            detalle = "; ".join(
+                "{} (filas {})".format(nombre,
+                                       ", ".join(str(n) for n in filas))
+                for nombre, filas in previa.detalle_repetidos[:5])
+            partes.append(
+                "ATENCION: {} nombre(s) se repiten y no hay código de barras "
+                "para distinguirlos, así que el último costo pisa al "
+                "anterior: {}.".format(len(previa.nombres_repetidos), detalle))
+
+        legible = "{} filas en la planilla".format(previa.total_filas)
+        if previa.total_previsualizado:
+            legible += ", {} se van a importar".format(previa.total_previsualizado)
+        if previa.filas_con_error:
+            legible += ", {} no entran".format(len(previa.filas_con_error))
+        partes.append(legible + ".")
+
+        return "  ".join(partes)
+
+    def pintar_previa(self, previa):
+        """Llena la grilla con lo que `previsualiza` calculo.
+
+        La fila que no entra se pinta en el color de error del tema, que es la
+        misma forma que tiene la app de decir "esto esta mal". Es lo que hace
+        que un costo en rojo salte a la vista bajando por la lista.
+        """
+        self.grillaPrevia.setRowCount(0)
+        # Sin `ArmaCabeceras()` aca: las cabeceras se armaron UNA vez, en
+        # `setupUi`. Volver a armarlas en cada repintado las reinicia con la
+        # lista de clase compartida, que es lo que crashaba la pantalla.
+
+        for fila in previa.filas:
+            # Sin `insertRow`: `AgregaItem` hace el `setRowCount` él mismo
+            # (ver libs/Grillas.py). Con el insertRow de mas, cada fila de
+            # datos quedaba con una fila VACIA encima y la grilla mostraba
+            # 138 filas para 69 articulos, con renglones en blanco entre uno y
+            # otro.
+            if fila.estado == "error":
+                valores = [str(fila.numero), fila.codbarra, fila.nombre,
+                           fila.proveedor, "", "", "", fila.motivo or "error"]
+                color = {"backgroundColor": COLOR_ERROR_FILA}
+            else:
+                estado = {"nuevo": "nuevo", "actualiza": "actualiza",
+                          "igual": "sin cambios"}[fila.estado]
+                valores = [
+                    str(fila.numero),
+                    fila.codbarra,
+                    fila.nombre,
+                    fila.proveedor,
+                    _formato_importe(fila.costo),
+                    "{}%".format(_formato_importe(fila.margen, 2)),
+                    _formato_importe(fila.precio),
+                    estado,
+                ]
+                color = None
+
+            self.grillaPrevia.AgregaItem(valores, backgroundColor=color)
 
     @inicializar_y_capturar_excepciones
     def importar(self, *args, **kwargs):
@@ -278,13 +430,16 @@ class ImportarArticulosView(VistaBase):
             Ventanas.showAlert("Importación", "Elegí primero la planilla.")
             return
 
-        proveedor = self.cboProveedor.text()
-        if not proveedor:
+        # `currentData()` y no `text()`: ver `mostrarResumenPreliminar`. El
+        # texto del combo es el NOMBRE del proveedor y el id va en el dato;
+        # `text()` devuelve el id, que funciona con `int()` pero no sirve
+        # para el chequeo de "no hay proveedor elegido".
+        proveedor = self.cboProveedor.currentData()
+        if proveedor is None:
             Ventanas.showAlert(
                 "Importación", "Elegí de qué proveedor es la lista.")
             return
 
-        # Sin ganancia por defecto no es un error: la planilla puede traer la
         # Sin ganancia por defecto no es un error: la planilla puede traer la
         # suya en todos los renglones, y el campo es solo el plan B. Si
         # faltara y algun renglon no la trae, lo dice el resumen de esa fila.
@@ -295,12 +450,32 @@ class ImportarArticulosView(VistaBase):
         ganancia = self.spnGanancia.valor()
         ganancia = ganancia if ganancia > 0 else None
 
-        if not Ventanas.showConfirmation(
-                "Importar artículos",
-                "Se van a crear y actualizar artículos del catálogo.\n\n"
-                "Las filas que ya existen se actualizan con el costo, el "
-                "precio y el proveedor de la planilla.\n\n¿Seguís?",
-                textoOk="Importar"):
+        # Lo que se vio en la vista previa. Se reusa en el aviso de
+        # confirmacion para que el boton diga las mismas cuentas que la grilla
+        # de arriba y no una frase generica que contradiga lo que se ve.
+        previa_filas = self.grillaPrevia.rowCount()
+        previa_proveedores = []
+        for r in range(previa_filas):
+            item = self.grillaPrevia.item(r, 3)
+            nombre = item.text() if item else ""
+            if nombre and nombre not in previa_proveedores:
+                previa_proveedores.append(nombre)
+
+        # El aviso va con el numero de filas y los proveedores, y no con un
+        # "se van a crear articulos" generico: el operador ya vio el detalle
+        # en la grilla de arriba y aca confirma que lo que va a escribir es
+        # lo que vio.
+        aviso = "Se van a crear y actualizar artículos del catálogo.\n\n"
+        if previa_filas:
+            aviso += "Filas a procesar: {}.\n\n".format(previa_filas)
+        if previa_proveedores:
+            aviso += "Proveedores del archivo: {}.\n\n".format(
+                ", ".join(previa_proveedores))
+        aviso += ("Las filas que ya existen se actualizan con el costo, el "
+                  "precio y el proveedor de la planilla.\n\n¿Seguís?")
+
+        if not Ventanas.showConfirmation("Importar artículos", aviso,
+                                         textoOk="Importar"):
             return
 
         self.avance.setVisible(True)

@@ -263,3 +263,112 @@ def test_solicitar_cantidad_y_precio_acepta_dialogo_formulario(monkeypatch):
     assert cantidad == Decimal("4")
     assert precio == Decimal("125.50")
     controller.view.Cerrar()
+
+
+def test_el_total_va_resaltado(monkeypatch):
+    monkeypatch.setattr(sys, "argv", [sys.argv[0]])
+    app = QApplication.instance() or QApplication([])
+
+    from controladores.VentaSimple import VentaSimpleController
+
+    controller = VentaSimpleController()
+
+    # El Total es lo que se mira para cobrar: lleva objectName para que el
+    # tema lo pinte grande (temas/pyfe.css), y negrita en el propio widget
+    # por si el tema no carga.
+    assert controller.view.textTotal.objectName() == "totalVenta"
+    assert controller.view.textTotal.font().bold()
+    assert controller.view.textTotal.font().pointSizeF() >= 20
+    assert controller.view.lblTotal.objectName() == "etiquetaTotal"
+    controller.view.Cerrar()
+
+
+class ClienteElegido:
+    idcliente = 7
+    nombre = "DUOMO"
+    cuit = "20-12345678-9"
+    dni = 0
+
+
+def test_enter_en_cliente_vacio_abre_el_buscador(monkeypatch):
+    """Enter sin texto y sin CF abre la busqueda, como en producto."""
+    monkeypatch.setattr(sys, "argv", [sys.argv[0]])
+    app = QApplication.instance() or QApplication([])
+
+    from controladores.VentaSimple import VentaSimpleController
+
+    controller = VentaSimpleController()
+    controller.view.checkConsumidorFinal.setChecked(False)
+    controller.view.textCliente.setText("")
+    elegidos = []
+    monkeypatch.setattr(
+        controller, "seleccionar_cliente",
+        lambda busqueda: elegidos.append(busqueda) or ClienteElegido())
+
+    controller.view.textCliente.returnPressed.emit()
+
+    assert elegidos == [""]
+    assert controller.cliente.idcliente == 7
+    assert controller.view.textCliente.text() == "7 - DUOMO"
+    assert controller.view.textDocumento.text() == "20-12345678-9"
+    controller.view.Cerrar()
+
+
+def test_enter_en_cliente_vacio_cancelado_no_carga_nada(monkeypatch):
+    monkeypatch.setattr(sys, "argv", [sys.argv[0]])
+    app = QApplication.instance() or QApplication([])
+
+    from controladores.VentaSimple import VentaSimpleController
+
+    controller = VentaSimpleController()
+    controller.view.checkConsumidorFinal.setChecked(False)
+    controller.view.textCliente.setText("")
+    monkeypatch.setattr(controller, "seleccionar_cliente", lambda busqueda: None)
+
+    controller.view.textCliente.returnPressed.emit()
+
+    assert controller.cliente is None
+    assert controller.view.textCliente.text() == ""
+    controller.view.Cerrar()
+
+
+def test_enter_en_cliente_vacio_con_cf_no_busca(monkeypatch):
+    """Con consumidor final no hay cliente que buscar."""
+    monkeypatch.setattr(sys, "argv", [sys.argv[0]])
+    app = QApplication.instance() or QApplication([])
+
+    from controladores.VentaSimple import VentaSimpleController
+
+    controller = VentaSimpleController()
+    controller.view.checkConsumidorFinal.setChecked(True)
+    controller.view.textCliente.setText("")
+    llamadas = []
+    monkeypatch.setattr(
+        controller, "seleccionar_cliente",
+        lambda busqueda: llamadas.append(busqueda))
+
+    controller.view.textCliente.returnPressed.emit()
+
+    assert llamadas == []
+    controller.view.Cerrar()
+
+
+def test_enter_con_texto_no_abre_el_buscador(monkeypatch):
+    """Con texto, Enter lo resuelve editingFinished: aca no se abre nada."""
+    monkeypatch.setattr(sys, "argv", [sys.argv[0]])
+    app = QApplication.instance() or QApplication([])
+
+    from controladores.VentaSimple import VentaSimpleController
+
+    controller = VentaSimpleController()
+    controller.view.checkConsumidorFinal.setChecked(False)
+    controller.view.textCliente.setText("muni")
+    llamadas = []
+    monkeypatch.setattr(
+        controller, "seleccionar_cliente",
+        lambda busqueda: llamadas.append(busqueda))
+
+    controller.view.textCliente.returnPressed.emit()
+
+    assert llamadas == []
+    controller.view.Cerrar()

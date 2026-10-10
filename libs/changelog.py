@@ -72,8 +72,19 @@ class ChangelogService(object):
         Un `apps/<app_id>/changelog.json` ausente no es un error: es lo que
         pasa con el primer release. Se devuelve lista vacia para que el
         llamador pueda mostrar un dialogo de novedades sin novedades.
+
+        Y un `app_id` sin changelog registrado (el demo) tampoco: antes la URL
+        se resolvia FUERA del try y el ValueError subia. No lo mata hoy
+        porque el demo tiene `es_build_productivo()` False y nunca llega
+        aca, pero es la clase de fragilidad que aparece sola cuando se agrega
+        una app mas.
         """
-        url = changelog_url_for(self.app_id)
+        try:
+            url = changelog_url_for(self.app_id)
+        except ValueError:
+            LOGGER.info("Changelog: %s no tiene historial publicado",
+                        self.app_id)
+            return []
         try:
             with self._request(url) as respuesta:
                 payload = respuesta.read()
