@@ -1314,6 +1314,20 @@ class FacturaController(ControladorBase):
         meter filas en la base de verdad.
         """
         print("imprimir factura {}".format(cabfact.numero))
+        # Diseno moderno (HTML): camino alternativo que no toca el de
+        # siempre. La FCE sigue por su plantilla, y si algo falla se cae
+        # al camino viejo en vez de dejar la factura sin PDF.
+        try:
+            from controladores.FacturaHTML import imprimir_html, usar_factura_html
+            if usar_factura_html() and int(cabfact.tipocomp.codigo) not in Constantes.COMPROBANTES_FCE:
+                ok, ruta = imprimir_html(cabfact, salida=salida,
+                                         mostrar=mostrar,
+                                         renglones=renglones)
+                if ok:
+                    self.facturaGenerada = ruta
+                    return True
+        except Exception:
+            pass
         pyfpdf = FEPDF()
         #cuit del emisor
         pyfpdf.CUIT = cuit_emisor()

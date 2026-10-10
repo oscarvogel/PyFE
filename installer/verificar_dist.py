@@ -50,6 +50,7 @@ RECURSOS_TEMA = [
 # factura: sin esto no hay documento para entregar.
 ARCHIVOS_QUE_SI_SI_SE_USAN = [
     "plantillas/factura_qr.csv",     # formato por defecto (Facturas.py)
+    "plantillas/factura_moderna.html",  # formato HTML alternativo
     "plantillas/factura-fce.csv",    # comprobantes electronicos (FCE)
     "plantillas/logo.png",           # logo del emisor impreso
     "plantillas/remito.csv",         # remitos

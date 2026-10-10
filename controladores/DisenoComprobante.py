@@ -165,6 +165,12 @@ class DisenoComprobanteController(ControladorBase):
         config = cargar_config_marca_factura()
         activa = "S" if config.activa else "N"
         self.view.controles['activa'].setIndex(activa)
+        try:
+            from controladores.FacturaHTML import usar_factura_html
+            self.view.controles['moderno'].setIndex(
+                "S" if usar_factura_html() else "N")
+        except Exception:
+            self.view.controles['moderno'].setIndex("N")
 
         # Las rutas del logo y del fondo se guardan como quedan en el
         # parametro, que es lo que espera FacturaBranding.
@@ -209,6 +215,9 @@ class DisenoComprobanteController(ControladorBase):
         # es la unica forma de volver atras: el parametro es lo unico que hay.
         for clave, valor in self._parametros():
             ParamSist.GuardarParametro(PREFIXO + clave, valor)
+        # El diseño moderno va sin prefijo: no es parte de la marca.
+        ParamSist.GuardarParametro(
+            "FACTURA_HTML", self.view.controles['moderno'].text())
 
         # Se avisa lo que no se pudo aplicar, en vez de tragarselo. La marca se
         # guarda igual: el operador la quiere activa, y lo que falta se le dice.

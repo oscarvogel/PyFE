@@ -36,8 +36,8 @@ if errorlevel 1 (
 
 REM plantillas\ son el PAPEL de la factura: sin ellas no hay PDF, por mas que
 REM la app autorice y guarde el comprobante. factura_qr.csv es el formato por
-REM defecto, factura-fce.csv el de las FCE, logo.png el que se imprime, y
-REM remito.csv el de los remitos.
+REM defecto, factura-fce.csv el de las FCE, factura_moderna.html el formato
+REM alternativo, logo.png el que se imprime, y remito.csv el de los remitos.
 REM
 REM Se copian TODAS las .csv y los .png del ejemplo, y no una lista escrita a
 REM mano: la lista anterior se habia quedado corta y el instalador deliveraba
@@ -46,6 +46,7 @@ REM la fecha de los archivos no varies en cada build.
 if not exist dist\plantillas mkdir dist\plantillas
 xcopy /E /I /Y /D plantillas\*.csv dist\plantillas\ >nul
 xcopy /E /I /Y /D plantillas\*.png dist\plantillas\ >nul
+xcopy /E /I /Y /D plantillas\*.html dist\plantillas\ >nul
 REM El logo de la marca va aparte porque tiene su propia carpeta en imagenes.
 if not exist dist\plantillas\factura-fondo-vogel-ejemplo.png copy /Y plantillas\factura-fondo-vogel-ejemplo.png dist\plantillas\ >nul
 if not exist dist\plantillas\logo-vogel-ejemplo.png copy /Y plantillas\logo-vogel-ejemplo.png dist\plantillas\ >nul

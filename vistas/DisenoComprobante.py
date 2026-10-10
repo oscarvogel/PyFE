@@ -92,6 +92,10 @@ class DisenoComprobanteView(Formulario):
         self.verticalLayoutDatos.addWidget(self.lblActiva)
         self.ArmaEntrada('activa', texto='Usar diseño propio en los comprobantes',
                          control=ComboSINO())
+        # El diseño moderno (HTML) vive en otro parámetro y no lleva el
+        # prefijo de marca: no es un color ni un logo, es otro formato.
+        self.ArmaEntrada('moderno', texto='Usar diseño moderno (HTML)',
+                         control=ComboSINO())
 
         self.lblImagenes = EtiquetaTitulo(texto="Logo y fondo")
         self.verticalLayoutDatos.addWidget(self.lblImagenes)
